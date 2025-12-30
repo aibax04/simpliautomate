@@ -44,7 +44,7 @@ class QualityAssuranceAgent:
         """
         
         try:
-            response = self.model.generate_content(prompt)
+            response = await self.model.generate_content_async(prompt)
             clean_text = response.text.replace('```json', '').replace('```', '').strip()
             
             if "QUALITY_CHECK_FAILED" in clean_text:

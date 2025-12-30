@@ -50,7 +50,7 @@ class ImageAgent:
             print(f"[DEBUG] Calling GenerateContent with model {self.model_name} for prompt: {refined_prompt[:60]}...")
             sys.stdout.flush()
             
-            response = self.model.generate_content(
+            response = await self.model.generate_content_async(
                 refined_prompt,
                 generation_config=genai.types.GenerationConfig(
                     candidate_count=1,

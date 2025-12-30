@@ -73,3 +73,41 @@ const Api = {
         }
     }
 };
+
+const Toast = {
+    container: null,
+
+    init() {
+        if (!this.container) {
+            this.container = document.createElement('div');
+            this.container.className = 'toast-container';
+            document.body.appendChild(this.container);
+        }
+    },
+
+    show(message, type = 'success') {
+        this.init();
+        const toast = document.createElement('div');
+        toast.className = `toast ${type}`;
+
+        let icon = '✓';
+        if (type === 'error') icon = '✕';
+        if (type === 'info') icon = 'ℹ';
+
+        toast.innerHTML = `<span style="opacity:0.8; margin-right:5px;">${icon}</span> ${message}`;
+        this.container.appendChild(toast);
+
+        // Animate in
+        requestAnimationFrame(() => {
+            toast.classList.add('visible');
+        });
+
+        // Auto dismiss
+        setTimeout(() => {
+            toast.classList.remove('visible');
+            setTimeout(() => {
+                toast.remove();
+            }, 300);
+        }, 3000);
+    }
+};

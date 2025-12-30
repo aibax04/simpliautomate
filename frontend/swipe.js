@@ -60,6 +60,7 @@ class SwipeApp {
         `;
 
         this.bindSwipe(card, data);
+        card.__newsData = data; // Attach data for button access
         this.stack.appendChild(card);
         this.cards.push(card);
     }
@@ -152,6 +153,7 @@ class SwipeApp {
             const status = document.getElementById('generation-status');
             const gBtn = document.getElementById('generate-btn');
 
+            // Optimistic UI: Don't disable button for long, just preventing double clicks
             gBtn.disabled = true;
             gBtn.innerText = "Queueing...";
 
@@ -161,31 +163,44 @@ class SwipeApp {
                 length: document.getElementById('length-select').value
             };
 
-            try {
-                // Call Enqueue API
-                const resp = await Api.enqueuePost(this.currentNews, prefs);
+            // IMMEDIATE FEEDBACK: Close modal right away
+            this.prefModal.classList.add('hidden');
 
-                // UX: Dismiss modal, show queue highlight
-                this.prefModal.classList.add('hidden');
+            // Generate temp ID for immediate queue feedback
+            const tempId = 'temp_' + Date.now();
+            if (window.queuePanel) {
+                window.queuePanel.addOptimisticJob(tempId, this.currentNews.headline);
+            }
 
-                // OPTIMISTIC UI: Add to sidebar immediately
-                if (window.queuePanel) {
-                    window.queuePanel.addOptimisticJob(resp.job_id, this.currentNews.headline);
+            if (window.Toast) window.Toast.show("Agent started working on your post...", "info");
 
-                    // Auto-open if not open
-                    if (!window.queuePanel.isOpen) {
-                        window.queuePanel.toggle();
-                    }
-                }
-
-                alert("Post generation started! Check the queue panel.");
-
-            } catch (e) {
-                alert("Failed to queue post: " + e.message);
-            } finally {
-                status.classList.add('hidden'); // Ensure hidden
+            // Reset button state (since modal is closed, this prepares for next time)
+            setTimeout(() => {
                 gBtn.disabled = false;
                 gBtn.innerText = "Generate Content";
+                status.classList.add('hidden');
+            }, 500);
+
+            try {
+                // Background API Call
+                const resp = await Api.enqueuePost(this.currentNews, prefs);
+
+                // Update the Optimistic Job ID with real one
+                if (window.queuePanel) {
+                    window.queuePanel.updateOptimisticId(tempId, resp.job_id);
+                }
+
+                // Confirm
+                if (window.Toast) window.Toast.show("Job confirmed by agent core.", "success");
+
+            } catch (e) {
+                console.error(e);
+                if (window.Toast) window.Toast.show("Failed to start agent found.", "error");
+
+                // Remove the optimistic job since it failed
+                if (window.queuePanel) {
+                    window.queuePanel.removeJob(tempId);
+                }
             }
         };
 
@@ -195,7 +210,7 @@ class SwipeApp {
         document.getElementById('publish-btn').onclick = async () => {
             if (!this.generatedPost) return;
 
-            // Prefer full_caption from metadata if available, else construct it
+            // Prefer full_caption from metadata
             let finalPayload = "";
             if (this.generatedPost.caption_data && this.generatedPost.caption_data.full_caption) {
                 finalPayload = this.generatedPost.caption_data.full_caption;
@@ -207,19 +222,27 @@ class SwipeApp {
             pBtn.disabled = true;
             pBtn.innerText = "Posting...";
 
+            // IMMEDIATE FEEDBACK: Close modal, assume intent is captured
+            if (window.Toast) window.Toast.show("Publishing to LinkedIn...", "info");
+
+            // Keep modal open briefly to show state change, then close? 
+            // Better UX: Close modal and continue in background.
+            this.resultModal.classList.add('hidden');
+
             try {
                 // Pass image_url from saved result
                 const res = await Api.publishPost(finalPayload, this.generatedPost.image_url);
 
                 if (res.status === 'success') {
-                    alert(res.message || "Published successfully to LinkedIn!");
-                    this.resultModal.classList.add('hidden');
+                    if (window.Toast) window.Toast.show(res.message || "Published successfully!", "success");
                 } else {
-                    alert("Publishing error: " + (res.error || res.message));
+                    if (window.Toast) window.Toast.show("Publishing error: " + (res.error || res.message), "error");
+                    // Re-open modal if failed? Maybe too jarring. Toast is enough.
                 }
             } catch (e) {
-                alert("Publishing failed: " + e.message);
+                if (window.Toast) window.Toast.show("Publishing failed: " + e.message, "error");
             } finally {
+                // Reset button for next time
                 pBtn.disabled = false;
                 pBtn.innerText = "Post to LinkedIn";
             }
@@ -235,7 +258,10 @@ class SwipeApp {
             if (this.cards.length) this.handleLeftSwipe(this.cards[0]);
         };
         document.getElementById('approve-btn').onclick = () => {
-            if (this.cards.length) this.handleRightSwipe(this.cards[0], this.currentNews); // This is simplified
+            if (this.cards.length) {
+                const card = this.cards[0];
+                this.handleRightSwipe(card, card.__newsData);
+            }
         };
     }
 

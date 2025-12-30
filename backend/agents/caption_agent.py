@@ -66,7 +66,7 @@ class CaptionStrategyAgent:
         """
         
         try:
-            response = self.model.generate_content(prompt)
+            response = await self.model.generate_content_async(prompt)
             text = response.text.replace('```json', '').replace('```', '').strip()
             import json
             return json.loads(text)

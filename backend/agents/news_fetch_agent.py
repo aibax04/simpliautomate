@@ -84,12 +84,12 @@ class NewsFetchAgent:
             # Try with search grounding first
             try:
                 if self.model_with_search:
-                    response = self.model_with_search.generate_content(prompt)
+                    response = await self.model_with_search.generate_content_async(prompt)
                 else:
-                    response = self.model_basic.generate_content(prompt)
+                    response = await self.model_basic.generate_content_async(prompt)
             except Exception as search_e:
                 print(f"[WARNING] Search grounding failed: {search_e}")
-                response = self.model_basic.generate_content(prompt)
+                response = await self.model_basic.generate_content_async(prompt)
             
             # Extract JSON from response
             text = response.text.strip()

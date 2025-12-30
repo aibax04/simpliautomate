@@ -71,7 +71,7 @@ class LiveNewsSuggestionAgent:
         """
         
         try:
-            response = self.model.generate_content(prompt)
+            response = await self.model.generate_content_async(prompt)
             
             text = response.text.strip()
             if "```json" in text:

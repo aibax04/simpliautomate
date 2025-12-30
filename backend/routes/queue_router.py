@@ -21,44 +21,23 @@ async def process_post_generation(job_id: str, news_item: Dict, user_prefs: Dict
     Background task wrapper for post generation.
     """
     try:
-        queue.update_job(job_id, status="generating_caption", progress=25)
-        
+        # Define progress callback
+        async def progress_callback(status, progress):
+            queue.update_job(job_id, status=status, progress=progress)
+            
         # Initialize agent
         agent = PostGenerationAgent()
         
-        # We need to hook into the agent's progress if possible, 
-        # but for now we'll just run it. 
-        # Ideally PostGenerationAgent would support a callback, 
-        # but we can simulate progress update here if we split the agent calls.
+        # Run the official workflow with progress updates
+        print(f"[Job {job_id}] Starting official workflow...")
+        result = await agent.generate(news_item, user_prefs, on_progress=progress_callback)
         
-        # 1. Caption
-        print(f"[Job {job_id}] Generating caption...")
-        caption_data = await agent.caption_agent.generate_caption(news_item, user_prefs)
-        queue.update_job(job_id, status="generating_visual_plan", progress=50)
-        
-        # 2. Visual Plan
-        print(f"[Job {job_id}] Planning visual...")
-        visual_plan = await agent.visual_agent.plan_visual(news_item, caption_data)
-        queue.update_job(job_id, status="generating_image", progress=75)
-        
-        # 3. Image
-        print(f"[Job {job_id}] Generating image...")
-        image_url = await agent.image_agent.generate_image(visual_plan)
-        
-        # 4. Assembly
-        final_content = f"{caption_data.get('full_caption')}"
-        
-        result = {
-            "text": final_content,
-            "preview_text": caption_data.get('hook'),
-            "caption_data": caption_data,
-            "image_url": image_url,
-            "visual_plan": visual_plan
-        }
-        
-        queue.update_job(job_id, status="ready", result=result, progress=100)
-        print(f"[Job {job_id}] Completed.")
-        
+        if result:
+            queue.update_job(job_id, status="ready", result=result, progress=100)
+            print(f"[Job {job_id}] Completed.")
+        else:
+            queue.update_job(job_id, status="failed", error="Content generation returned empty/quality failure")
+
     except Exception as e:
         print(f"[Job {job_id}] Failed: {e}")
         queue.update_job(job_id, status="failed", error=str(e))

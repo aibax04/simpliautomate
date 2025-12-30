@@ -15,41 +15,56 @@
 
 <body>
     <div id="app">
-        <header>
-            <div class="logo">SIMPLII</div>
-            <p class="subtitle">Real-time news curated for your professional voice.</p>
-            <button id="upload-main-btn" class="btn-primary">+ Upload / Add Link</button>
-        </header>
-
-        <main id="swipe-container">
-            <div id="card-stack">
-                <!-- Cards will be injected here -->
-                <div class="loading-state">
-                    <div class="spinner"></div>
-                    <p>Fetching latest news...</p>
+        <header id="main-header">
+            <div class="header-left">
+                <div class="logo">SIMPLII</div>
+                <div class="divider-vertical"></div>
+                <div class="app-context">
+                    <span class="app-name">News Intelligence</span>
+                    <span class="app-version">v1.2</span>
                 </div>
             </div>
-        </main>
 
-        <div id="controls">
-            <button id="skip-btn" class="control-btn skip">✕</button>
-            <button id="approve-btn" class="control-btn approve">✓</button>
-        </div>
-
-        <button id="toggle-queue-btn">
-            ≡
-            <div id="queue-badge" class="hidden">0</div>
-        </button>
-
-        <aside id="queue-panel">
-            <div class="panel-header">
-                Processing Queue
-                <span class="close-panel" onclick="window.queuePanel.toggle()"
-                    style="cursor:pointer; font-size:1.5rem;">×</span>
+            <div class="header-center">
+                <div id="system-status" class="status-pill idle">
+                    <span class="status-dot"></span>
+                    <span id="system-status-text">System Ready</span>
+                </div>
             </div>
-            <div id="queue-list"></div>
-            <!-- Future Saved Posts Section -->
-        </aside>
+
+            <div class="header-right">
+                <button id="upload-main-btn" class="btn-compact">
+                    <span class="icon">+</span> New Source
+                </button>
+            </div>
+        </header>
+
+        <div class="layout-container">
+            <main id="swipe-container">
+                <div id="card-stack">
+                    <!-- Cards will be injected here -->
+                    <div class="loading-state">
+                        <div class="spinner"></div>
+                        <p>Fetching latest news...</p>
+                    </div>
+                </div>
+
+                <div id="controls">
+                    <button id="skip-btn" class="control-btn skip">✕</button>
+                    <button id="approve-btn" class="control-btn approve">✓</button>
+                </div>
+            </main>
+
+            <aside id="queue-section">
+                <div class="section-header">
+                    <h3>Activity Queue</h3>
+                    <div id="queue-count" class="badge hidden">0</div>
+                </div>
+                <div id="queue-list">
+                    <!-- Queue items injected here -->
+                </div>
+            </aside>
+        </div>
 
         <!-- Upload Modal -->
         <div id="upload-modal" class="modal hidden">
