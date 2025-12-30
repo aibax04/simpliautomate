@@ -145,14 +145,19 @@ class SwipeApp {
 
             try {
                 // Call Enqueue API
-                await Api.enqueuePost(this.currentNews, prefs);
+                const resp = await Api.enqueuePost(this.currentNews, prefs);
 
                 // UX: Dismiss modal, show queue highlight
                 this.prefModal.classList.add('hidden');
 
-                // Open queue panel to show it started
-                if (window.queuePanel && !window.queuePanel.isOpen) {
-                    window.queuePanel.toggle();
+                // OPTIMISTIC UI: Add to sidebar immediately
+                if (window.queuePanel) {
+                    window.queuePanel.addOptimisticJob(resp.job_id, this.currentNews.headline);
+
+                    // Auto-open if not open
+                    if (!window.queuePanel.isOpen) {
+                        window.queuePanel.toggle();
+                    }
                 }
 
                 alert("Post generation started! Check the queue panel.");
@@ -255,7 +260,7 @@ class SwipeApp {
         container.innerHTML = `
             <div class="post-preview-container">
                 <div class="preview-image">
-                    ${result.image_url ? `<img src="${result.image_url}" alt="Generated Infographic">` : '<div class="preview-image-fallback">Visualization generated...<br>(check network/path)</div>'}
+                    ${result.image_url ? `<img src="${result.image_url}" alt="Generated Infographic" class="generated-post-image">` : '<div class="preview-image-fallback">Visualization generated...<br>(check network/path)</div>'}
                 </div>
                 <div class="preview-content">
                     <div class="preview-caption" contenteditable="true" spellcheck="false" style="outline:none; border:1px dashed transparent; padding:4px;">${displayBody}</div>

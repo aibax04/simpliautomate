@@ -31,7 +31,8 @@ const Api = {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ news_item: newsItem, user_prefs: prefs })
             });
-            return await response.json();
+            const data = await response.json();
+            return data;
         } catch (e) {
             console.error("Queue Error:", e);
             throw e;
