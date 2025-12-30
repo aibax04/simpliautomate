@@ -16,10 +16,12 @@ def run():
         return
 
     # 3. Start Backend
-    print("Launching agents and server...")
+    print("Launching agents and server via Uvicorn...")
     try:
-        # We run the server which also serves the frontend
-        subprocess.run([sys.executable, "-m", "backend.server"], check=True)
+        # 3. Start Backend via Uvicorn directly
+        # Use python -m uvicorn which is safer than relying on PATH
+        cmd = [sys.executable, "-m", "uvicorn", "backend.server:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+        subprocess.run(cmd, check=True)
     except KeyboardInterrupt:
         print("\nShutting down...")
     except Exception as e:

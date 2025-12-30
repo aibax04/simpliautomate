@@ -8,3 +8,7 @@ requests
 requests-oauthlib
 pillow
 python-multipart
+# Document processing
+pypdf
+python-docx
+beautifulsoup4

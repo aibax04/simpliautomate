@@ -5,6 +5,7 @@ from backend.graph import create_graph
 from backend.agents.post_generation_agent import PostGenerationAgent
 from backend.agents.linkedin_agent import LinkedInAgent
 from backend.config import Config
+from backend.routes.ingest import router as ingest_router
 import google.generativeai as genai
 import uvicorn
 
@@ -12,6 +13,7 @@ import uvicorn
 genai.configure(api_key=Config.GEMINI_API_KEY)
 
 app = FastAPI(title="Simplii News API")
+app.include_router(ingest_router, prefix="/api")
 
 # Enable CORS for frontend
 app.add_middleware(
@@ -55,4 +57,16 @@ async def post_linkedin(request: Request):
 app.mount("/", StaticFiles(directory="frontend", html=True), name="frontend")
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    import socket
+    
+    def is_port_in_use(port: int) -> bool:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            return s.connect_ex(('0.0.0.0', port)) == 0
+
+    port = 8000
+    if is_port_in_use(port):
+        print(f"[WARNING] Port {port} is busy. Falling back to port {port + 1}...")
+        port += 1
+
+    print(f"[INFO] Starting server on port {port}...")
+    uvicorn.run("backend.server:app", host="0.0.0.0", port=port, reload=True)

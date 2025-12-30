@@ -5,7 +5,7 @@ class SwipeApp {
         this.resultModal = document.getElementById('result-modal');
         this.cards = [];
         this.currentNews = null;
-        
+
         this.init();
         this.bindGlobalEvents();
     }
@@ -17,7 +17,7 @@ class SwipeApp {
             this.stack.innerHTML = '<p>No news found for today.</p>';
             return;
         }
-        
+
         news.forEach((item, index) => {
             this.createCard(item, index);
         });
@@ -29,7 +29,7 @@ class SwipeApp {
         card.className = 'card';
         card.style.backgroundColor = data.palette.bg;
         card.style.borderTop = `6px solid ${data.palette.accent}`;
-        
+
         card.innerHTML = `
             <div class="category" style="color: ${data.palette.accent}">${data.category}</div>
             <h2 style="color: ${data.palette.text}">${data.headline}</h2>
@@ -60,7 +60,7 @@ class SwipeApp {
             if (!isDragging) return;
             moveX = (e.type.includes('touch') ? e.touches[0].clientX : e.clientX) - startX;
             moveY = (e.type.includes('touch') ? e.touches[0].clientY : e.clientY) - startY;
-            
+
             const rotation = moveX / 10;
             card.style.transform = `translate(${moveX}px, ${moveY}px) rotate(${rotation}deg)`;
         };
@@ -69,7 +69,7 @@ class SwipeApp {
             if (!isDragging) return;
             isDragging = false;
             card.style.transition = 'transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
-            
+
             if (Math.abs(moveX) > 120) {
                 if (moveX > 0) this.handleRightSwipe(card, data);
                 else this.handleLeftSwipe(card);
@@ -83,7 +83,7 @@ class SwipeApp {
         card.addEventListener('mousedown', onStart);
         window.addEventListener('mousemove', onMove);
         window.addEventListener('mouseup', onEnd);
-        
+
         card.addEventListener('touchstart', onStart);
         card.addEventListener('touchmove', onMove);
         card.addEventListener('touchend', onEnd);
@@ -132,7 +132,7 @@ class SwipeApp {
         document.getElementById('generate-btn').onclick = async () => {
             const status = document.getElementById('generation-status');
             status.classList.remove('hidden');
-            
+
             const prefs = {
                 tone: document.getElementById('tone-select').value,
                 audience: document.getElementById('audience-select').value,
@@ -140,10 +140,10 @@ class SwipeApp {
             };
 
             const result = await Api.generatePost(this.currentNews, prefs);
-            
+
             status.classList.add('hidden');
             this.prefModal.classList.add('hidden');
-            
+
             document.getElementById('post-preview').innerText = result.content;
             this.resultModal.classList.remove('hidden');
         };
@@ -168,6 +168,57 @@ class SwipeApp {
             if (this.cards.length) this.handleRightSwipe(this.cards[0], this.currentNews); // This is simplified
         };
     }
+
+    injectCards(newCards) {
+        if (!newCards || newCards.length === 0) return;
+
+        // Remove "No news" message if present
+        if (this.stack.innerHTML.includes('No news')) {
+            this.stack.innerHTML = '';
+        }
+
+        newCards.forEach((item, index) => {
+            // Add on top of existing or end (here we stick to simple push and re-render logic if needed, 
+            // but createCard appends to stack. We might want them on TOP? 
+            // Swipe stack usually works LIFO or FIFO depending on z-index.
+            // createCard -> pushes to this.cards, appends to DOM.
+            // renderStack -> sets z-index based on position in array. 
+            // To make them appear "next", we should probably unshift or just push.
+            // If we push, they are at the bottom. To make them immediate, unshift?
+            // createCard appends to DOM (bottom visually, but top in z-order? No, renderStack controls z-index).
+            // renderStack: i=0 is top.
+
+            // So if we want them to show UP, we should put them at the start of the array.
+            // But createCard appends to DOM.
+            // Let's create element, prepend to stack?
+
+            const card = document.createElement('div');
+            card.className = 'card';
+            card.style.backgroundColor = item.palette.bg;
+            card.style.borderTop = `6px solid ${item.palette.accent}`;
+
+            card.innerHTML = `
+                <div class="category" style="color: ${item.palette.accent}">${item.category}</div>
+                <h2 style="color: ${item.palette.text}">${item.headline}</h2>
+                <div class="content">${item.context}</div>
+                <div class="footer">
+                    <span>${item.source}</span>
+                    <span>${new Date().toLocaleDateString()}</span>
+                </div>
+            `;
+
+            this.bindSwipe(card, item);
+
+            // Add to FRONT of array/stack so they are seen first
+            this.cards.unshift(card);
+            this.stack.insertBefore(card, this.stack.firstChild);
+            // Note: If renderStack relies on array order, this ensures index 0 is this new card.
+        });
+
+        this.renderStack();
+    }
 }
 
-window.onload = () => new SwipeApp();
+window.onload = () => {
+    window.app = new SwipeApp();
+};
