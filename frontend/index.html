@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simplii | News to LinkedIn Automation</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Libre+Baskerville:wght@400;700&family=Plus+Jakarta+Sans:wght@300;400;600&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div id="app">
+        <header>
+            <div class="logo">SIMPLII</div>
+            <p class="subtitle">Real-time news curated for your professional voice.</p>
+        </header>
+
+        <main id="swipe-container">
+            <div id="card-stack">
+                <!-- Cards will be injected here -->
+                <div class="loading-state">
+                    <div class="spinner"></div>
+                    <p>Fetching latest news...</p>
+                </div>
+            </div>
+        </main>
+
+        <div id="controls">
+            <button id="skip-btn" class="control-btn skip">✕</button>
+            <button id="approve-btn" class="control-btn approve">✓</button>
+        </div>
+
+        <!-- Preferences Modal -->
+        <div id="pref-modal" class="modal hidden">
+            <div class="modal-overlay"></div>
+            <div class="modal-content">
+                <h2>Generate LinkedIn Post</h2>
+                <div class="form-group">
+                    <label>Post Tone</label>
+                    <select id="tone-select">
+                        <option value="Professional">Professional & Polished</option>
+                        <option value="Insightful">Deeply Insightful</option>
+                        <option value="Opinionated">Boldly Opinionated</option>
+                        <option value="Founder-style">Founder / Personal Story</option>
+                        <option value="Neutral">Objective & Neutral</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Target Audience</label>
+                    <select id="audience-select">
+                        <option value="Tech">Technology Leaders</option>
+                        <option value="Legal">Legal & Policy Professionals</option>
+                        <option value="Business">Business Executives</option>
+                        <option value="General">General Professional</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Length</label>
+                    <select id="length-select">
+                        <option value="Short">Short (Hooks only)</option>
+                        <option value="Medium" selected>Medium (Standard)</option>
+                        <option value="Long">Long (Detailed analysis)</option>
+                    </select>
+                </div>
+                
+                <div id="generation-status" class="hidden">
+                    <div class="mini-spinner"></div>
+                    <span>Agents are crafting your post...</span>
+                </div>
+
+                <div class="modal-actions">
+                    <button id="close-modal" class="btn-secondary">Cancel</button>
+                    <button id="generate-btn" class="btn-primary">Generate Content</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Result Modal -->
+        <div id="result-modal" class="modal hidden">
+            <div class="modal-overlay"></div>
+            <div class="modal-content wide">
+                <h2>Your Curated Post</h2>
+                <div id="post-preview" class="post-preview"></div>
+                <div class="modal-actions">
+                    <button id="edit-btn" class="btn-secondary">Back</button>
+                    <button id="publish-btn" class="btn-primary">Post to LinkedIn</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="api.js"></script>
+    <script src="swipe.js"></script>
+</body>
+</html>

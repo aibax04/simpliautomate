@@ -1,0 +1,10 @@
+fastapi
+uvicorn
+langgraph
+langchain-google-genai
+google-generativeai
+python-dotenv
+requests
+requests-oauthlib
+pillow
+python-multipart
