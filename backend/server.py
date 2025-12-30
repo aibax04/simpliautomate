@@ -6,6 +6,7 @@ from backend.agents.post_generation_agent import PostGenerationAgent
 from backend.agents.linkedin_agent import LinkedInAgent
 from backend.config import Config
 from backend.routes.ingest import router as ingest_router
+from backend.routes.queue_router import router as queue_router
 import google.generativeai as genai
 import uvicorn
 
@@ -14,6 +15,7 @@ genai.configure(api_key=Config.GEMINI_API_KEY)
 
 app = FastAPI(title="Simplii News API")
 app.include_router(ingest_router, prefix="/api")
+app.include_router(queue_router, prefix="/api")
 
 # Enable CORS for frontend
 app.add_middleware(

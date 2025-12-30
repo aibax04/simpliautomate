@@ -134,9 +134,8 @@ class SwipeApp {
             const status = document.getElementById('generation-status');
             const gBtn = document.getElementById('generate-btn');
 
-            status.classList.remove('hidden');
             gBtn.disabled = true;
-            gBtn.innerText = "Designing Post...";
+            gBtn.innerText = "Queueing...";
 
             const prefs = {
                 tone: document.getElementById('tone-select').value,
@@ -145,42 +144,30 @@ class SwipeApp {
             };
 
             try {
-                // Call API
-                const result = await Api.generatePost(this.currentNews, prefs);
-                this.generatedPost = result; // Store for publishing
+                // Call Enqueue API
+                await Api.enqueuePost(this.currentNews, prefs);
 
-                // Prepare Content
-                const rawCaption = result.caption_data ? result.caption_data.body : result.text;
-                const hashtags = result.caption_data ? result.caption_data.hashtags : "";
-                const hook = result.caption_data ? result.caption_data.hook : "";
-
-                // If we have structure, combine hook + body for display, keep hashtags separate
-                const displayBody = hook ? `<strong>${hook}</strong>\n\n${rawCaption}` : rawCaption;
-
-                // Build Preview UI
-                const container = document.getElementById('post-preview');
-                container.innerHTML = `
-                    <div class="post-preview-container">
-                        <div class="preview-image">
-                            ${result.image_url ? `<img src="${result.image_url}" alt="Generated Infographic">` : '<div class="preview-image-fallback">Visualization generating...<br>(or unavailable)</div>'}
-                        </div>
-                        <div class="preview-content">
-                            <div class="preview-caption">${displayBody}</div>
-                            ${hashtags ? `<div class="preview-hashtags">${hashtags}</div>` : ''}
-                        </div>
-                    </div>
-                `;
-
-                this.resultModal.classList.remove('hidden');
-            } catch (e) {
-                alert("Failed to generate post: " + e.message);
-            } finally {
-                status.classList.add('hidden');
+                // UX: Dismiss modal, show queue highlight
                 this.prefModal.classList.add('hidden');
+
+                // Open queue panel to show it started
+                if (window.queuePanel && !window.queuePanel.isOpen) {
+                    window.queuePanel.toggle();
+                }
+
+                alert("Post generation started! Check the queue panel.");
+
+            } catch (e) {
+                alert("Failed to queue post: " + e.message);
+            } finally {
+                status.classList.add('hidden'); // Ensure hidden
                 gBtn.disabled = false;
                 gBtn.innerText = "Generate Content";
             }
         };
+
+
+
 
         document.getElementById('publish-btn').onclick = async () => {
             if (!this.generatedPost) return;
@@ -224,28 +211,14 @@ class SwipeApp {
     }
 
     injectCards(newCards) {
+        // ... (existing implementation)
         if (!newCards || newCards.length === 0) return;
 
-        // Remove "No news" message if present
         if (this.stack.innerHTML.includes('No news')) {
             this.stack.innerHTML = '';
         }
 
         newCards.forEach((item, index) => {
-            // Add on top of existing or end (here we stick to simple push and re-render logic if needed, 
-            // but createCard appends to stack. We might want them on TOP? 
-            // Swipe stack usually works LIFO or FIFO depending on z-index.
-            // createCard -> pushes to this.cards, appends to DOM.
-            // renderStack -> sets z-index based on position in array. 
-            // To make them appear "next", we should probably unshift or just push.
-            // If we push, they are at the bottom. To make them immediate, unshift?
-            // createCard appends to DOM (bottom visually, but top in z-order? No, renderStack controls z-index).
-            // renderStack: i=0 is top.
-
-            // So if we want them to show UP, we should put them at the start of the array.
-            // But createCard appends to DOM.
-            // Let's create element, prepend to stack?
-
             const card = document.createElement('div');
             card.className = 'card';
             card.style.backgroundColor = item.palette.bg;
@@ -262,14 +235,37 @@ class SwipeApp {
             `;
 
             this.bindSwipe(card, item);
-
-            // Add to FRONT of array/stack so they are seen first
             this.cards.unshift(card);
             this.stack.insertBefore(card, this.stack.firstChild);
-            // Note: If renderStack relies on array order, this ensures index 0 is this new card.
         });
 
         this.renderStack();
+    }
+
+    openResult(result) {
+        this.generatedPost = result;
+
+        const rawCaption = result.caption_data ? result.caption_data.body : result.text;
+        const hashtags = result.caption_data ? result.caption_data.hashtags : "";
+        const hook = result.caption_data ? result.caption_data.hook : "";
+
+        const displayBody = hook ? `<strong>${hook}</strong>\n\n${rawCaption}` : rawCaption;
+
+        const container = document.getElementById('post-preview');
+        container.innerHTML = `
+            <div class="post-preview-container">
+                <div class="preview-image">
+                    ${result.image_url ? `<img src="${result.image_url}" alt="Generated Infographic">` : '<div class="preview-image-fallback">Visualization generated...<br>(check network/path)</div>'}
+                </div>
+                <div class="preview-content">
+                    <div class="preview-caption" contenteditable="true" spellcheck="false" style="outline:none; border:1px dashed transparent; padding:4px;">${displayBody}</div>
+                    ${hashtags ? `<div class="preview-hashtags">${hashtags}</div>` : ''}
+                    <div style="font-size:0.75rem; color:#999; margin-top:5px; text-align:right;">(Click text to edit)</div>
+                </div>
+            </div>
+        `;
+
+        this.resultModal.classList.remove('hidden');
     }
 }
 

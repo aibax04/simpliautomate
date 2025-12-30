@@ -10,6 +10,7 @@ const Api = {
     },
 
     async generatePost(newsItem, prefs) {
+        // Keeps existing logic valid but we prefer enqueue now
         try {
             const response = await fetch('/api/generate-post', {
                 method: 'POST',
@@ -19,7 +20,41 @@ const Api = {
             return await response.json();
         } catch (e) {
             console.error("API Error:", e);
-            return { content: "Error generating content." };
+            throw e;
+        }
+    },
+
+    async enqueuePost(newsItem, prefs) {
+        try {
+            const response = await fetch('/api/enqueue-post', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ news_item: newsItem, user_prefs: prefs })
+            });
+            return await response.json();
+        } catch (e) {
+            console.error("Queue Error:", e);
+            throw e;
+        }
+    },
+
+    async getQueueStatus() {
+        try {
+            const response = await fetch('/api/queue-status');
+            return await response.json();
+        } catch (e) {
+            console.error("Queue Status Error:", e);
+            return [];
+        }
+    },
+
+    async getJobResult(jobId) {
+        try {
+            const response = await fetch(`/api/job-result/${jobId}`);
+            return await response.json();
+        } catch (e) {
+            console.error("Job Result Error:", e);
+            return null;
         }
     },
 
