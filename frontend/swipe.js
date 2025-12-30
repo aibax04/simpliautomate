@@ -12,17 +12,32 @@ class SwipeApp {
     }
 
     async init() {
-        const news = await Api.fetchNews();
-        this.stack.innerHTML = '';
-        if (news.length === 0) {
-            this.stack.innerHTML = '<p>No news found for today.</p>';
-            return;
-        }
+        // Show loading state immediately
+        this.stack.innerHTML = `
+            <div class="loading-state">
+                <div class="spinner"></div>
+                <p>Fetching latest news...</p>
+            </div>
+        `;
 
-        news.forEach((item, index) => {
-            this.createCard(item, index);
-        });
-        this.renderStack();
+        try {
+            const news = await Api.fetchNews();
+            this.stack.innerHTML = '';
+
+            if (!news || news.length === 0) {
+                this.stack.innerHTML = '<div class="empty-state-message"><p>No news found for today.</p><button onclick="window.app.init()" class="btn-secondary">Try Again</button></div>';
+                return;
+            }
+
+            this.cards = [];
+            news.forEach((item, index) => {
+                this.createCard(item, index);
+            });
+            this.renderStack();
+        } catch (e) {
+            this.stack.innerHTML = `<div class="empty-state-message"><p>Failed to fetch news. Please try again.</p><button onclick="window.app.init()" class="btn-secondary">Retry</button></div>`;
+            console.error(e);
+        }
     }
 
     createCard(data, index) {
@@ -32,11 +47,14 @@ class SwipeApp {
         card.style.borderTop = `6px solid ${data.palette.accent}`;
 
         card.innerHTML = `
-            <div class="category" style="color: ${data.palette.accent}">${data.category}</div>
+            <div class="category" style="color: ${data.palette.accent}">${data.domain}</div>
             <h2 style="color: ${data.palette.text}">${data.headline}</h2>
-            <div class="content">${data.context}</div>
+            <div class="content">${data.summary}</div>
             <div class="footer">
-                <span>${data.source}</span>
+                <div class="source-info">
+                    <strong>${data.source_name}</strong>
+                    <a href="${data.source_url}" target="_blank" class="source-link" style="color: ${data.palette.accent}">View Source</a>
+                </div>
                 <span>${new Date().toLocaleDateString()}</span>
             </div>
         `;
@@ -236,11 +254,14 @@ class SwipeApp {
             card.style.borderTop = `6px solid ${item.palette.accent}`;
 
             card.innerHTML = `
-                <div class="category" style="color: ${item.palette.accent}">${item.category}</div>
+                <div class="category" style="color: ${item.palette.accent}">${item.domain}</div>
                 <h2 style="color: ${item.palette.text}">${item.headline}</h2>
-                <div class="content">${item.context}</div>
+                <div class="content">${item.summary}</div>
                 <div class="footer">
-                    <span>${item.source}</span>
+                    <div class="source-info">
+                        <strong>${item.source_name}</strong>
+                        <a href="${item.source_url}" target="_blank" class="source-link" style="color: ${item.palette.accent}">View Source</a>
+                    </div>
                     <span>${new Date().toLocaleDateString()}</span>
                 </div>
             `;

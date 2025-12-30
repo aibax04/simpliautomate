@@ -1,6 +1,8 @@
+import asyncio
 import google.generativeai as genai
 import json
 from backend.config import Config
+from backend.agents.qa_agent import QualityAssuranceAgent
 
 class NewsFetchAgent:
     def __init__(self):
@@ -15,49 +17,67 @@ class NewsFetchAgent:
         except Exception as e:
             print(f"[WARNING] Could not enable search grounding: {e}")
 
-        # Fallback model without search
-        self.model_basic = genai.GenerativeModel('models/gemini-2.0-flash')
+        # Fallback model without search (though search is preferred for URLs)
+        self.model_basic = genai.GenerativeModel('models/gemini-2.5-flash')
+        self.qa_agent = QualityAssuranceAgent()
 
     async def fetch(self):
         """
         Fetches, analyzes, and returns domain-specific AI news with strict filtering.
-        Targets: Legal AI, Healthcare AI, and Business AI.
+        Mandates verified sources and 100% linguistic accuracy.
         """
         
         prompt = f"""
-        Fetch and analyze the latest news articles from late December 2025 that strictly match the following domains and sub-keywords:
+        You are an intelligent, domain-aware news intelligence agent.
 
-        PRIMARY DOMAINS:
-        1. Legal AI: (keywords: legal ai, judicial ai, nyay ai, nyayai, ai in courts, ai for legal research, ai judgement analysis, legaltech ai)
-        2. Healthcare AI: (keywords: healthcare ai, medical ai, ai diagnosis, ai radiology, ai drug discovery)
-        3. Business AI: (keywords: enterprise ai, ai automation, ai startups, ai saas)
+        OBJECTIVE:
+        Fetch high-quality, authentic, and insightful news from late December 2025 related to:
+        - Legal AI
+        - Healthcare AI
+        - Business / Enterprise AI
 
-        STRICT FILTERING RULES:
-        1. An article MUST explicitly mention at least ONE sub-keyword.
-        2. If AI is mentioned but NOT in legal, healthcare, or business context → DISCARD it.
-        3. IGNORE political, sports, entertainment, or generic world news.
-        4. PREFER judiciary decisions, court rulings, enterprise adoption, hospital usage, or regulatory updates.
-        5. If relevance confidence for the specific domain is < 0.7 → DISCARD the article.
-        6. Return REAL-TIME news or most recent significant updates.
+        WIDENED THINKING RULES (CRITICAL):
+        1. Do NOT rely heavily on a single source or narrow platform. Think broadly and contextually.
+        2. You MUST consider news from:
+           - Judiciary platforms (courts, legal analysis portals, law journals)
+           - Government and regulatory bodies
+           - Reputed global and Indian newsrooms
+           - Industry reports, enterprise adoption stories
+           - Research-backed or policy-driven updates
+        3. Include indirect but relevant news:
+           - Policy changes enabling AI
+           - Court tech pilots
+           - Hospital digitization
+           - Enterprise AI adoption
+        4. Go beyond headlines — prioritize impact, decisions, deployments, and consequences.
+        5. Prefer “why this matters” news over generic announcements.
+        6. Avoid repetitive coverage of the same platform or publisher.
 
-        OUTPUT REQUIREMENTS:
-        - Return only relevant articles.
-        - Precision is more important than quantity. Use a conservative approach.
-        - Do not hallucinate sources.
-        - Categorize each article under its PRIMARY DOMAIN.
-        - If no relevant news exists, return an empty list: [].
+        SOURCE DIVERSITY RULES:
+        1. Ensure variety in sources across the fetched list.
+        2. If multiple articles say the same thing, return only the most authoritative one.
+        3. Penalize over-reliance on any single publisher.
 
+        AUTHENTICITY & VERIFICATION:
+        1. Every news item MUST include a real, direct, clickable source_url starting with https://.
+        2. source_name must be the actual publisher.
+        3. Never hallucinate URLs. If a valid source URL is missing, discard the article.
+        
+        STRICT OUTPUT CONTRACT (JSON ONLY):
         Return ONLY a JSON list of objects:
         [
             {{
-                "headline": "Strictly relevant headline",
-                "source": "Verified news source",
-                "context": "2-3 sentences explaining the specific AI application and its impact in the domain.",
-                "category": "Legal AI | Healthcare AI | Business AI",
-                "keywords": ["specific", "matched", "keywords"],
+                "headline": "Insightful headline focused on impact",
+                "summary": "Detailed summary explaining the specific AI application, its impact, and why it matters.",
+                "domain": "Legal AI | Healthcare AI | Business AI",
+                "source_name": "Authoritative Publisher Name",
+                "source_url": "https://direct-article-url.com/path",
                 "relevance_score": 0.95
             }}
         ]
+
+        FAIL-SAFE:
+        If no high-quality, diverse, source-backed news exists, return an empty list [].
         """
         
         try:
@@ -68,7 +88,7 @@ class NewsFetchAgent:
                 else:
                     response = self.model_basic.generate_content(prompt)
             except Exception as search_e:
-                print(f"[WARNING] Search grounding failed (likely permission or API limit): {search_e}")
+                print(f"[WARNING] Search grounding failed: {search_e}")
                 response = self.model_basic.generate_content(prompt)
             
             # Extract JSON from response
@@ -83,15 +103,31 @@ class NewsFetchAgent:
                 
             news_items = json.loads(text)
             
-            # Post-fetch filtering for extra safety
+            # Post-fetch filtering for extra safety and source validation
             valid_domains = ["Legal AI", "Healthcare AI", "Business AI"]
-            final_news = [
-                item for item in news_items 
-                if item.get("category") in valid_domains and item.get("relevance_score", 0) >= 0.7
-            ]
             
-            print(f"[DEBUG] Fetched {len(final_news)} strictly relevant news items.")
-            return final_news
+            print("   [Quality Gate] Verifying Fetched News Language...")
+            
+            # Parallelize verification
+            tasks = [self.qa_agent.verify_and_fix(item) for item in news_items]
+            cleaned_items = await asyncio.gather(*tasks)
+            
+            verified_news = []
+            for clean_item in cleaned_items:
+                if not clean_item:
+                    print("   [Quality Gate] Discarding item due to language quality failure.")
+                    continue
+                
+                source_url = clean_item.get("source_url", "")
+                has_valid_url = source_url and source_url.startswith("http")
+                is_valid_domain = clean_item.get("domain") in valid_domains
+                is_highly_relevant = clean_item.get("relevance_score", 0) >= 0.8
+                
+                if has_valid_url and is_valid_domain and is_highly_relevant:
+                    verified_news.append(clean_item)
+            
+            print(f"[DEBUG] Fetched {len(verified_news)} fully validated & proofread news items.")
+            return verified_news
 
         except Exception as e:
             print(f"Error fetching news: {e}")

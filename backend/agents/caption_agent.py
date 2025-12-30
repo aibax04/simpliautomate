@@ -8,7 +8,8 @@ class CaptionStrategyAgent:
 
     async def generate_caption(self, news_item: Dict, prefs: Dict) -> Dict:
         """
-        Generates a LinkedIn caption, hook, and CTA based on preferences.
+        Generates a premium LinkedIn caption, hook, and strategic highlights.
+        Extracts key data points and insights to fuel high-density infographics.
         """
         tone = prefs.get('tone', 'Professional')
         audience = prefs.get('audience', 'General')
@@ -22,34 +23,44 @@ class CaptionStrategyAgent:
         }
         length_str = word_counts.get(length_opt, 'approx 120 words')
 
+        # Updated to use new field names: headline, summary, domain
+        headline = news_item.get('headline')
+        summary = news_item.get('summary')
+        domain = news_item.get('domain')
+
         prompt = f"""
-        Act as a top-tier LinkedIn Content Strategist.
+        Act as an elite LinkedIn Content Strategist and Industry Analyst for high-level business networks.
         
         INPUT DATA:
-        - Headline: {news_item.get('headline')}
-        - Summary: {news_item.get('context')}
-        - Category: {news_item.get('category')}
+        - Headline: {headline}
+        - Summary: {summary}
+        - Domain: {domain}
         
-        USER PREFERENCES:
+        PREFERENCES:
         - Tone: {tone}
-        - Target Audience: {audience}
-        - Length: {length_str}
+        - Audience: {audience}
+        - Word Count: {length_str}
         
-        STRICT RULES:
-        1. Context: Write for industry professionals.
-        2. Hook: First 2 sentences must be engaging and visible "above the fold" (LinkedIn preview).
-        3. Structure: Use short paragraphs (1-2 sentences). Clean spacing.
-        4. Emojis: NO emojis unless Tone is "Founder-style".
-        5. Hashtags: Max 3 relevant hashtags at the bottom.
-        6. Call to Action: Subtle, engaging question or thought-starter at the end.
+        STRICT EDITORIAL RULES:
+        1. Professional Grade: Write for C-suite and Industry Leaders. No fluff.
+        2. Visual Framing: First 2 sentences MUST be "scroll-stopping" hooks.
+        3. Strategic Highlights: Extract 3 specific 'Power Insights' or 'Data Trends' from the news that are crucial for an infographic.
+        4. Aesthetics: Clean paragraph breaks. NO emojis (unless Founder-style). 
+        5. Precision: Use industry-specific terminology correctly.
+        6. Linguistic Excellence: Your output will be subjected to a strict spelling and grammar audit. Ensure 100% correct spelling, flawless grammar, and professional flow from the start.
         
         OUTPUT FORMAT (JSON):
         {{
-            "hook": "The first 2 gripping lines...",
-            "body": "The main content...",
-            "cta": "The closing question...",
+            "hook": "Grip the reader instantly...",
+            "body": "Expert-level industry analysis and summary...",
+            "strategic_insights": [
+                {{"label": "Insight/Data Point 1", "analysis": "Why this matters in 5 words"}},
+                {{"label": "Insight/Data Point 2", "analysis": "The hidden impact"}},
+                {{"label": "Insight/Data Point 3", "analysis": "Future outlook"}}
+            ],
+            "cta": "Subtle, high-value prompt/question...",
             "hashtags": "#tag1 #tag2 #tag3",
-            "full_caption": "The complete combined text..."
+            "full_caption": "Complete combined post text..."
         }}
         Return ONLY valid JSON.
         """
@@ -60,12 +71,12 @@ class CaptionStrategyAgent:
             import json
             return json.loads(text)
         except Exception as e:
-            print(f"Caption generation error: {e}")
-            # Fallback
+            print(f"Caption strategy error: {e}")
             return {
-                "hook": f"Breaking news in {news_item.get('category')}.",
-                "body": news_item.get('context'),
-                "cta": "What are your thoughts?",
-                "hashtags": "#news #update",
-                "full_caption": f"Breaking news: {news_item.get('headline')}\n\n{news_item.get('context')}"
+                "hook": f"Strategic update on {headline}.",
+                "body": summary,
+                "strategic_insights": [{"label": "Market Shift", "analysis": "Impact on domain"}],
+                "cta": "How does this affect your roadmap?",
+                "hashtags": "#industry #analysis",
+                "full_caption": f"{headline}\n\n{summary}"
             }

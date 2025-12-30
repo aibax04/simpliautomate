@@ -1,44 +1,47 @@
 class CurationAgent:
     """
     Assigns editorial styling and palettes based on the news category.
+    Optimized for Legal AI, Healthcare AI, and Business AI.
     """
     PALETTES = {
-        "Technology": {
-            "bg": "#F0F7FF", 
-            "accent": "#1565C0", 
-            "text": "#0D47A1",
-            "border": "#BBDEFB"
+        "Legal AI": {
+            "bg": "#F5F5F7", 
+            "accent": "#4A4A4A", 
+            "text": "#1D1D1F",
+            "border": "#D2D2D7"
         },
-        "Judiciary/Legal Tech": {
-            "bg": "#F5F5F5", 
-            "accent": "#455A64", 
-            "text": "#263238",
-            "border": "#CFD8DC"
+        "Healthcare AI": {
+            "bg": "#F0FAF9", 
+            "accent": "#00796B", 
+            "text": "#004D40",
+            "border": "#B2DFDB"
         },
-        "Business": {
-            "bg": "#F1F8E9", 
-            "accent": "#2E7D32", 
-            "text": "#1B5E20",
-            "border": "#DCEDC8"
+        "Business AI": {
+            "bg": "#F8F9FA", 
+            "accent": "#2C3E50", 
+            "text": "#1A252F",
+            "border": "#E9ECEF"
         },
         "General": {
-            "bg": "#FFF8E1", 
-            "accent": "#FF8F00", 
-            "text": "#5D4037",
-            "border": "#FFECB3"
+            "bg": "#FFFFFF", 
+            "accent": "#636E72", 
+            "text": "#2D3436",
+            "border": "#DFE6E9"
         }
     }
 
     def curate(self, news_list):
         for item in news_list:
-            category = item.get("category", "General")
-            # Map specific categories if they differ slightly from keys
-            if "Tech" in category and "Legal" not in category:
-                key = "Technology"
-            elif "Legal" in category or "Judiciary" in category:
-                key = "Judiciary/Legal Tech"
-            elif "Business" in category:
-                key = "Business"
+            # Updated to use 'domain' as per new NewsFetchAgent schema
+            domain = item.get("domain", "General")
+            
+            # Match strict domain categories
+            if "Legal AI" in domain:
+                key = "Legal AI"
+            elif "Healthcare AI" in domain:
+                key = "Healthcare AI"
+            elif "Business AI" in domain:
+                key = "Business AI"
             else:
                 key = "General"
                 

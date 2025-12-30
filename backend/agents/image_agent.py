@@ -23,14 +23,17 @@ class ImageAgent:
         Generates an infographic image using the specified Gemini model.
         Saves locally and returns the URL path.
         """
-        prompt = visual_plan.get('image_prompt', 'Professional business infographic')
-        # Refine prompt for ultra-high-quality journalist aesthetic
+        prompt = visual_plan.get('image_prompt', 'Professional news infographic')
+        # Refine prompt for elite, studio-grade editorial masterpiece
         refined_prompt = (
-            f"{prompt}. Style: Senior Visual Journalist design. "
-            "Resolution: Ultra-high 4K, crisp vector typography, sharp edges, pixel-perfect alignment. "
-            "Aesthetic: Premium modern editorial infographic, balanced information density. "
-            "Strictly NO generic AI aesthetics, NO neon glows, NO surrealism, NO overcrowding. "
-            "Feels informative, credible, and human-crafted like a professional design studio output."
+            f"{prompt}. Quality: Elite Studio-Grade, handcrafted by a world-class design team. "
+            "Visual Depth: Rich multi-layered composition with subtle drop shadows, layered glassmorphism, and sophisticated texture hierarchy. "
+            "Information Density: High-fidelity layout featuring complex data visualizations (charts/flows), micro-illustrations, and clearly defined insight callout cards. "
+            "Typography: Razor-sharp editorial typography with strong hierarchy, modern sans-serif and elite serif faces, perfectly readable. "
+            "Resolution: 4K studio clarity, pixel-perfect vector edges, zero blur. "
+            "Aesthetic: Bloomberg-inspired visual journalism, crisp, credible, and premium. "
+            "Strictly FORBID: Generic AI neon, glowing artificial gradients, overcrowded clutter, or surreal artifacts. "
+            "Focus: A professional, informative, and screenshot-worthy editorial infographic that feels human-crafted and credible."
         )
         
         # Absolute path normalization
