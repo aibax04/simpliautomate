@@ -131,7 +131,11 @@ class SwipeApp {
 
         document.getElementById('generate-btn').onclick = async () => {
             const status = document.getElementById('generation-status');
+            const gBtn = document.getElementById('generate-btn');
+
             status.classList.remove('hidden');
+            gBtn.disabled = true;
+            gBtn.innerText = "Designing Post...";
 
             const prefs = {
                 tone: document.getElementById('tone-select').value,
@@ -139,18 +143,37 @@ class SwipeApp {
                 length: document.getElementById('length-select').value
             };
 
-            const result = await Api.generatePost(this.currentNews, prefs);
+            try {
+                const result = await Api.generatePost(this.currentNews, prefs);
 
-            status.classList.add('hidden');
-            this.prefModal.classList.add('hidden');
+                // Build Preview UI
+                const container = document.getElementById('post-preview');
+                container.innerHTML = `
+                    <div class="post-preview-container">
+                        <div class="preview-image">
+                            ${result.image_url ? `<img src="${result.image_url}" alt="Generated Infographic">` : '<div style="padding:40px;text-align:center;background:#eee;">Visual Generation Failed</div>'}
+                        </div>
+                        <div class="preview-text">${result.text}</div>
+                    </div>
+                `;
 
-            document.getElementById('post-preview').innerText = result.content;
-            this.resultModal.classList.remove('hidden');
+                this.resultModal.classList.remove('hidden');
+            } catch (e) {
+                alert("Failed to generate post: " + e.message);
+            } finally {
+                status.classList.add('hidden');
+                this.prefModal.classList.add('hidden');
+                gBtn.disabled = false;
+                gBtn.innerText = "Generate Content";
+            }
         };
 
         document.getElementById('publish-btn').onclick = async () => {
-            const content = document.getElementById('post-preview').innerText;
-            const res = await Api.publishPost(content);
+            // In real app we might grab text from the div, or use stored result
+            const container = document.getElementById('post-preview');
+            const textualContent = container.querySelector('.preview-text') ? container.querySelector('.preview-text').innerText : container.innerText;
+
+            const res = await Api.publishPost(textualContent);
             alert(res.message || "Post successful!");
             this.resultModal.classList.add('hidden');
         };

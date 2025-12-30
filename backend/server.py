@@ -40,8 +40,8 @@ async def generate_post(request: Request):
     prefs = data.get("prefs")
     
     agent = PostGenerationAgent()
-    content = await agent.generate(news_item, prefs)
-    return {"content": content}
+    result = await agent.generate(news_item, prefs)
+    return result
 
 @app.post("/api/post-linkedin")
 async def post_linkedin(request: Request):
