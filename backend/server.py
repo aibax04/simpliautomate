@@ -54,9 +54,11 @@ async def post_linkedin(request: Request):
     """Endpoint to trigger LinkedIn posting"""
     data = await request.json()
     content = data.get("content")
-    # In reality, you'd handle OAuth token here
-    agent = LinkedInAgent(access_token="DEMO_TOKEN")
-    result = agent.post_to_linkedin(content)
+    image_url = data.get("image_url")
+    
+    # Use Config credentials (default behavior of Agent)
+    agent = LinkedInAgent() 
+    result = agent.post_to_linkedin(content, image_path=image_url)
     return result
 
 # Serve Frontend

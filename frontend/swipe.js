@@ -190,9 +190,15 @@ class SwipeApp {
             pBtn.innerText = "Posting...";
 
             try {
-                const res = await Api.publishPost(finalPayload);
-                alert(res.message || "Published successfully to LinkedIn!");
-                this.resultModal.classList.add('hidden');
+                // Pass image_url from saved result
+                const res = await Api.publishPost(finalPayload, this.generatedPost.image_url);
+
+                if (res.status === 'success') {
+                    alert(res.message || "Published successfully to LinkedIn!");
+                    this.resultModal.classList.add('hidden');
+                } else {
+                    alert("Publishing error: " + (res.error || res.message));
+                }
             } catch (e) {
                 alert("Publishing failed: " + e.message);
             } finally {
@@ -257,10 +263,14 @@ class SwipeApp {
         const displayBody = hook ? `<strong>${hook}</strong>\n\n${rawCaption}` : rawCaption;
 
         const container = document.getElementById('post-preview');
+        // Add timestamp to prevent caching issues
+        const timestamp = new Date().getTime();
+        const imageUrl = result.image_url ? `${result.image_url}?t=${timestamp}` : null;
+
         container.innerHTML = `
             <div class="post-preview-container">
                 <div class="preview-image">
-                    ${result.image_url ? `<img src="${result.image_url}" alt="Generated Infographic" class="generated-post-image">` : '<div class="preview-image-fallback">Visualization generated...<br>(check network/path)</div>'}
+                    ${imageUrl ? `<img src="${imageUrl}" alt="Generated Infographic" class="generated-post-image">` : '<div class="preview-image-fallback">Visualization generated...<br>(check network/path)</div>'}
                 </div>
                 <div class="preview-content">
                     <div class="preview-caption" contenteditable="true" spellcheck="false" style="outline:none; border:1px dashed transparent; padding:4px;">${displayBody}</div>

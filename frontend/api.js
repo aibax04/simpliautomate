@@ -59,12 +59,12 @@ const Api = {
         }
     },
 
-    async publishPost(content) {
+    async publishPost(content, imageUrl) {
         try {
             const response = await fetch('/api/post-linkedin', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ content })
+                body: JSON.stringify({ content, image_url: imageUrl })
             });
             return await response.json();
         } catch (e) {
