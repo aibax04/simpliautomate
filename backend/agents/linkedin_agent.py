@@ -91,17 +91,19 @@ class LinkedInAgent:
         """
         import os
         
-        # 0. Resolve path relative to backend if needed, but usually image_path is absolute or relative to root
-        # image_path incoming is likely like "/generated_images/..." (url path)
-        # We need filesystem path.
+        # 0. Resolve path using absolute project root logic
+        # This file is in backend/agents/linkedin_agent.py
+        current_dir = os.path.dirname(os.path.abspath(__file__)) # agents/
+        project_root = os.path.dirname(os.path.dirname(current_dir)) # simplii/
+        
         if image_path.startswith("/generated_images/"):
             clean_path = image_path.replace("/generated_images/", "")
-            real_path = os.path.join(os.getcwd(), "frontend", "generated_images", clean_path)
+            real_path = os.path.join(project_root, "frontend", "generated_images", clean_path)
         else:
             real_path = image_path
             
         if not os.path.exists(real_path):
-            print(f"Image not found at {real_path}, skipping image attachment.")
+            print(f"[ERROR] LinkedIn Post: Image not found at {real_path}")
             return None
 
         # 1. Register
@@ -132,7 +134,10 @@ class LinkedInAgent:
         
         # 2. Upload Binary
         with open(real_path, 'rb') as img_file:
-            up_resp = requests.put(upload_url, headers={"Authorization": f"Bearer {self.access_token}"}, data=img_file)
+            # Note: Many pre-signed URLs (like LinkedIn's) fail if you include the Authorization header twice.
+            # We only use 'Content-Type' for the binary upload.
+            headers_put = {"Content-Type": "application/octet-stream"}
+            up_resp = requests.put(upload_url, headers=headers_put, data=img_file)
             up_resp.raise_for_status()
             
         print(f"Image uploaded successfully: {asset}")

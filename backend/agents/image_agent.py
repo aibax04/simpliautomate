@@ -2,31 +2,45 @@ import google.generativeai as genai
 from backend.config import Config
 import os
 import uuid
+import base64
+import sys
 
 class ImageAgent:
     def __init__(self):
-        # Using real image generation model
-        # Trying standardized Imagen model name
-        self.model = genai.GenerativeModel('models/imagen-3.0-generate-001')
+        # Using valid Gemini model for image generation as requested
+        self.model_name = 'models/gemini-2.5-flash-image'
+        try:
+            self.model = genai.GenerativeModel(self.model_name)
+            # STEP 5: ADD SAFETY LOG
+            print(f"Using image model: {self.model_name}")
+            sys.stdout.flush()
+        except Exception as e:
+            print(f"[ERROR] Failed to initialize model {self.model_name}: {e}")
+            self.model = genai.GenerativeModel('models/gemini-2.5-flash-image')
 
     async def generate_image(self, visual_plan: dict) -> str:
         """
-        Generates an image based on the visual plan and returns the local URL path.
-        If API fails, generates a local fallback image using PIL.
+        Generates an infographic image using the specified Gemini model.
+        Saves locally and returns the URL path.
         """
         prompt = visual_plan.get('image_prompt', 'Professional business infographic')
+        # Refine prompt for image generation
         refined_prompt = f"{prompt}. High quality, 4k, vector art, flat design, white background, no blur, sharp text."
         
-        # Ensure static dir exists
-        output_dir = os.path.join(os.getcwd(), "frontend", "generated_images")
+        # Absolute path normalization
+        current_dir = os.path.dirname(os.path.abspath(__file__)) # agents/
+        project_root = os.path.dirname(os.path.dirname(current_dir)) # simplii/
+        output_dir = os.path.join(project_root, "frontend", "generated_images")
+        
         os.makedirs(output_dir, exist_ok=True)
         
         filename = f"{uuid.uuid4()}.png"
         filepath = os.path.join(output_dir, filename)
 
         try:
-            print(f"Generating image with prompt: {refined_prompt[:50]}...")
-            # Try API Generation
+            print(f"[DEBUG] Calling GenerateContent with model {self.model_name} for prompt: {refined_prompt[:60]}...")
+            sys.stdout.flush()
+            
             response = self.model.generate_content(
                 refined_prompt,
                 generation_config=genai.types.GenerationConfig(
@@ -35,80 +49,57 @@ class ImageAgent:
                 )
             )
             
-            if response.parts:
-                try:
-                    img = response.parts[0].image
-                    img.save(filepath)
-                except Exception as e:
-                     # Fallback bytes
-                    if hasattr(response.parts[0], 'inline_data'):
-                         with open(filepath, 'wb') as f:
-                            f.write(response.parts[0].inline_data.data)
-                    else:
-                        raise ValueError("No image data found")
+            if not response.candidates or not response.candidates[0].content.parts:
+                raise ValueError("API returned an empty response (no candidates or parts)")
+
+            # STEP 4: KEEP RESPONSE HANDLING SAME (but robust to multiple parts)
+            img_part = None
+            candidate = response.candidates[0]
+            
+            for part in candidate.content.parts:
+                # Some models return text followed by image. Find the image part.
+                if hasattr(part, 'inline_data') and part.inline_data.data:
+                    img_part = part
+                    break
+                if hasattr(part, 'image') and part.image:
+                    img_part = part
+                    break
+            
+            if not img_part:
+                raise ValueError("Response does not contain image data.")
+
+            # Extract image data
+            if hasattr(img_part, 'image') and img_part.image:
+                img_part.image.save(filepath)
+            elif hasattr(img_part, 'inline_data'):
+                b64_data = img_part.inline_data.data
                 
-                if os.path.getsize(filepath) > 0:
-                    print(f"Image saved to {filepath}")
-                    return f"/generated_images/{filename}"
+                # The SDK might return this as bytes or string
+                if isinstance(b64_data, bytes):
+                    # Check if it's already PNG bytes
+                    if b64_data.startswith(b'\x89PNG'):
+                        image_bytes = b64_data
+                    else:
+                        try:
+                            image_bytes = base64.b64decode(b64_data)
+                        except:
+                            image_bytes = b64_data 
+                else:
+                    image_bytes = base64.b64decode(b64_data)
+                
+                with open(filepath, "wb") as f:
+                    f.write(image_bytes)
+            
+            # Final verification
+            if os.path.exists(filepath) and os.path.getsize(filepath) > 100:
+                file_size = os.path.getsize(filepath)
+                print(f"[SUCCESS] Image saved successfully at {filepath} ({file_size} bytes)")
+                sys.stdout.flush()
+                return f"/generated_images/{filename}"
+            else:
+                raise RuntimeError(f"File at {filepath} is missing or too small")
 
         except Exception as e:
-            print(f"API Image generation failed: {e}")
-            # PROCEED TO LOCAL FALLBACK
-            
-        # --- LOCAL FALLBACK ---
-        print("Generating local fallback image...")
-        try:
-            from PIL import Image, ImageDraw, ImageFont
-            import textwrap
-
-            # create image
-            width, height = 800, 1000
-            bg_color = (245, 245, 247) # Off-white
-            img = Image.new('RGB', (width, height), bg_color)
-            draw = ImageDraw.Draw(img)
-            
-            # Draw header background
-            draw.rectangle([(0, 0), (width, 100)], fill=(0, 122, 255)) # Blue header
-            
-            # Try to load a font, fallback to default
-            try:
-                # Try standard fonts
-                font_title = ImageFont.truetype("arial.ttf", 60)
-                font_body = ImageFont.truetype("arial.ttf", 40)
-            except:
-                font_title = ImageFont.load_default()
-                font_body = ImageFont.load_default()
-
-            # Draw Title
-            title_text = "SIMPLII INSIGHT"
-            draw.text((40, 20), title_text, fill="white", font=font_title)
-            
-            # Draw visual plan text (visual representation)
-            visual_text = visual_plan.get('visual_type', 'Infographic').upper()
-            draw.text((40, 150), f"VISUAL: {visual_text}", fill="black", font=font_body)
-            
-            # Wrap and draw description
-            desc = visual_plan.get('elements', 'Business Chart')
-            lines = textwrap.wrap(desc, width=30)
-            y = 250
-            for line in lines:
-                draw.text((40, y), line, fill=(50, 50, 50), font=font_body)
-                y += 50
-                
-            # Draw Palette
-            y += 50
-            draw.text((40, y), "PALETTE:", fill="black", font=font_body)
-            y += 50
-            palette_desc = visual_plan.get('color_palette', 'Blue & White')
-            draw.text((40, y), palette_desc, fill="gray", font=font_body)
-            
-            # Save
-            img.save(filepath)
-            print(f"Fallback image saved to {filepath}")
-            return f"/generated_images/{filename}"
-            
-        except Exception as local_e:
-            print(f"Local fallback failed: {local_e}")
-            # Ultimate robust return
-            return "https://via.placeholder.com/800x1000?text=Image+System+Offline"
-
+            print(f"[ERROR] Image Generation Pipeline Failed: {str(e)}")
+            sys.stdout.flush()
+            raise e
