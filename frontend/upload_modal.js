@@ -27,16 +27,12 @@ document.addEventListener('DOMContentLoaded', () => {
             // Remove active class from all
             tabBtns.forEach(b => {
                 b.classList.remove('active');
-                b.style.color = '#999';
+                b.style.color = ''; // clear inline
             });
             tabContents.forEach(c => c.classList.add('hidden'));
 
             // Activate clicked
             btn.classList.add('active');
-            btn.style.color = 'var(--primary)'; // Using CSS var from JS might need computation or hardcode. 
-            // Better to rely on class but inline styles were used in HTML. 
-            // We'll trust class 'active' + CSS or override inline:
-            btn.style.color = '#2C3E50';
 
             activeTab = btn.dataset.tab;
             document.getElementById(`tab-${activeTab}`).classList.remove('hidden');

@@ -5,6 +5,7 @@ class SwipeApp {
         this.resultModal = document.getElementById('result-modal');
         this.cards = [];
         this.currentNews = null;
+        this.generatedPost = null;
 
         this.init();
         this.bindGlobalEvents();
@@ -144,16 +145,29 @@ class SwipeApp {
             };
 
             try {
+                // Call API
                 const result = await Api.generatePost(this.currentNews, prefs);
+                this.generatedPost = result; // Store for publishing
+
+                // Prepare Content
+                const rawCaption = result.caption_data ? result.caption_data.body : result.text;
+                const hashtags = result.caption_data ? result.caption_data.hashtags : "";
+                const hook = result.caption_data ? result.caption_data.hook : "";
+
+                // If we have structure, combine hook + body for display, keep hashtags separate
+                const displayBody = hook ? `<strong>${hook}</strong>\n\n${rawCaption}` : rawCaption;
 
                 // Build Preview UI
                 const container = document.getElementById('post-preview');
                 container.innerHTML = `
                     <div class="post-preview-container">
                         <div class="preview-image">
-                            ${result.image_url ? `<img src="${result.image_url}" alt="Generated Infographic">` : '<div style="padding:40px;text-align:center;background:#eee;">Visual Generation Failed</div>'}
+                            ${result.image_url ? `<img src="${result.image_url}" alt="Generated Infographic">` : '<div class="preview-image-fallback">Visualization generating...<br>(or unavailable)</div>'}
                         </div>
-                        <div class="preview-text">${result.text}</div>
+                        <div class="preview-content">
+                            <div class="preview-caption">${displayBody}</div>
+                            ${hashtags ? `<div class="preview-hashtags">${hashtags}</div>` : ''}
+                        </div>
                     </div>
                 `;
 
@@ -169,13 +183,30 @@ class SwipeApp {
         };
 
         document.getElementById('publish-btn').onclick = async () => {
-            // In real app we might grab text from the div, or use stored result
-            const container = document.getElementById('post-preview');
-            const textualContent = container.querySelector('.preview-text') ? container.querySelector('.preview-text').innerText : container.innerText;
+            if (!this.generatedPost) return;
 
-            const res = await Api.publishPost(textualContent);
-            alert(res.message || "Post successful!");
-            this.resultModal.classList.add('hidden');
+            // Prefer full_caption from metadata if available, else construct it
+            let finalPayload = "";
+            if (this.generatedPost.caption_data && this.generatedPost.caption_data.full_caption) {
+                finalPayload = this.generatedPost.caption_data.full_caption;
+            } else {
+                finalPayload = this.generatedPost.text;
+            }
+
+            const pBtn = document.getElementById('publish-btn');
+            pBtn.disabled = true;
+            pBtn.innerText = "Posting...";
+
+            try {
+                const res = await Api.publishPost(finalPayload);
+                alert(res.message || "Published successfully to LinkedIn!");
+                this.resultModal.classList.add('hidden');
+            } catch (e) {
+                alert("Publishing failed: " + e.message);
+            } finally {
+                pBtn.disabled = false;
+                pBtn.innerText = "Post to LinkedIn";
+            }
         };
 
         document.getElementById('edit-btn').onclick = () => {
