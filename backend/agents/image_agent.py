@@ -24,8 +24,14 @@ class ImageAgent:
         Saves locally and returns the URL path.
         """
         prompt = visual_plan.get('image_prompt', 'Professional business infographic')
-        # Refine prompt for image generation
-        refined_prompt = f"{prompt}. High quality, 4k, vector art, flat design, white background, no blur, sharp text."
+        # Refine prompt for ultra-high-quality journalist aesthetic
+        refined_prompt = (
+            f"{prompt}. Style: Senior Visual Journalist design. "
+            "Resolution: Ultra-high 4K, crisp vector typography, sharp edges, pixel-perfect alignment. "
+            "Aesthetic: Premium modern editorial infographic, balanced information density. "
+            "Strictly NO generic AI aesthetics, NO neon glows, NO surrealism, NO overcrowding. "
+            "Feels informative, credible, and human-crafted like a professional design studio output."
+        )
         
         # Absolute path normalization
         current_dir = os.path.dirname(os.path.abspath(__file__)) # agents/

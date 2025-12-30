@@ -12,8 +12,8 @@ class Config:
     LINKEDIN_ACCESS_TOKEN = os.getenv("LINKEDIN_ACCESS_TOKEN")
     LINKEDIN_USER_URN = os.getenv("LINKEDIN_USER_URN") # e.g. urn:li:person:12345
     
-    # Categories for filtering as requested
-    CATEGORIES = ["Technology", "Judiciary/Legal Tech", "Business"]
+    # Updated Categories for strict domain filtering
+    CATEGORIES = ["Legal AI", "Healthcare AI", "Business AI"]
 
     @staticmethod
     def validate():
