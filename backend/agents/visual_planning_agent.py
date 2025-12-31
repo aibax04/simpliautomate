@@ -36,14 +36,16 @@ class VisualPlanningAgent:
            - A set of 3-4 micro-illustrations or high-fidelity labeled icons.
            - At least two "Insight Cards" (callout boxes) using the 'STRATEGIC INSIGHTS' provided.
         3. Hierarchy & Depth: Use a strong editorial grid. Plan for clear visual flow from Headline -> Summary -> Deep Dive -> Conclusion.
-        4. Typography: Ultra-clean sans-serif for body, sophisticated bold serif or heavy sans for headlines. 
-        5. Sophistication: Use subtle depth (soft drop shadows, layered glassmorphism elements) and professional textures (matte finish, fine grain).
-        6. Linguistic Excellence: Ensure all text in headlines, sub-headlines, and insight cards is 100% spelling-perfect. It will be audited and MUST be flawless for image generation.
+        6. Linguistic Excellence: All text must be grammatically correct and 100% free of spelling errors. Do not invent words. Use standard professional English only.
+        7. Sub-Text & Labels: Sub-headings and small text MUST use simple, common English words. Avoid technical jargon or complex terminology in secondary/tertiary layers. Prefer nouns over verbs.
+        8. Length Constraints: No small text or label may exceed 8 words. No compound or hyphenated words in small text. Rephrase to be concise.
+        9. Text Alignment: All headings must be center-aligned. Body text must be left-aligned. Ensure clear separation between sections and consistent line spacing.
+        10. Hierarchy & Contrast: Implement a clear hierarchy: (1) Bold primary headline, (2) Concise sub-headlines, (3) Minimal dictionary-valid labels. Maintain high contrast. No overlapping or diagonal text.
 
         DOMAIN-SPECIFIC DIRECTION:
-        - Legal AI: Use Slate, Charcoal, and Champagne Gold accents. Focus on flow diagrams of rulings or comparisons.
-        - Healthcare AI: Clinical Teal, Soft Sage, and Slate Grey. Focus on anatomical micro-icons or data timelines.
-        - Business AI: Deep Navy, Graphite, and a sharp Tangerine or Copper accent. Focus on dashboard-style charts or workflow maps.
+        - Legal AI: Use Electric Blue, Cyan, and Deep Purple. Futuristic 'Cyber-Law' aesthetic with glowing highlights.
+        - Healthcare AI: Clinical Teal, Neon Green, and Magenta. High-energy 'Bio-Tech' visualization with vibrant data pulses.
+        - Business AI: Solar Yellow, Tangerine, and Midnight Blue. Futuristic 'Market-Flow' dashboard with bright high-contrast elements.
 
         OUTPUT FORMAT (JSON):
         {{
@@ -58,11 +60,11 @@ class VisualPlanningAgent:
                 {{"type": "insight_cards", "description": "Content for 2 callout boxes highlighting impact"}}
             ],
             "aesthetic_tokens": {{
-                "palette": "Detailed hex-like list of professional contextual colors",
-                "texture": "Description of professional background finish (e.g., 'brushed matte paper with subtle depth')",
-                "lighting": "Soft editorial lighting with clean shadows"
+                "palette": "Vibrant futuristic palette (Electric Blue, Cyan, Teal, Magenta, Purple, Lime, Orange/Yellow)",
+                "texture": "Clean futuristic matte with glowing elements and subtle sci-fi grain",
+                "lighting": "High-energy editorial lighting with neon highlights and clean shadows"
             }},
-            "image_prompt": "An elite-tier 4K 4:5 vertical editorial infographic. Mention: 'Studio-grade design', 'elite visual journalism', 'rich multi-layered layout', 'razor-sharp vector typography', 'complex data visualization', 'hand-crafted precision', 'subtle shadows and depth', 'matte finish', 'premium color palette', 'no neon', 'no generic AI glow', 'Bloomberg and McKinsey aesthetic'."
+            "image_prompt": "An elite-tier 4K 4:5 vertical futuristic editorial infographic. Mention: 'High-energy futuristic design', 'multi-color vibrancy', 'bright sci-fi aesthetic', 'rich multi-layered layout', 'razor-sharp text', 'center-aligned headings', 'simple common English words only', 'no jargon in small text', 'clean margins', 'complex data visualization', 'glowing highlights', 'ZERO spelling errors', 'perfect alignment'."
         }}
         Return ONLY valid JSON.
         """
