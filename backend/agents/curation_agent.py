@@ -1,26 +1,38 @@
 class CurationAgent:
     """
     Assigns editorial styling and palettes based on the news category.
-    Optimized for Legal AI, Healthcare AI, and Business AI.
+    Optimized for a wide range of specialized AI domains.
     """
     PALETTES = {
-        "Legal AI": {
-            "bg": "#F5F5F7", 
-            "accent": "#4A4A4A", 
-            "text": "#1D1D1F",
-            "border": "#D2D2D7"
-        },
-        "Healthcare AI": {
-            "bg": "#F0FAF9", 
+        "Healthcare/Medical": {
+            "bg": "#F0FAF9", # soft green/teal
             "accent": "#00796B", 
             "text": "#004D40",
             "border": "#B2DFDB"
         },
-        "Business AI": {
-            "bg": "#F8F9FA", 
-            "accent": "#2C3E50", 
-            "text": "#1A252F",
-            "border": "#E9ECEF"
+        "Finance/FinTech": {
+            "bg": "#1A252F", # deep blue 
+            "accent": "#D4AF37", # muted gold
+            "text": "#FFFFFF",
+            "border": "#2C3E50"
+        },
+        "Legal/Judiciary/Civic": {
+            "bg": "#F5F5F7", # neutral greys
+            "accent": "#2C3E50", # navy
+            "text": "#1D1D1F",
+            "border": "#D2D2D7"
+        },
+        "Tech/Industrial/IoT": {
+            "bg": "#E8F4FD", # light blue
+            "accent": "#1565C0", 
+            "text": "#0D47A1",
+            "border": "#BBDEFB"
+        },
+        "Business/HR/Marketing": {
+            "bg": "#F9F1FE", # very light purple
+            "accent": "#8E24AA", 
+            "text": "#4A148C",
+            "border": "#E1BEE7"
         },
         "General": {
             "bg": "#FFFFFF", 
@@ -32,16 +44,19 @@ class CurationAgent:
 
     def curate(self, news_list):
         for item in news_list:
-            # Updated to use 'domain' as per new NewsFetchAgent schema
-            domain = item.get("domain", "General")
+            domain = item.get("domain", "General").lower()
             
-            # Match strict domain categories
-            if "Legal AI" in domain:
-                key = "Legal AI"
-            elif "Healthcare AI" in domain:
-                key = "Healthcare AI"
-            elif "Business AI" in domain:
-                key = "Business AI"
+            # Complex mapping logic for new categories
+            if any(k in domain for k in ["healthcare", "medical", "healthtech"]):
+                key = "Healthcare/Medical"
+            elif any(k in domain for k in ["finance", "fintech"]):
+                key = "Finance/FinTech"
+            elif any(k in domain for k in ["judiciary", "legal", "civic"]):
+                key = "Legal/Judiciary/Civic"
+            elif any(k in domain for k in ["tech", "industrial", "iot", "llmops", "nlp"]):
+                key = "Tech/Industrial/IoT"
+            elif any(k in domain for k in ["business", "hr", "marketing", "edtech", "consumer"]):
+                key = "Business/HR/Marketing"
             else:
                 key = "General"
                 

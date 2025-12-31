@@ -49,30 +49,27 @@ class ImageAgent:
             "Prefer nouns over verbs in labels."
         )
         
-        futuristic_style_rules = (
-            "STYLE: Use a vibrant, futuristic color palette. Incorporate multiple bright colors harmoniously. "
-            "Design must be high-energy, modern tech/sci-fi inspired. Neon accents are allowed but controlled. "
-            "Use clean gradients and glowing highlights. Avoid dull greys and muted tones. "
-            "High contrast but perfect readability. White or very dark background only."
-        )
-        color_palette = (
-            "COLORS: Use a combination of Electric Blue, Cyan, Teal, Magenta, Purple, Lime/Neon Green, "
-            "and warm Orange or Yellow accents. Ensure multi-color richness."
-        )
-        futuristic_clarity = (
-            "CLARITY: Futuristic does NOT mean chaotic. Maintain editorial/consulting infographic clarity. "
+        # FEATURE 5: STRICT ADHERENCE TO STYLE AND PALETTE
+        selected_style = visual_plan.get('style', 'Futuristic')
+        selected_palette = visual_plan.get('palette_preference', 'Multi-color vibrant')
+
+        style_rules = f"STYLE: {selected_style}. The design must strictly follow this style. Avoid any other artistic directions."
+        palette_rules = f"COLORS: {selected_palette}. The color palette must be respected strictly. Do not use random colors outside this theme."
+        
+        clarity_rules = (
+            "CLARITY: Maintain editorial/consulting infographic clarity. "
             "Clear alignment, spacing, and hierarchy. Readable typography at all sizes."
         )
         
-        prompt = visual_plan.get('image_prompt', 'Professional futuristic news infographic')
-        # Refine prompt for elite, high-energy futuristic editorial masterpiece
+        prompt = visual_plan.get('image_prompt', 'Professional news infographic')
+        # Refine prompt for elite, custom-styled editorial masterpiece
         refined_prompt = (
             f"{prompt}. {spelling_rules} {alignment_rules} {typography_rules} {subtext_constraints} "
-            f"{futuristic_style_rules} {color_palette} {futuristic_clarity} "
+            f"{style_rules} {palette_rules} {clarity_rules} "
             "Quality: Elite Studio-Grade, 4K resolution, razor-sharp vector edges, zero blur. "
             "Visual Depth: Rich multi-layered composition with subtle drop shadows, glowing highlights, and sophisticated texture hierarchy. "
             "Information Density: High-fidelity layout featuring complex data visualizations and clearly defined insight cards. "
-            "Aesthetic: High-energy tech journalism, crisp, credible, and premium. "
+            "Aesthetic: Premium journalism, crisp, credible, and polished. "
             "Strictly FORBID: Generic AI glow, overcrowded clutter, surreal artifacts, or any spelling errors."
         )
         

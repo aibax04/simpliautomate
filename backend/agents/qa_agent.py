@@ -55,5 +55,5 @@ class QualityAssuranceAgent:
             print("[INFO] Quality Gate: Linguistic Audit completed. Quality Guaranteed.")
             return verified_bundle
         except Exception as e:
-            print(f"[FATAL] Quality Gate error: {e}. Aborting content.")
-            return None
+            print(f"[ERROR] Quality Gate failed: {e}. Returning original content.")
+            return content_bundle

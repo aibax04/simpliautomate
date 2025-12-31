@@ -168,7 +168,7 @@ class QueuePanel {
     async handleJobClick(job) {
         if (job.status === 'ready' && job.result) {
             if (window.app) {
-                window.app.openResult(job.result);
+                window.app.openResult(job);
             }
         } else if (job.status === 'failed') {
             alert("Job failed: " + job.error);

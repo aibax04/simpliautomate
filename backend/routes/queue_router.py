@@ -46,7 +46,9 @@ async def process_post_generation(job_id: str, news_item: Dict, user_prefs: Dict
 async def enqueue_post(request: EnqueueRequest, background_tasks: BackgroundTasks):
     job_id = queue.create_job("post_generation", {
         "headline": request.news_item.get("headline", "Untitled"),
-        "source": request.news_item.get("source", "Unknown")
+        "source": request.news_item.get("source", "Unknown"),
+        "news_item": request.news_item,
+        "user_prefs": request.user_prefs
     })
     
     background_tasks.add_task(

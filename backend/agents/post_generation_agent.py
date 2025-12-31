@@ -37,7 +37,7 @@ class PostGenerationAgent:
         # 2. Plan Visual
         print("2. Planning Visuals...")
         if on_progress: await on_progress("generating_visual_plan", 50)
-        visual_plan = await self.visual_agent.plan_visual(news_item, caption_data)
+        visual_plan = await self.visual_agent.plan_visual(news_item, caption_data, user_prefs)
         
         # QUALITY GATE 2: Verify Visual Plan Text (Crucial for Image Generation)
         print("   [Quality Gate] Verifying Visual Blueprint Language...")

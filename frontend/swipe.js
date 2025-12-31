@@ -5,7 +5,15 @@ class SwipeApp {
         this.resultModal = document.getElementById('result-modal');
         this.cards = [];
         this.currentNews = null;
+        this.currentPrefs = null;
         this.generatedPost = null;
+
+        this.allNews = [];
+        this.currentFilter = 'All';
+
+        this.imageOptionsModal = new ImageOptionsModal((imgPrefs) => {
+            this.finalizeGeneration(imgPrefs);
+        });
 
         this.init();
         this.bindGlobalEvents();
@@ -22,40 +30,56 @@ class SwipeApp {
 
         try {
             const news = await Api.fetchNews();
-            this.stack.innerHTML = '';
-
-            if (!news || news.length === 0) {
-                this.stack.innerHTML = '<div class="empty-state-message"><p>No news found for today.</p><button onclick="window.app.init()" class="btn-secondary">Try Again</button></div>';
-                return;
-            }
-
-            this.cards = [];
-            news.forEach((item, index) => {
-                this.createCard(item, index);
-            });
-            this.renderStack();
+            this.allNews = news;
+            this.filterNews(this.currentFilter);
         } catch (e) {
             this.stack.innerHTML = `<div class="empty-state-message"><p>Failed to fetch news. Please try again.</p><button onclick="window.app.init()" class="btn-secondary">Retry</button></div>`;
             console.error(e);
         }
     }
 
+    filterNews(category) {
+        this.currentFilter = category;
+        this.stack.innerHTML = '';
+        this.cards = [];
+
+        // Visual feedback
+        this.stack.classList.remove('card-stack-filter-flash');
+        void this.stack.offsetWidth; // trigger reflow
+        this.stack.classList.add('card-stack-filter-flash');
+
+        const filtered = this.allNews.filter(item => {
+            if (category === 'All') return true;
+            return item.domain.toLowerCase().includes(category.toLowerCase());
+        });
+
+        if (filtered.length === 0) {
+            this.stack.innerHTML = `<div class="empty-state-message"><p>No ${category} news found for today.</p><button onclick="window.app.filterNews('All')" class="btn-secondary">Show All</button></div>`;
+            return;
+        }
+
+        filtered.forEach((item, index) => {
+            this.createCard(item, index);
+        });
+        this.renderStack();
+    }
+
     createCard(data, index) {
         const card = document.createElement('div');
         card.className = 'card';
         card.style.backgroundColor = data.palette.bg;
-        card.style.borderTop = `6px solid ${data.palette.accent}`;
+        card.style.borderTop = `6px solid ${data.palette.accent} `;
 
         card.innerHTML = `
             <div class="category" style="color: ${data.palette.accent}">${data.domain}</div>
             <h2 style="color: ${data.palette.text}">${data.headline}</h2>
-            <div class="content">${data.summary}</div>
+            <div class="content" style="color: ${data.palette.text}">${data.summary}</div>
             <div class="footer">
                 <div class="source-info">
-                    <strong>${data.source_name}</strong>
+                    <strong style="color: ${data.palette.text}">${data.source_name}</strong>
                     <a href="${data.source_url}" target="_blank" class="source-link" style="color: ${data.palette.accent}">View Source</a>
                 </div>
-                <span>${new Date().toLocaleDateString()}</span>
+                <span style="color: ${data.palette.text}">${new Date().toLocaleDateString()}</span>
             </div>
         `;
 
@@ -149,68 +173,55 @@ class SwipeApp {
             this.prefModal.classList.add('hidden');
         };
 
-        document.getElementById('generate-btn').onclick = async () => {
-            const status = document.getElementById('generation-status');
-            const gBtn = document.getElementById('generate-btn');
-
-            // Optimistic UI: Don't disable button for long, just preventing double clicks
-            gBtn.disabled = true;
-            gBtn.innerText = "Queueing...";
-
-            const prefs = {
-                tone: document.getElementById('tone-select').value,
-                audience: document.getElementById('audience-select').value,
-                length: document.getElementById('length-select').value
+        const filterSelect = document.getElementById('category-filter');
+        if (filterSelect) {
+            filterSelect.onchange = (e) => {
+                this.filterNews(e.target.value);
             };
+        }
 
-            // IMMEDIATE FEEDBACK: Close modal right away
+        document.getElementById('next-to-image-btn').onclick = () => {
+            const tone = document.getElementById('tone-select').value;
+            const audience = document.getElementById('audience-select').value;
+            const length = document.getElementById('length-select').value;
+
+            this.currentPrefs = { tone, audience, length };
+
             this.prefModal.classList.add('hidden');
+            this.imageOptionsModal.show();
+        };
 
-            // Generate temp ID for immediate queue feedback
+        document.getElementById('regenerate-img-btn').onclick = async () => {
+            if (!this.currentNews || !this.currentPrefs) {
+                if (window.Toast) window.Toast.show("Original context lost. Please try swiping again.", "error");
+                return;
+            }
+
+            // Close result modal and re-trigger generation
+            this.resultModal.classList.add('hidden');
+
             const tempId = 'temp_' + Date.now();
             if (window.queuePanel) {
                 window.queuePanel.addOptimisticJob(tempId, this.currentNews.headline);
             }
 
-            if (window.Toast) window.Toast.show("Agent started working on your post...", "info");
-
-            // Reset button state (since modal is closed, this prepares for next time)
-            setTimeout(() => {
-                gBtn.disabled = false;
-                gBtn.innerText = "Generate Content";
-                status.classList.add('hidden');
-            }, 500);
+            if (window.Toast) window.Toast.show("Regenerating post with same settings...", "info");
 
             try {
-                // Background API Call
-                const resp = await Api.enqueuePost(this.currentNews, prefs);
-
-                // Update the Optimistic Job ID with real one
+                const resp = await Api.enqueuePost(this.currentNews, this.currentPrefs);
                 if (window.queuePanel) {
                     window.queuePanel.updateOptimisticId(tempId, resp.job_id);
                 }
-
-                // Confirm
-                if (window.Toast) window.Toast.show("Job confirmed by agent core.", "success");
-
             } catch (e) {
                 console.error(e);
-                if (window.Toast) window.Toast.show("Failed to start agent found.", "error");
-
-                // Remove the optimistic job since it failed
-                if (window.queuePanel) {
-                    window.queuePanel.removeJob(tempId);
-                }
+                if (window.Toast) window.Toast.show("Failed to regenerate.", "error");
+                if (window.queuePanel) window.queuePanel.removeJob(tempId);
             }
         };
-
-
-
 
         document.getElementById('publish-btn').onclick = async () => {
             if (!this.generatedPost) return;
 
-            // Prefer full_caption from metadata
             let finalPayload = "";
             if (this.generatedPost.caption_data && this.generatedPost.caption_data.full_caption) {
                 finalPayload = this.generatedPost.caption_data.full_caption;
@@ -222,27 +233,19 @@ class SwipeApp {
             pBtn.disabled = true;
             pBtn.innerText = "Posting...";
 
-            // IMMEDIATE FEEDBACK: Close modal, assume intent is captured
             if (window.Toast) window.Toast.show("Publishing to LinkedIn...", "info");
-
-            // Keep modal open briefly to show state change, then close? 
-            // Better UX: Close modal and continue in background.
             this.resultModal.classList.add('hidden');
 
             try {
-                // Pass image_url from saved result
                 const res = await Api.publishPost(finalPayload, this.generatedPost.image_url);
-
                 if (res.status === 'success') {
                     if (window.Toast) window.Toast.show(res.message || "Published successfully!", "success");
                 } else {
                     if (window.Toast) window.Toast.show("Publishing error: " + (res.error || res.message), "error");
-                    // Re-open modal if failed? Maybe too jarring. Toast is enough.
                 }
             } catch (e) {
                 if (window.Toast) window.Toast.show("Publishing failed: " + e.message, "error");
             } finally {
-                // Reset button for next time
                 pBtn.disabled = false;
                 pBtn.innerText = "Post to LinkedIn";
             }
@@ -253,7 +256,6 @@ class SwipeApp {
             this.prefModal.classList.remove('hidden');
         };
 
-        // Manual controls
         document.getElementById('skip-btn').onclick = () => {
             if (this.cards.length) this.handleLeftSwipe(this.cards[0]);
         };
@@ -265,55 +267,87 @@ class SwipeApp {
         };
     }
 
-    injectCards(newCards) {
-        // ... (existing implementation)
-        if (!newCards || newCards.length === 0) return;
+    async finalizeGeneration(imgPrefs) {
+        const gBtn = document.getElementById('finalize-generate-btn');
+        gBtn.disabled = true;
+        gBtn.innerText = "Queueing...";
 
+        const fullPrefs = {
+            ...this.currentPrefs,
+            image_style: imgPrefs.style,
+            image_palette: imgPrefs.palette
+        };
+        this.currentPrefs = fullPrefs;
+
+        const tempId = 'temp_' + Date.now();
+        if (window.queuePanel) {
+            window.queuePanel.addOptimisticJob(tempId, this.currentNews.headline);
+        }
+
+        if (window.Toast) window.Toast.show("Agent started working on your post...", "info");
+
+        setTimeout(() => {
+            gBtn.disabled = false;
+            gBtn.innerText = "Generate Content";
+        }, 500);
+
+        try {
+            const resp = await Api.enqueuePost(this.currentNews, fullPrefs);
+            if (window.queuePanel) {
+                window.queuePanel.updateOptimisticId(tempId, resp.job_id);
+            }
+            if (window.Toast) window.Toast.show("Job confirmed by agent core.", "success");
+        } catch (e) {
+            console.error(e);
+            if (window.Toast) window.Toast.show("Failed to start agent found.", "error");
+            if (window.queuePanel) window.queuePanel.removeJob(tempId);
+        }
+    }
+
+    injectCards(newCards) {
+        if (!newCards || newCards.length === 0) return;
+        this.allNews = [...newCards, ...this.allNews];
         if (this.stack.innerHTML.includes('No news')) {
             this.stack.innerHTML = '';
         }
-
         newCards.forEach((item, index) => {
             const card = document.createElement('div');
             card.className = 'card';
             card.style.backgroundColor = item.palette.bg;
             card.style.borderTop = `6px solid ${item.palette.accent}`;
-
             card.innerHTML = `
                 <div class="category" style="color: ${item.palette.accent}">${item.domain}</div>
                 <h2 style="color: ${item.palette.text}">${item.headline}</h2>
-                <div class="content">${item.summary}</div>
+                <div class="content" style="color: ${item.palette.text}">${item.summary}</div>
                 <div class="footer">
                     <div class="source-info">
-                        <strong>${item.source_name}</strong>
+                        <strong style="color: ${item.palette.text}">${item.source_name}</strong>
                         <a href="${item.source_url}" target="_blank" class="source-link" style="color: ${item.palette.accent}">View Source</a>
                     </div>
-                    <span>${new Date().toLocaleDateString()}</span>
+                    <span style="color: ${item.palette.text}">${new Date().toLocaleDateString()}</span>
                 </div>
             `;
-
             this.bindSwipe(card, item);
             this.cards.unshift(card);
             this.stack.insertBefore(card, this.stack.firstChild);
         });
-
         this.renderStack();
     }
 
-    openResult(result) {
+    openResult(job) {
+        const result = job.result || job;
         this.generatedPost = result;
-
+        if (job.payload) {
+            if (job.payload.news_item) this.currentNews = job.payload.news_item;
+            if (job.payload.user_prefs) this.currentPrefs = job.payload.user_prefs;
+        }
         const rawCaption = result.caption_data ? result.caption_data.body : result.text;
         const hashtags = result.caption_data ? result.caption_data.hashtags : "";
         const hook = result.caption_data ? result.caption_data.hook : "";
-
         const displayBody = hook ? `<strong>${hook}</strong>\n\n${rawCaption}` : rawCaption;
-
         const container = document.getElementById('post-preview');
-        // Add timestamp to prevent caching issues
         const timestamp = new Date().getTime();
         const imageUrl = result.image_url ? `${result.image_url}?t=${timestamp}` : null;
-
         container.innerHTML = `
             <div class="post-preview-container">
                 <div class="preview-image">
@@ -326,7 +360,6 @@ class SwipeApp {
                 </div>
             </div>
         `;
-
         this.resultModal.classList.remove('hidden');
     }
 }

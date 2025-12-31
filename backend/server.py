@@ -10,6 +10,8 @@ from backend.routes.queue_router import router as queue_router
 from backend.routes.media import setup_media_routes
 import google.generativeai as genai
 import uvicorn
+import asyncio
+from backend.agents.news_fetch_agent import NewsFetchAgent
 
 # Configure Gemini globally
 genai.configure(api_key=Config.GEMINI_API_KEY)
@@ -17,6 +19,21 @@ genai.configure(api_key=Config.GEMINI_API_KEY)
 app = FastAPI(title="Simplii News API")
 app.include_router(ingest_router, prefix="/api")
 app.include_router(queue_router, prefix="/api")
+
+# Background task for constant news fetching
+async def background_news_fetcher():
+    agent = NewsFetchAgent()
+    while True:
+        try:
+            print("[BACKGROUND] Periodically refreshing news cache...")
+            await agent.fetch(force_refresh=True)
+        except Exception as e:
+            print(f"[BACKGROUND ERROR] {e}")
+        await asyncio.sleep(600) # Refresh every 10 minutes
+
+@app.on_event("startup")
+async def startup_event():
+    asyncio.create_task(background_news_fetcher())
 
 # Setup Media Serving (Critical for Image Visibility)
 setup_media_routes(app)

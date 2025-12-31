@@ -5,7 +5,7 @@ class VisualPlanningAgent:
     def __init__(self):
         self.model = genai.GenerativeModel('models/gemini-2.5-flash')
 
-    async def plan_visual(self, news_item: Dict, caption_data: Dict) -> Dict:
+    async def plan_visual(self, news_item: Dict, caption_data: Dict, user_prefs: Dict) -> Dict:
         """
         Creates an elite-tier studio-grade blueprint for a professional editorial infographic.
         Pushes for maximum visual richness, information density, and sophisticated hierarchy.
@@ -17,11 +17,17 @@ class VisualPlanningAgent:
         # Leverage high-level strategic insights from the caption strategist
         strategic_insights = caption_data.get('strategic_insights', [])
         
+        image_style = user_prefs.get('image_style', 'Futuristic')
+        image_palette = user_prefs.get('image_palette', 'Multi-color vibrant')
+
         prompt = f"""
         Design an elite, studio-grade editorial infographic blueprint for a premium LinkedIn post.
         
         GOAL: Elevate visual richness and professional data journalism to the highest possible level. 
         It MUST look like a handcrafted masterpiece from a top-tier newsroom (NYT, Bloomberg, Reuters) or strategy firm (McKinsey, BCG).
+
+        MANDATORY STYLE: {image_style}
+        MANDATORY COLOR PALETTE: {image_palette}
 
         NEWS DETAILS:
         - HEADLINE: {headline}
@@ -42,14 +48,11 @@ class VisualPlanningAgent:
         9. Text Alignment: All headings must be center-aligned. Body text must be left-aligned. Ensure clear separation between sections and consistent line spacing.
         10. Hierarchy & Contrast: Implement a clear hierarchy: (1) Bold primary headline, (2) Concise sub-headlines, (3) Minimal dictionary-valid labels. Maintain high contrast. No overlapping or diagonal text.
 
-        DOMAIN-SPECIFIC DIRECTION:
-        - Legal AI: Use Electric Blue, Cyan, and Deep Purple. Futuristic 'Cyber-Law' aesthetic with glowing highlights.
-        - Healthcare AI: Clinical Teal, Neon Green, and Magenta. High-energy 'Bio-Tech' visualization with vibrant data pulses.
-        - Business AI: Solar Yellow, Tangerine, and Midnight Blue. Futuristic 'Market-Flow' dashboard with bright high-contrast elements.
-
         OUTPUT FORMAT (JSON):
         {{
             "visual_type": "studio_grade_infographic",
+            "style": "{image_style}",
+            "palette_preference": "{image_palette}",
             "headline_hierarchy": {{
                 "main": "Punchy, bold editorial headline",
                 "sub": "Contextual one-line sub-headline"
@@ -60,11 +63,11 @@ class VisualPlanningAgent:
                 {{"type": "insight_cards", "description": "Content for 2 callout boxes highlighting impact"}}
             ],
             "aesthetic_tokens": {{
-                "palette": "Vibrant futuristic palette (Electric Blue, Cyan, Teal, Magenta, Purple, Lime, Orange/Yellow)",
-                "texture": "Clean futuristic matte with glowing elements and subtle sci-fi grain",
-                "lighting": "High-energy editorial lighting with neon highlights and clean shadows"
+                "palette": "Strictly use {image_palette}",
+                "texture": "Clean professional matte according to {image_style} style",
+                "lighting": "High-energy editorial lighting"
             }},
-            "image_prompt": "An elite-tier 4K 4:5 vertical futuristic editorial infographic. Mention: 'High-energy futuristic design', 'multi-color vibrancy', 'bright sci-fi aesthetic', 'rich multi-layered layout', 'razor-sharp text', 'center-aligned headings', 'simple common English words only', 'no jargon in small text', 'clean margins', 'complex data visualization', 'glowing highlights', 'ZERO spelling errors', 'perfect alignment'."
+            "image_prompt": "An elite-tier 4K 4:5 vertical editorial infographic. STYLE: {image_style}. PALETTE: {image_palette}. High-fidelity design studio output, multi-layered layout, razor-sharp text, center-aligned headings, simple common English words only, no jargon in small text, clean margins, complex data visualization, ZERO spelling errors, perfect alignment."
         }}
         Return ONLY valid JSON.
         """

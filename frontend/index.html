@@ -33,6 +33,23 @@
             </div>
 
             <div class="header-right">
+                <select id="category-filter" class="btn-compact filter-select">
+                    <option value="All">All News</option>
+                    <option value="HealthTech">HealthTech</option>
+                    <option value="FinTech">FinTech</option>
+                    <option value="LLMOps">LLMOps</option>
+                    <option value="Industrial IoT">Industrial IoT</option>
+                    <option value="Urban Tech">Urban Tech</option>
+                    <option value="LegalTech">LegalTech</option>
+                    <option value="HR Tech">HR Tech</option>
+                    <option value="Generative NLP">Generative NLP</option>
+                    <option value="Industrial AI">Industrial AI</option>
+                    <option value="Secure AI">Secure AI</option>
+                    <option value="Consumer AI">Consumer AI</option>
+                    <option value="EdTech">EdTech</option>
+                    <option value="AI in Marketing">AI in Marketing</option>
+                    <option value="CivicTech">CivicTech</option>
+                </select>
                 <button id="upload-main-btn" class="btn-compact">
                     <span class="icon">+</span> New Source
                 </button>
@@ -142,7 +159,42 @@
 
                 <div class="modal-actions">
                     <button id="close-modal" class="btn-secondary">Cancel</button>
-                    <button id="generate-btn" class="btn-primary">Generate Content</button>
+                    <button id="next-to-image-btn" class="btn-primary">Next: Visual Style</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Image Options Modal -->
+        <div id="image-options-modal" class="modal hidden">
+            <div class="modal-overlay"></div>
+            <div class="modal-content">
+                <h2>Custom Visual Style</h2>
+
+                <div class="form-divider">Image Generation Options</div>
+
+                <div class="form-group">
+                    <label>Image Style</label>
+                    <select id="style-select">
+                        <option value="Minimalistic">Minimalistic</option>
+                        <option value="Futuristic" selected>Futuristic</option>
+                        <option value="Editorial / Infographic">Editorial / Infographic</option>
+                        <option value="Data-centric">Data-centric</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Color Palette Preference</label>
+                    <select id="palette-select">
+                        <option value="Cool tones">Cool tones</option>
+                        <option value="Warm tones">Warm tones</option>
+                        <option value="Multi-color vibrant" selected>Multi-color vibrant</option>
+                        <option value="Monochrome">Monochrome</option>
+                    </select>
+                </div>
+
+                <div class="modal-actions">
+                    <button id="close-image-options" class="btn-secondary">Back</button>
+                    <button id="finalize-generate-btn" class="btn-primary">Generate Content</button>
                 </div>
             </div>
         </div>
@@ -155,6 +207,7 @@
                 <div id="post-preview" class="post-preview"></div>
                 <div class="modal-actions">
                     <button id="edit-btn" class="btn-secondary">Back</button>
+                    <button id="regenerate-img-btn" class="btn-secondary">Regenerate Image</button>
                     <button id="publish-btn" class="btn-primary">Post to LinkedIn</button>
                 </div>
             </div>
@@ -163,6 +216,7 @@
 
     <script src="api.js"></script>
     <script src="queue_panel.js"></script>
+    <script src="image_options_modal.js"></script>
     <script src="swipe.js"></script>
     <script src="upload_modal.js"></script>
 </body>
