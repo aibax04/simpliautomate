@@ -12,6 +12,8 @@ python-multipart
 sqlalchemy
 asyncpg
 psycopg2-binary
+alembic
+gunicorn
 # Security
 passlib[bcrypt]
 python-jose[cryptography]

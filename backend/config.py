@@ -10,7 +10,11 @@ class Config:
     LINKEDIN_CLIENT_SECRET = os.getenv("LINKEDIN_CLIENT_SECRET")
     LINKEDIN_REDIRECT_URI = os.getenv("LINKEDIN_REDIRECT_URI")
     LINKEDIN_ACCESS_TOKEN = os.getenv("LINKEDIN_ACCESS_TOKEN")
-    LINKEDIN_USER_URN = os.getenv("LINKEDIN_USER_URN") # e.g. urn:li:person:12345
+    LINKEDIN_USER_URN = os.getenv("LINKEDIN_USER_URN")
+    
+    # Production Security
+    SECRET_KEY = os.getenv("SECRET_KEY", "prod-secret-change-this-in-render-env")
+    DATABASE_URL = os.getenv("DATABASE_URL")
     
     # Expanded Categories for variety and domain-specific news
     CATEGORIES = [

@@ -43,7 +43,16 @@ async def background_news_fetcher():
 
 @app.on_event("startup")
 async def startup_event():
-    # Verify DB connection on startup
+    # 1. Create tables if they don't exist (Production Safety)
+    try:
+        from backend.db.database import engine, Base
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+        print("[DB] Schema verification complete.")
+    except Exception as e:
+        print(f"[DB WARNING] Could not verify schema: {e}")
+
+    # 2. Verify DB connection on startup
     await check_db_connection()
     asyncio.create_task(background_news_fetcher())
 
@@ -60,6 +69,10 @@ app.add_middleware(
 
 # Initialize LangGraph
 graph = create_graph()
+
+@app.get("/health")
+async def health_check():
+    return {"status": "ok"}
 
 @app.get("/api/fetch-news")
 async def fetch_news(user: User = Depends(get_current_user)):
