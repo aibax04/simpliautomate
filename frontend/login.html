@@ -132,6 +132,52 @@
             font-family: var(--font-heading);
         }
 
+        /* How it works styling */
+        .how-it-works {
+            text-align: center;
+        }
+
+        .how-it-works h3 {
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            opacity: 0.5;
+            margin-bottom: 24px;
+        }
+
+        .step-flow {
+            display: flex;
+            align-items: center;
+            justify-content: space-around;
+            gap: 10px;
+        }
+
+        .step {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .step span {
+            font-size: 0.7rem;
+            font-weight: 700;
+            color: var(--primary);
+            opacity: 0.8;
+        }
+
+        .step p {
+            font-size: 0.9rem !important;
+            font-weight: 600 !important;
+            opacity: 1 !important;
+            margin: 0 !important;
+        }
+
+        .step-divider {
+            width: 20px;
+            height: 1px;
+            background: rgba(255, 255, 255, 0.1);
+        }
+
         /* Right Side: Form */
         .auth-form-container {
             flex: 1;
@@ -174,14 +220,14 @@
         }
 
         .auth-header {
-            text-align: left;
+            text-align: center;
             margin-bottom: 32px;
         }
 
         .auth-header .logo-img {
-            max-width: 140px;
+            max-width: 160px;
             height: auto;
-            margin-bottom: 24px;
+            margin: 0 auto 24px;
             display: block;
         }
 
@@ -314,14 +360,23 @@
                 <p>Automated intelligence for the modern professional.</p>
                 
                 <div class="glass-card">
-                    <div class="stat-grid">
-                        <div class="stat-item">
-                            <span>Analysis Speed</span>
-                            <strong>< 2.4s</strong>
-                        </div>
-                        <div class="stat-item">
-                            <span>Accuracy</span>
-                            <strong>99.9%</strong>
+                    <div class="how-it-works">
+                        <h3>How it works</h3>
+                        <div class="step-flow">
+                            <div class="step">
+                                <span>01</span>
+                                <p>Ingest</p>
+                            </div>
+                            <div class="step-divider"></div>
+                            <div class="step">
+                                <span>02</span>
+                                <p>Analyze</p>
+                            </div>
+                            <div class="step-divider"></div>
+                            <div class="step">
+                                <span>03</span>
+                                <p>Publish</p>
+                            </div>
                         </div>
                     </div>
                 </div>
