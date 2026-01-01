@@ -8,6 +8,7 @@ requests
 requests-oauthlib
 pillow
 python-multipart
+aiohttp
 # Database
 sqlalchemy
 asyncpg

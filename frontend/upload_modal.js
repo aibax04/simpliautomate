@@ -59,6 +59,10 @@ document.addEventListener('DOMContentLoaded', () => {
         status.classList.remove('hidden');
         ingestBtn.disabled = true;
 
+        if (window.Toast) {
+            window.Toast.show("Processing your source... This may take a few moments.", "info");
+        }
+
         const formData = new FormData();
 
         if (activeTab === 'file') {
@@ -68,8 +72,15 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         try {
+            const token = localStorage.getItem('simplii_token');
+            const headers = {};
+            if (token) {
+                headers['Authorization'] = `Bearer ${token}`;
+            }
+
             const response = await fetch('/api/ingest-source', {
                 method: 'POST',
+                headers: headers,
                 body: formData
             });
 

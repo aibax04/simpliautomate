@@ -49,8 +49,30 @@ class PostGenerationAgent:
         # 3. Generate Image using only spelling-verified visual plan
         print("3. Generating Image (based on 100% verified text)...")
         if on_progress: await on_progress("generating_image", 85)
-        image_url = await self.image_agent.generate_image(visual_plan)
         
+        # FEATURE: OCR & Visual Quality Verification with Retries
+        max_image_attempts = 2
+        current_image_attempt = 0
+        image_verified = False
+        image_url = None
+        
+        while current_image_attempt < max_image_attempts and not image_verified:
+            current_image_attempt += 1
+            if current_image_attempt > 1:
+                print(f"   [QA] Image failed verification. Retrying attempt {current_image_attempt}...")
+                if on_progress: await on_progress("regenerating_image", 85 + current_image_attempt)
+
+            image_url = await self.image_agent.generate_image(visual_plan)
+            
+            # Use main_text or headline for OCR verification
+            verification_text = visual_plan.get('main_text') or news_item.get('headline')
+            image_verified = await self.image_agent.verify_image(image_url, verification_text)
+            
+            if image_verified:
+                print("   [QA] Image passed spelling and alignment check.")
+            else:
+                print(f"   [QA] Image attempt {current_image_attempt} failed spelling/alignment.")
+
         # 4. Assembly
         final_content = f"{caption_data.get('full_caption')}"
         

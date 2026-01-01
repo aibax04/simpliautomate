@@ -28,8 +28,9 @@ class QualityAssuranceAgent:
         3. **Clarity & Flow**: Improve clarity and flow. Ensure the English is natural, fluent, and highly professional.
         4. **Tone & Style**: Remove awkward phrasing, repetition, and any informal tone. The content MUST be publication-ready.
         5. **Preservation of Meaning**: Do NOT change the factual meaning. Do NOT add or remove information.
-        6. **Technical Accuracy**: Do NOT simplify or alter technical terms incorrectly. Maintain their professional context.
-        7. **Human-Like Quality**: The content should feel like it was written by a top-tier industry journalist.
+        6. **URL Integrity**: NEVER modify anything inside a "source_url" field. Even if it looks like it has a typo, LEAVE IT AS IS. URLs must remain exactly as they are in the source.
+        7. **Technical Accuracy**: Do NOT simplify or alter technical terms incorrectly. Maintain their professional context.
+        8. **Human-Like Quality**: The content should feel like it was written by a top-tier industry journalist.
 
         CONTENT TO AUDIT & CORRECT:
         {json.dumps(content_bundle, indent=2)}

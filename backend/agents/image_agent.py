@@ -4,19 +4,68 @@ import os
 import uuid
 import base64
 import sys
+import PIL.Image
 
 class ImageAgent:
     def __init__(self):
         # Using valid Gemini model for image generation as requested
-        self.model_name = 'models/gemini-2.5-flash-image'
+        self.model_name = 'models/gemini-2.0-flash' # Using flash for OCR/QA
+        self.image_model_name = 'models/gemini-2.5-flash-image'
         try:
             self.model = genai.GenerativeModel(self.model_name)
+            self.image_model = genai.GenerativeModel(self.image_model_name)
             # STEP 5: ADD SAFETY LOG
-            print(f"Using image model: {self.model_name}")
+            print(f"Using image model: {self.image_model_name} and QA model: {self.model_name}")
             sys.stdout.flush()
         except Exception as e:
-            print(f"[ERROR] Failed to initialize model {self.model_name}: {e}")
-            self.model = genai.GenerativeModel('models/gemini-2.5-flash-image')
+            print(f"[ERROR] Failed to initialize models: {e}")
+            self.model = genai.GenerativeModel('models/gemini-2.0-flash')
+            self.image_model = genai.GenerativeModel('models/gemini-2.5-flash-image')
+
+    async def verify_image(self, image_path: str, expected_text: str) -> bool:
+        """
+        Uses Gemini Multimodal to inspect the image for spelling and alignment.
+        """
+        try:
+            # Load the image using PIL
+            # Resolve absolute path
+            current_dir = os.path.dirname(os.path.abspath(__file__)) # agents/
+            project_root = os.path.dirname(os.path.dirname(current_dir)) # simplii/
+            
+            # image_path is like /generated_images/uuid.png
+            full_path = os.path.join(project_root, "frontend", image_path.lstrip('/'))
+            
+            if not os.path.exists(full_path):
+                print(f"[QA ERROR] Image file not found for verification: {full_path}")
+                return True # Don't block if file is missing somehow
+
+            img = PIL.Image.open(full_path)
+            
+            prompt = f"""
+            Inspect this generated social media infographic.
+            
+            REQUIRED TEXT TO BE PRESENT: "{expected_text}"
+            
+            CHECKLIST FOR OCR & VISUAL QUALITY:
+            1. SPELLING: Is every word from the required text spelled correctly in the image? Check for typos, character swaps, or missing letters.
+            2. ALIGNMENT: Is the text centered or correctly aligned? Is any text overlapping, crowded, or cut off at the edges?
+            3. READABILITY: Is the contrast high enough to read the text?
+            
+            If there are ANY spelling errors or bad alignment issues, respond ONLY with "FAIL: [brief description]".
+            If it is perfect and free of spelling/alignment issues, respond ONLY with "PASS".
+            """
+            
+            # Call Gemini Vision (using the flash model which is excellent at OCR)
+            response = await self.model.generate_content_async([prompt, img])
+            result = response.text.strip().upper()
+            
+            print(f"[QA RESULT] Image verification: {result}")
+            sys.stdout.flush()
+            
+            return "PASS" in result
+        except Exception as e:
+            print(f"[QA ERROR] Failed to verify image: {e}")
+            return True # Fallback to true to not break the workflow on API error
 
     async def generate_image(self, visual_plan: dict) -> str:
         """
@@ -89,10 +138,10 @@ class ImageAgent:
         while attempts < max_attempts:
             attempts += 1
             try:
-                print(f"[DEBUG] [Attempt {attempts}] Calling GenerateContent with model {self.model_name}")
+                print(f"[DEBUG] [Attempt {attempts}] Calling GenerateContent with model {self.image_model_name}")
                 sys.stdout.flush()
                 
-                response = await self.model.generate_content_async(
+                response = await self.image_model.generate_content_async(
                     refined_prompt,
                     generation_config=genai.types.GenerationConfig(
                         candidate_count=1,

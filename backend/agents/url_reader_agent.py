@@ -5,8 +5,8 @@ from typing import Dict
 
 class URLReaderAgent:
     def __init__(self):
-        # Using 2.5 Flash for efficient parsing
-        self.model = genai.GenerativeModel('models/gemini-2.5-flash')
+        # Using 2.0 Flash for efficient parsing
+        self.model = genai.GenerativeModel('models/gemini-2.0-flash')
 
     async def parse_url(self, url: str) -> Dict:
         """
@@ -70,10 +70,15 @@ class URLReaderAgent:
         """
         
         try:
-            response = self.model.generate_content(prompt)
-            clean_text = response.text.replace('```json', '').replace('```', '').strip()
+            response = await self.model.generate_content_async(prompt)
+            text_res = response.text.strip()
+            if "```json" in text_res:
+                text_res = text_res.split("```json")[1].split("```")[0].strip()
+            elif "```" in text_res:
+                text_res = text_res.split("```")[1].split("```")[0].strip()
+            
             import json
-            return json.loads(clean_text)
+            return json.loads(text_res)
         except Exception as e:
             print(f"Error parsing URL with Gemini: {e}")
             return {"error": str(e)}

@@ -6,8 +6,8 @@ from typing import List, Dict
 
 class DocumentReaderAgent:
     def __init__(self):
-        # Using 2.5 Flash for efficient long-context parsing
-        self.model = genai.GenerativeModel('models/gemini-2.5-flash')
+        # Using 2.0 Flash for efficient long-context parsing
+        self.model = genai.GenerativeModel('models/gemini-2.0-flash')
 
     async def parse_document(self, file_content: bytes, filename: str) -> Dict:
         """
@@ -62,11 +62,16 @@ class DocumentReaderAgent:
         """
         
         try:
-            response = self.model.generate_content(prompt)
+            response = await self.model.generate_content_async(prompt)
             # Basic cleanup
-            clean_text = response.text.replace('```json', '').replace('```', '').strip()
+            text_res = response.text.strip()
+            if "```json" in text_res:
+                text_res = text_res.split("```json")[1].split("```")[0].strip()
+            elif "```" in text_res:
+                text_res = text_res.split("```")[1].split("```")[0].strip()
+            
             import json
-            return json.loads(clean_text)
+            return json.loads(text_res)
         except Exception as e:
             print(f"Error parsing document with Gemini: {e}")
             return {"error": str(e)}

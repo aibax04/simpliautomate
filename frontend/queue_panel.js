@@ -135,9 +135,9 @@ class QueuePanel {
 
         // Icons
         let icon = '';
-        if (status === 'ready') icon = '<span style="color:var(--success);">✓</span>';
-        else if (status === 'failed') icon = '<span style="color:var(--error);">!</span>';
-        else if (isGenerating) icon = '⟳';
+        if (status === 'ready') icon = '<span style="color:var(--success); font-weight:bold;">✓</span>';
+        else if (status === 'failed') icon = '<span style="color:var(--error); font-weight:bold;">!</span>';
+        else if (isGenerating) icon = '<div class="mini-spinner"></div>';
 
         let progress = job.progress || 0;
         // Mock progress for optimistic
@@ -154,7 +154,7 @@ class QueuePanel {
             
             <div class="job-meta">
                 <span class="status-badge">${statusLabel}</span>
-                ${progress > 0 && progress < 100 ? `<span style="font-size:0.7rem; color:var(--text-secondary);">${progress}%</span>` : ''}
+                ${progress > 0 && progress < 100 ? `<span style="font-size:0.7rem; color:var(--text-secondary); opacity:0.8;">${progress}%</span>` : ''}
             </div>
 
             ${progress < 100 && status !== 'ready' && status !== 'failed' ? `
