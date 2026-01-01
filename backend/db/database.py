@@ -15,11 +15,17 @@ if _db_url:
     elif _db_url.startswith("postgresql://") and "asyncpg" not in _db_url:
         _db_url = _db_url.replace("postgresql://", "postgresql+asyncpg://", 1)
     DATABASE_URL = _db_url
+    print(f"[DB] Using environment DATABASE_URL (host: {DATABASE_URL.split('@')[-1].split('/')[0]})")
 else:
-    # Local development fallback
-    DATABASE_URL = "postgresql+asyncpg://postgres:postgres@localhost:5432/simplii"
-
-print(f"[DB] Initializing engine with URL (masked): {DATABASE_URL.split('@')[-1]}")
+    # Check if we are on Render
+    if os.getenv("RENDER"):
+        print("❌ CRITICAL ERROR: DATABASE_URL environment variable is NOT SET on Render!")
+        # We don't crash here to allow the health check to potentially report status
+        DATABASE_URL = "postgresql+asyncpg://missing_url_on_render"
+    else:
+        # Local development fallback
+        DATABASE_URL = "postgresql+asyncpg://postgres:postgres@localhost:5432/simplii"
+        print("[DB] Using local development database.")
 
 engine = create_async_engine(DATABASE_URL, echo=False)
 AsyncSessionLocal = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)

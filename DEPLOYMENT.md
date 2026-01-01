@@ -18,10 +18,12 @@ This application is ready for deployment on Render.
 5. **Start Command:** `gunicorn -w 4 -k uvicorn.workers.UvicornWorker backend.server:app`
 6. Click **Advanced** to add Environment Variables.
 
-## Required Environment Variables
+### ⚠️ IMPORTANT: Environment Variables
+You **MUST** manually add these variables in the Render dashboard under the **Environment** tab of your Web Service:
+
 | Variable | Description |
 |----------|-------------|
-| `DATABASE_URL` | `postgresql+asyncpg://user:pass@host/db` |
+| `DATABASE_URL` | **CRITICAL:** Copy the "External Database URL" from your Render Database page. It looks like `postgres://...`. (Our code will automatically add `+asyncpg`). |
 | `GEMINI_API_KEY` | Your Google Gemini API Key |
 | `SECRET_KEY` | A long random string for JWT signing |
 | `SECRET_KEY_APP` | Shared secret for Signup/Login forms (e.g. `simplii-123`) |
