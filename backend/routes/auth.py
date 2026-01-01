@@ -10,7 +10,10 @@ from pydantic import BaseModel, EmailStr
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 # Shared secret key for both signup and login to restrict access
-SECRET_KEY_APP = os.getenv("SECRET_KEY_APP", "SIMPLII-2026-KEY")
+SECRET_KEY_APP = os.getenv("SECRET_KEY_APP", "simplii-dev-key")
+
+if not os.getenv("SECRET_KEY_APP"):
+    print("[AUTH WARNING] SECRET_KEY_APP not set in environment. Using default dev key.")
 
 class UserCreate(BaseModel):
     username: str
