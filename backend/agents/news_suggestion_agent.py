@@ -7,6 +7,8 @@ from backend.agents.curation_agent import CurationAgent
 from backend.agents.qa_agent import QualityAssuranceAgent
 
 class LiveNewsSuggestionAgent:
+    _search_semaphore = asyncio.Semaphore(2)
+
     def __init__(self):
         # Using 2.0 Flash with Search Grounding support
         try:
@@ -74,9 +76,18 @@ class LiveNewsSuggestionAgent:
         """
         
         try:
-            response = await self.model.generate_content_async(prompt)
+            async with LiveNewsSuggestionAgent._search_semaphore:
+                try:
+                    # Attempt with search tool
+                    response = await self.model.generate_content_async(prompt)
+                    text = response.text.strip()
+                except Exception as search_e:
+                    print(f"[WARNING] Suggestion search tool failed, falling back to basic: {search_e}")
+                    # Create a temporary model without the tool for fallback
+                    fallback_model = genai.GenerativeModel('models/gemini-2.0-flash')
+                    response = await fallback_model.generate_content_async(prompt)
+                    text = response.text.strip()
             
-            text = response.text.strip()
             if "```json" in text:
                 text = text.split("```json")[1].split("```")[0].strip()
             elif "```" in text:
