@@ -11,6 +11,16 @@
     <link
         href="https://fonts.googleapis.com/css2?family=Libre+Baskerville:wght@400;700&family=Plus+Jakarta+Sans:wght@300;400;600&display=swap"
         rel="stylesheet">
+    <script>
+        // AUTH CHECK - CRITICAL
+        if (!localStorage.getItem('simplii_token')) {
+            window.location.href = '/login.html';
+        }
+        function logout() {
+            localStorage.removeItem('simplii_token');
+            window.location.href = '/login.html';
+        }
+    </script>
 </head>
 
 <body>
@@ -52,6 +62,9 @@
                 </select>
                 <button id="upload-main-btn" class="btn-compact">
                     <span class="icon">+</span> New Source
+                </button>
+                <button onclick="logout()" class="btn-compact btn-logout">
+                    Logout
                 </button>
             </div>
         </header>

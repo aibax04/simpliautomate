@@ -20,7 +20,7 @@ class NewsFetchAgent:
         try:
             self.model_with_search = genai.GenerativeModel(
                 model_name=self.model_name,
-                tools=[{"google_search_retrieval": {}}]
+                tools=[{"google_search": {}}]
             )
             print(f"[INFO] Search grounding enabled with {self.model_name}")
         except Exception as e:

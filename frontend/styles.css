@@ -196,8 +196,17 @@ body {
     gap: 8px;
 }
 
-.btn-compact:hover {
-    background: #0047B3;
+.btn-logout {
+    background: transparent !important;
+    border: 1px solid var(--border) !important;
+    color: var(--text-secondary) !important;
+    box-shadow: none !important;
+}
+
+.btn-logout:hover {
+    background: var(--bg) !important;
+    border-color: var(--text-secondary) !important;
+    color: var(--text) !important;
 }
 
 /* Card Stack */

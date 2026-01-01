@@ -12,10 +12,11 @@ class QueueManager:
             cls._instance.jobs = {}
         return cls._instance
 
-    def create_job(self, type: str, payload: Dict[str, Any]) -> str:
+    def create_job(self, type: str, payload: Dict[str, Any], user_id: int = None) -> str:
         job_id = str(uuid.uuid4())
         self.jobs[job_id] = {
             "id": job_id,
+            "user_id": user_id, # Store user_id in job
             "type": type,
             "status": "queued",
             "created_at": datetime.now().isoformat(),
@@ -29,8 +30,11 @@ class QueueManager:
     def get_job(self, job_id: str) -> Optional[Dict[str, Any]]:
         return self.jobs.get(job_id)
 
-    def get_all_jobs(self) -> Dict[str, Dict]:
-        return self.jobs
+    def get_all_jobs(self, user_id: int = None) -> Dict[str, Dict]:
+        if user_id is None:
+            return self.jobs
+        # Filter jobs by user_id
+        return {k: v for k, v in self.jobs.items() if v.get("user_id") == user_id}
 
     def update_job(self, job_id: str, status: str = None, result: Any = None, error: str = None, progress: int = None):
         if job_id in self.jobs:

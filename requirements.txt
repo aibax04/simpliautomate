@@ -8,6 +8,14 @@ requests
 requests-oauthlib
 pillow
 python-multipart
+# Database
+sqlalchemy
+asyncpg
+psycopg2-binary
+# Security
+passlib[bcrypt]
+python-jose[cryptography]
+email-validator
 # Document processing
 pypdf
 python-docx

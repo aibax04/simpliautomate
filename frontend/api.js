@@ -1,8 +1,28 @@
 const Api = {
+    getHeaders() {
+        const token = localStorage.getItem('simplii_token');
+        const headers = { 'Content-Type': 'application/json' };
+        if (token) {
+            headers['Authorization'] = `Bearer ${token}`;
+        }
+        return headers;
+    },
+
+    async handleResponse(response) {
+        if (response.status === 401) {
+            localStorage.removeItem('simplii_token');
+            window.location.href = '/login.html';
+            throw new Error('Unauthorized');
+        }
+        return await response.json();
+    },
+
     async fetchNews() {
         try {
-            const response = await fetch('/api/fetch-news');
-            return await response.json();
+            const response = await fetch('/api/fetch-news', {
+                headers: this.getHeaders()
+            });
+            return await this.handleResponse(response);
         } catch (e) {
             console.error("API Error:", e);
             return [];
@@ -10,14 +30,13 @@ const Api = {
     },
 
     async generatePost(newsItem, prefs) {
-        // Keeps existing logic valid but we prefer enqueue now
         try {
             const response = await fetch('/api/generate-post', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: this.getHeaders(),
                 body: JSON.stringify({ news: newsItem, prefs })
             });
-            return await response.json();
+            return await this.handleResponse(response);
         } catch (e) {
             console.error("API Error:", e);
             throw e;
@@ -28,11 +47,10 @@ const Api = {
         try {
             const response = await fetch('/api/enqueue-post', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: this.getHeaders(),
                 body: JSON.stringify({ news_item: newsItem, user_prefs: prefs })
             });
-            const data = await response.json();
-            return data;
+            return await this.handleResponse(response);
         } catch (e) {
             console.error("Queue Error:", e);
             throw e;
@@ -41,8 +59,10 @@ const Api = {
 
     async getQueueStatus() {
         try {
-            const response = await fetch('/api/queue-status');
-            return await response.json();
+            const response = await fetch('/api/queue-status', {
+                headers: this.getHeaders()
+            });
+            return await this.handleResponse(response);
         } catch (e) {
             console.error("Queue Status Error:", e);
             return [];
@@ -51,8 +71,10 @@ const Api = {
 
     async getJobResult(jobId) {
         try {
-            const response = await fetch(`/api/job-result/${jobId}`);
-            return await response.json();
+            const response = await fetch(`/api/job-result/${jobId}`, {
+                headers: this.getHeaders()
+            });
+            return await this.handleResponse(response);
         } catch (e) {
             console.error("Job Result Error:", e);
             return null;
@@ -63,10 +85,10 @@ const Api = {
         try {
             const response = await fetch('/api/post-linkedin', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: this.getHeaders(),
                 body: JSON.stringify({ content, image_url: imageUrl })
             });
-            return await response.json();
+            return await this.handleResponse(response);
         } catch (e) {
             console.error("API Error:", e);
             return { error: "Failed to publish." };
