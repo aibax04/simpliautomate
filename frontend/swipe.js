@@ -3,10 +3,13 @@ class SwipeApp {
         this.stack = document.getElementById('card-stack');
         this.prefModal = document.getElementById('pref-modal');
         this.resultModal = document.getElementById('result-modal');
+        this.customModal = document.getElementById('custom-post-modal');
         this.cards = [];
         this.currentNews = null;
         this.currentPrefs = null;
         this.generatedPost = null;
+        this.isCustomPost = false;
+        this.customPrompt = "";
 
         this.allNews = [];
         this.currentFilter = 'All';
@@ -17,6 +20,40 @@ class SwipeApp {
 
         this.init();
         this.bindGlobalEvents();
+        this.bindCustomEvents();
+    }
+
+    bindCustomEvents() {
+        const customBtn = document.getElementById('custom-post-btn');
+        const closeCustomBtn = document.getElementById('close-custom-modal');
+        const nextCustomBtn = document.getElementById('next-to-prefs-custom-btn');
+
+        if (customBtn) {
+            customBtn.onclick = () => {
+                this.customModal.classList.remove('hidden');
+                this.isCustomPost = true;
+            };
+        }
+
+        if (closeCustomBtn) {
+            closeCustomBtn.onclick = () => {
+                this.customModal.classList.add('hidden');
+                this.isCustomPost = false;
+            };
+        }
+
+        if (nextCustomBtn) {
+            nextCustomBtn.onclick = () => {
+                const prompt = document.getElementById('custom-prompt-input').value.trim();
+                if (!prompt) {
+                    alert("Please enter a prompt.");
+                    return;
+                }
+                this.customPrompt = prompt;
+                this.customModal.classList.add('hidden');
+                this.showPrefs();
+            };
+        }
     }
 
     async init() {
@@ -280,8 +317,10 @@ class SwipeApp {
         this.currentPrefs = fullPrefs;
 
         const tempId = 'temp_' + Date.now();
+        const headline = this.isCustomPost ? "Custom Post" : this.currentNews.headline;
+        
         if (window.queuePanel) {
-            window.queuePanel.addOptimisticJob(tempId, this.currentNews.headline);
+            window.queuePanel.addOptimisticJob(tempId, headline);
         }
 
         if (window.Toast) window.Toast.show("Agent started working on your post...", "info");
@@ -292,7 +331,17 @@ class SwipeApp {
         }, 500);
 
         try {
-            const resp = await Api.enqueuePost(this.currentNews, fullPrefs);
+            let resp;
+            if (this.isCustomPost) {
+                resp = await Api.enqueueCustomPost(this.customPrompt, fullPrefs);
+                // Reset custom state
+                this.isCustomPost = false;
+                this.customPrompt = "";
+                document.getElementById('custom-prompt-input').value = "";
+            } else {
+                resp = await Api.enqueuePost(this.currentNews, fullPrefs);
+            }
+
             if (window.queuePanel) {
                 window.queuePanel.updateOptimisticId(tempId, resp.job_id);
             }
@@ -358,13 +407,15 @@ class SwipeApp {
                     ${hashtags ? `<div class="preview-hashtags">${hashtags}</div>` : ''}
                     
                     <div class="preview-footer" style="display: flex; justify-content: space-between; align-items: center; margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border);">
+                        ${result.is_custom ? '' : `
                         <div class="source-attribution">
                             <span style="font-size: 0.75rem; color: var(--text-secondary); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Source:</span>
                             <a href="${this.currentNews ? this.currentNews.source_url : '#'}" target="_blank" style="font-size: 0.85rem; color: var(--primary); text-decoration: none; font-weight: 500; margin-left: 4px;">
                                 ${this.currentNews ? this.currentNews.source_name : 'Original Article'}
                             </a>
                         </div>
-                        <div style="font-size:0.75rem; color:#999;">(Click text to edit)</div>
+                        `}
+                        <div style="font-size:0.75rem; color:#999; margin-left: auto;">(Click text to edit)</div>
                     </div>
                 </div>
             </div>

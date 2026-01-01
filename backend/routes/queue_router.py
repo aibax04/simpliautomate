@@ -14,8 +14,9 @@ router = APIRouter()
 queue = QueueManager()
 
 class EnqueueRequest(BaseModel):
-    news_item: Dict[str, Any]
+    news_item: Optional[Dict[str, Any]] = None
     user_prefs: Dict[str, Any]
+    custom_prompt: Optional[str] = None
 
 class JobResponse(BaseModel):
     job_id: str
@@ -102,17 +103,25 @@ async def enqueue_post(
     background_tasks: BackgroundTasks,
     user: User = Depends(get_current_user)
 ):
+    # Determine the payload based on whether it's a news item or a custom prompt
+    if request.custom_prompt:
+        news_payload = {"custom_prompt": request.custom_prompt}
+        display_headline = "Custom Post"
+    else:
+        news_payload = request.news_item
+        display_headline = request.news_item.get("headline", "Untitled")
+
     job_id = queue.create_job("post_generation", {
-        "headline": request.news_item.get("headline", "Untitled"),
-        "source": request.news_item.get("source", "Unknown"),
-        "news_item": request.news_item,
+        "headline": display_headline,
+        "source": "Custom" if request.custom_prompt else request.news_item.get("source", "Unknown"),
+        "news_item": news_payload,
         "user_prefs": request.user_prefs
     }, user_id=user.id)
     
     background_tasks.add_task(
         process_post_generation, 
         job_id, 
-        request.news_item, 
+        news_payload, 
         request.user_prefs,
         user.id
     )

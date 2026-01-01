@@ -63,6 +63,9 @@
                 <button id="upload-main-btn" class="btn-compact">
                     <span class="icon">+</span> New Source
                 </button>
+                <button id="custom-post-btn" class="btn-compact">
+                    <span class="icon">✎</span> Custom Post
+                </button>
                 <button onclick="logout()" class="btn-compact btn-logout">
                     Logout
                 </button>
@@ -128,6 +131,23 @@
                 <div class="modal-actions">
                     <button id="close-upload-modal" class="btn-secondary">Cancel</button>
                     <button id="ingest-btn" class="btn-primary">Find Related News</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Custom Post Modal -->
+        <div id="custom-post-modal" class="modal hidden">
+            <div class="modal-overlay"></div>
+            <div class="modal-content">
+                <h2>Create Custom Post</h2>
+                <div class="form-group">
+                    <label>What would you like to post about?</label>
+                    <textarea id="custom-prompt-input" placeholder="e.g. Write a post about our company's new AI strategy for 2026..." rows="4" style="width: 100%; padding: 12px; border: 1px solid var(--border); border-radius: 8px; margin-top: 8px; font-family: inherit;"></textarea>
+                </div>
+
+                <div class="modal-actions">
+                    <button id="close-custom-modal" class="btn-secondary">Cancel</button>
+                    <button id="next-to-prefs-custom-btn" class="btn-primary">Next: Choose Style</button>
                 </div>
             </div>
         </div>

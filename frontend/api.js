@@ -57,6 +57,20 @@ const Api = {
         }
     },
 
+    async enqueueCustomPost(customPrompt, prefs) {
+        try {
+            const response = await fetch('/api/enqueue-post', {
+                method: 'POST',
+                headers: this.getHeaders(),
+                body: JSON.stringify({ custom_prompt: customPrompt, user_prefs: prefs })
+            });
+            return await this.handleResponse(response);
+        } catch (e) {
+            console.error("Queue Error:", e);
+            throw e;
+        }
+    },
+
     async getQueueStatus() {
         try {
             const response = await fetch('/api/queue-status', {

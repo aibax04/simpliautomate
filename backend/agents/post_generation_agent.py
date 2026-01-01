@@ -20,7 +20,22 @@ class PostGenerationAgent:
         5. Image Generation (Pixel)
         6. Assembly
         """
-        print(f"--- GENERATING POST FOR: {news_item.get('headline')} ---")
+        is_custom_flag = False
+        # If it's a custom prompt (not a news item), wrap it as a news item
+        if "custom_prompt" in news_item:
+            is_custom_flag = True
+            print(f"--- GENERATING CUSTOM POST FOR PROMPT: {news_item.get('custom_prompt')[:50]}... ---")
+            # Create a mock news item for the agents to process
+            news_item = {
+                "headline": "Custom Creation",
+                "summary": news_item.get("custom_prompt"),
+                "domain": "General/Custom",
+                "source_name": "Custom User Request",
+                "source_url": "",
+                "is_custom": True
+            }
+        else:
+            print(f"--- GENERATING POST FOR: {news_item.get('headline')} ---")
         
         # 1. Generate Caption
         print("1. Running Caption Strategy...")
@@ -83,5 +98,6 @@ class PostGenerationAgent:
             "preview_text": caption_data.get('hook'),
             "caption_data": caption_data,
             "image_url": image_url,
-            "visual_plan": visual_plan
+            "visual_plan": visual_plan,
+            "is_custom": is_custom_flag
         }
