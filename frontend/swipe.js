@@ -356,7 +356,16 @@ class SwipeApp {
                 <div class="preview-content">
                     <div class="preview-caption" contenteditable="true" spellcheck="false" style="outline:none; border:1px dashed transparent; padding:4px;">${displayBody}</div>
                     ${hashtags ? `<div class="preview-hashtags">${hashtags}</div>` : ''}
-                    <div style="font-size:0.75rem; color:#999; margin-top:5px; text-align:right;">(Click text to edit)</div>
+                    
+                    <div class="preview-footer" style="display: flex; justify-content: space-between; align-items: center; margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border);">
+                        <div class="source-attribution">
+                            <span style="font-size: 0.75rem; color: var(--text-secondary); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Source:</span>
+                            <a href="${this.currentNews ? this.currentNews.source_url : '#'}" target="_blank" style="font-size: 0.85rem; color: var(--primary); text-decoration: none; font-weight: 500; margin-left: 4px;">
+                                ${this.currentNews ? this.currentNews.source_name : 'Original Article'}
+                            </a>
+                        </div>
+                        <div style="font-size:0.75rem; color:#999;">(Click text to edit)</div>
+                    </div>
                 </div>
             </div>
         `;
