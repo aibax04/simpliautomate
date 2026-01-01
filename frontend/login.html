@@ -140,13 +140,17 @@
 
         .auth-container {
             width: 100%;
-            max-width: 420px;
-            animation: authEntrance 0.6s var(--ease-squish);
+            max-width: 400px;
+            position: relative;
+            min-height: 500px; /* Ensure container doesn't jump */
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
         }
 
         @keyframes authEntrance {
-            from { opacity: 0; transform: translateX(20px); }
-            to { opacity: 1; transform: translateX(0); }
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
         }
 
         .auth-card {
@@ -154,29 +158,39 @@
             border: none;
             box-shadow: none;
             background: transparent;
+            width: 100%;
+            transition: opacity 0.3s ease, transform 0.3s ease;
+        }
+
+        .auth-card.hidden {
+            display: none;
+            opacity: 0;
+            transform: translateY(10px);
         }
 
         .auth-header {
             text-align: left;
-            margin-bottom: 40px;
+            margin-bottom: 32px;
         }
 
         .auth-header .logo {
             font-family: var(--font-heading);
-            font-size: 1.5rem;
+            font-size: 1.2rem;
             font-weight: 700;
-            color: var(--text);
-            letter-spacing: -0.5px;
-            margin-bottom: 12px;
+            color: var(--primary);
+            letter-spacing: 1px;
+            margin-bottom: 24px;
             display: block;
+            text-transform: uppercase;
         }
 
         .auth-header h2 {
-            font-size: 1.8rem;
+            font-size: 2.2rem;
             font-weight: 700;
             color: var(--text);
-            margin-bottom: 8px;
-            letter-spacing: -0.5px;
+            margin-bottom: 12px;
+            letter-spacing: -1px;
+            line-height: 1.2;
         }
 
         .auth-header p {
@@ -235,16 +249,22 @@
             text-align: left;
             margin-top: 32px;
             padding-top: 24px;
-            border-top: 1px solid var(--border);
-            font-size: 0.9rem;
+            border-top: 1px solid #f0f0f0;
+            font-size: 0.95rem;
             color: var(--text-secondary);
         }
 
         .auth-toggle a {
             color: var(--primary);
-            font-weight: 700;
+            font-weight: 600;
             text-decoration: none;
             margin-left: 4px;
+            transition: all 0.2s ease;
+        }
+
+        .auth-toggle a:hover {
+            color: #0047B3;
+            text-decoration: underline;
         }
 
         .btn-full {
@@ -387,16 +407,39 @@
         const goToSignup = document.getElementById('go-to-signup');
         const goToLogin = document.getElementById('go-to-login');
 
-        // Toggle visibility
-        goToSignup.onclick = () => {
-            loginSection.classList.add('hidden');
-            signupSection.classList.remove('hidden');
+        // Smooth Toggle
+        function toggleAuth(showSignup) {
+            const out = showSignup ? loginSection : signupSection;
+            const into = showSignup ? signupSection : loginSection;
+
+            out.style.opacity = '0';
+            out.style.transform = 'translateY(-10px)';
+            
+            setTimeout(() => {
+                out.classList.add('hidden');
+                into.classList.remove('hidden');
+                // Trigger reflow
+                void into.offsetWidth;
+                into.style.opacity = '1';
+                into.style.transform = 'translateY(0)';
+            }, 300);
+        }
+
+        goToSignup.onclick = (e) => {
+            e.preventDefault();
+            toggleAuth(true);
         };
 
-        goToLogin.onclick = () => {
-            signupSection.classList.add('hidden');
-            loginSection.classList.remove('hidden');
+        goToLogin.onclick = (e) => {
+            e.preventDefault();
+            toggleAuth(false);
         };
+
+        // Initialize styles for transition
+        loginSection.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+        signupSection.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+        signupSection.style.opacity = '0';
+        signupSection.style.transform = 'translateY(10px)';
 
         // Login Handler
         document.getElementById('login-form').onsubmit = async (e) => {
