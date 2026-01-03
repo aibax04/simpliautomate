@@ -4,6 +4,7 @@ from fastapi.staticfiles import StaticFiles
 from backend.graph import create_graph
 from backend.agents.post_generation_agent import PostGenerationAgent
 from backend.agents.linkedin_agent import LinkedInAgent
+from backend.agents.linkedin_blog_agent import LinkedInBlogAgent
 from backend.config import Config
 from backend.routes.ingest import router as ingest_router
 from backend.routes.queue_router import router as queue_router
@@ -94,6 +95,25 @@ async def generate_post(request: Request, user: User = Depends(get_current_user)
     
     agent = PostGenerationAgent()
     result = await agent.generate(news_item, prefs)
+    return result
+
+@app.post("/api/generate-blog")
+async def generate_blog(request: Request, user: User = Depends(get_current_user)):
+    """Endpoint to generate long-form LinkedIn blog using DuckDuckGo and Gemini 2.5"""
+    data = await request.json()
+    topic = data.get("topic")
+    tone = data.get("tone", "Professional")
+    length = data.get("length", "Medium")
+    
+    if not topic:
+        raise HTTPException(status_code=400, detail="Topic is required")
+    
+    agent = LinkedInBlogAgent()
+    result = await agent.generate_blog(topic, tone, length)
+    
+    if not result.get("success"):
+        raise HTTPException(status_code=500, detail=result.get("error"))
+        
     return result
 
 @app.post("/api/post-linkedin")

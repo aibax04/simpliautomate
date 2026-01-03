@@ -127,6 +127,8 @@ class QueuePanel {
             'generating_caption': 'Drafting Caption...',
             'generating_visual_plan': 'Designing Visuals...',
             'generating_image': 'Rendering Image...',
+            'fetching_sources': 'Sourcing Facts...',
+            'generating_content': 'Writing Blog...',
             'ready': 'Ready for Review',
             'failed': 'Process Failed'
         };
@@ -167,8 +169,14 @@ class QueuePanel {
 
     async handleJobClick(job) {
         if (job.status === 'ready' && job.result) {
-            if (window.app) {
-                window.app.openResult(job);
+            if (job.type === 'blog_generation') {
+                if (window.showBlogResult) {
+                    window.showBlogResult(job.result);
+                }
+            } else {
+                if (window.app) {
+                    window.app.openResult(job);
+                }
             }
         } else if (job.status === 'failed') {
             alert("Job failed: " + job.error);

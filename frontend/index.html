@@ -66,6 +66,9 @@
                 <button id="custom-post-btn" class="btn-compact">
                     <span class="icon">✎</span> Custom Post
                 </button>
+                <button id="blog-generator-btn" class="btn-compact">
+                    <span class="icon">📰</span> LinkedIn Blog
+                </button>
                 <button onclick="logout()" class="btn-compact btn-logout">
                     Logout
                 </button>
@@ -245,11 +248,64 @@
                 </div>
             </div>
         </div>
+
+        <!-- LinkedIn Blog Modal -->
+        <div id="blog-modal" class="modal hidden">
+            <div class="modal-overlay"></div>
+            <div class="modal-content">
+                <h2>LinkedIn Blog Generator</h2>
+                <div class="form-group">
+                    <label>Blog Topic</label>
+                    <input type="text" id="blog-topic-input" placeholder="e.g. The Future of AI in Healthcare 2026">
+                </div>
+                <div class="form-group">
+                    <label>Tone</label>
+                    <select id="blog-tone-select">
+                        <option value="Professional">Professional</option>
+                        <option value="Analytical">Analytical</option>
+                        <option value="Neutral">Neutral</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Length</label>
+                    <select id="blog-length-select">
+                        <option value="Short">Short (400-600 words)</option>
+                        <option value="Medium" selected>Medium (800-1000 words)</option>
+                        <option value="Long">Long (1200+ words)</option>
+                    </select>
+                </div>
+
+                <div id="blog-status" class="hidden">
+                    <div class="mini-spinner"></div>
+                    <span id="blog-status-text">DuckDuckGo is sourcing facts & Gemini 2.5 is writing...</span>
+                </div>
+
+                <div class="modal-actions">
+                    <button id="close-blog-modal" class="btn-secondary">Cancel</button>
+                    <button id="generate-blog-btn" class="btn-primary">Generate Blog</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Blog Result Modal -->
+        <div id="blog-result-modal" class="modal hidden">
+            <div class="modal-overlay"></div>
+            <div class="modal-content wide">
+                <h2 id="blog-result-title">Generated Blog</h2>
+                <div id="blog-result-content" class="blog-result-content" style="max-height: 400px; overflow-y: auto; padding: 20px; border: 1px solid var(--border); border-radius: 8px; background: white; white-space: pre-wrap; font-family: inherit; line-height: 1.6; font-size: 15px;"></div>
+                <div class="modal-actions">
+                    <button id="close-blog-result" class="btn-secondary">Close</button>
+                    <button id="copy-blog-btn" class="btn-secondary">Copy to Clipboard</button>
+                    <button id="publish-blog-btn" class="btn-primary">Post to LinkedIn</button>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script src="api.js"></script>
     <script src="queue_panel.js"></script>
     <script src="image_options_modal.js"></script>
+    <script src="blog_generator.js"></script>
     <script src="swipe.js"></script>
     <script src="upload_modal.js"></script>
 </body>

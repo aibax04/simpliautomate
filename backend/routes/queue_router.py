@@ -3,6 +3,7 @@ from pydantic import BaseModel
 from typing import Dict, Any, Optional, List
 from backend.queue.queue_manager import QueueManager
 from backend.agents.post_generation_agent import PostGenerationAgent
+from backend.agents.linkedin_blog_agent import LinkedInBlogAgent
 import asyncio
 from backend.db.database import AsyncSessionLocal, get_db
 from backend.db.models import GenerationQueue, GeneratedPost, NewsItem, User
@@ -17,6 +18,11 @@ class EnqueueRequest(BaseModel):
     news_item: Optional[Dict[str, Any]] = None
     user_prefs: Dict[str, Any]
     custom_prompt: Optional[str] = None
+
+class BlogEnqueueRequest(BaseModel):
+    topic: str
+    tone: str = "Professional"
+    length: str = "Medium"
 
 class JobResponse(BaseModel):
     job_id: str
@@ -97,6 +103,32 @@ async def process_post_generation(job_id: str, news_item: Dict, user_prefs: Dict
         print(f"[Job {job_id}] Failed: {e}")
         queue.update_job(job_id, status="failed", error=str(e))
 
+async def process_blog_generation(job_id: str, topic: str, tone: str, length: str, user_id: int):
+    """
+    Background task wrapper for LinkedIn blog generation.
+    """
+    try:
+        queue.update_job(job_id, status="fetching_sources", progress=10)
+        print(f"[Job {job_id}] Starting blog generation for topic: {topic}...")
+        
+        agent = LinkedInBlogAgent()
+        
+        # We'll simulate progress since the agent doesn't have a callback yet
+        # or we could add one if needed, but for now simple steps
+        queue.update_job(job_id, status="generating_content", progress=40)
+        
+        result = await agent.generate_blog(topic, tone, length)
+        
+        if result.get("success"):
+            queue.update_job(job_id, status="ready", result=result, progress=100)
+            print(f"[Job {job_id}] Blog generation completed.")
+        else:
+            queue.update_job(job_id, status="failed", error=result.get("error", "Unknown error"))
+            
+    except Exception as e:
+        print(f"[Job {job_id}] Blog Generation Failed: {e}")
+        queue.update_job(job_id, status="failed", error=str(e))
+
 @router.post("/enqueue-post", response_model=JobResponse)
 async def enqueue_post(
     request: EnqueueRequest, 
@@ -130,6 +162,34 @@ async def enqueue_post(
         "job_id": job_id,
         "status": "queued",
         "message": "Post generation started in background"
+    }
+
+@router.post("/enqueue-blog", response_model=JobResponse)
+async def enqueue_blog(
+    request: BlogEnqueueRequest, 
+    background_tasks: BackgroundTasks,
+    user: User = Depends(get_current_user)
+):
+    job_id = queue.create_job("blog_generation", {
+        "headline": f"Blog: {request.topic}",
+        "topic": request.topic,
+        "tone": request.tone,
+        "length": request.length
+    }, user_id=user.id)
+    
+    background_tasks.add_task(
+        process_blog_generation, 
+        job_id, 
+        request.topic, 
+        request.tone,
+        request.length,
+        user.id
+    )
+    
+    return {
+        "job_id": job_id,
+        "status": "queued",
+        "message": "Blog generation started in background"
     }
 
 @router.get("/activity-stream")

@@ -107,6 +107,34 @@ const Api = {
             console.error("API Error:", e);
             return { error: "Failed to publish." };
         }
+    },
+
+    async generateBlog(topic, tone, length) {
+        try {
+            const response = await fetch('/api/generate-blog', {
+                method: 'POST',
+                headers: this.getHeaders(),
+                body: JSON.stringify({ topic, tone, length })
+            });
+            return await this.handleResponse(response);
+        } catch (e) {
+            console.error("Blog Generation Error:", e);
+            throw e;
+        }
+    },
+
+    async enqueueBlog(topic, tone, length) {
+        try {
+            const response = await fetch('/api/enqueue-blog', {
+                method: 'POST',
+                headers: this.getHeaders(),
+                body: JSON.stringify({ topic, tone, length })
+            });
+            return await this.handleResponse(response);
+        } catch (e) {
+            console.error("Blog Enqueue Error:", e);
+            throw e;
+        }
     }
 };
 

@@ -23,3 +23,5 @@ email-validator
 pypdf
 python-docx
 beautifulsoup4
+# Tools
+ddgs
