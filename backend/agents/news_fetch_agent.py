@@ -3,8 +3,10 @@ import google.generativeai as genai
 import json
 import time
 import aiohttp
+import sys
 from backend.config import Config
 from backend.agents.qa_agent import QualityAssuranceAgent
+from backend.tools.duckduckgo_search import search_duckduckgo
 
 class NewsFetchAgent:
     _cache = []
@@ -14,21 +16,19 @@ class NewsFetchAgent:
     _search_semaphore = asyncio.Semaphore(2) # Limit concurrent searches to avoid 400 errors
 
     def __init__(self):
-        # Using 2.0 Flash for superior Search Grounding / actual Google Search integration
+        # Using 2.0 Flash for high-speed processing
         self.model_name = 'models/gemini-2.0-flash'
         
-        # Grounding tool (dynamic retrieval)
+        # Grounding tool (dynamic retrieval) - Now using DuckDuckGo instead of Google Search
         self.model_with_search = None
         try:
-            self.model_with_search = genai.GenerativeModel(
-                model_name=self.model_name,
-                tools=[{"google_search_retrieval": {}}]
-            )
-            print(f"[INFO] Actual Google Search grounding enabled with {self.model_name}")
+            # We are using Gemini basic model and feeding it DDG search context manually
+            # to respect the user's "DuckDuckGo ONLY" constraint.
+            self.model_basic = genai.GenerativeModel(self.model_name)
+            print(f"[INFO] News Intelligence Agent initialized with {self.model_name}. Grounding via DuckDuckGo.")
         except Exception as e:
-            print(f"[WARNING] Could not enable search grounding: {e}")
+            print(f"[ERROR] Could not initialize Gemini model: {e}")
 
-        self.model_basic = genai.GenerativeModel(self.model_name)
         self.qa_agent = QualityAssuranceAgent()
 
     async def verify_link(self, session: aiohttp.ClientSession, url: str) -> bool:
@@ -45,7 +45,7 @@ class NewsFetchAgent:
     async def fetch(self, force_refresh=False):
         """
         Fetches, analyzes, and returns domain-specific news with strict filtering.
-        Mandates REAL Google Search results for all reference links.
+        Mandates REAL DuckDuckGo search results for all reference links.
         """
         current_time = time.time()
         
@@ -62,19 +62,32 @@ class NewsFetchAgent:
 
         async def fetch_batch(batch):
             async with NewsFetchAgent._search_semaphore:
-                print(f"   [Search] Querying Google for domains: {batch}")
+                print(f"   [Search] Querying DuckDuckGo for domains: {batch}")
+                sys.stdout.flush()
+                
+                # Fetch DuckDuckGo context for the batch
+                query = " recent news ".join(batch) + " news 2026"
+                search_results = search_duckduckgo(query, max_results=15)
+                
+                context_str = ""
+                for res in search_results:
+                    context_str += f"- Title: {res['title']}\n  Summary: {res['snippet']}\n  URL: {res['link']}\n\n"
+
                 prompt = f"""
-                You are an elite News Intelligence Agent with real-time Google Search access.
+                You are an elite News Intelligence Agent with real-time access to the following search data from DuckDuckGo.
                 
                 OBJECTIVE:
-                Find 3-5 distinct, most recent, impactful, and authentic news articles from the last 24-48 hours for each of these domains:
+                Curate 3-5 distinct, most recent, impactful, and authentic news articles from the last 24-48 hours for each of these domains:
                 {batch}
                 
+                SEARCH DATA (DUCKDUCKGO):
+                {context_str}
+                
                 CRITICAL AUTHENTICITY RULES:
-                1. You MUST use the provided Google Search tool to find REAL articles.
-                2. Every item MUST have an actual, verified source_url that you found in the search results.
+                1. You MUST use the provided DuckDuckGo search results above to find REAL articles.
+                2. Every item MUST have an actual, verified source_url that was provided in the context.
                 3. Do NOT use internal training data or hallucinate URLs.
-                4. Extract the URL exactly as provided in the search result citations. Do NOT try to modify, shorten, or "clean" the URL.
+                4. Extract the URL exactly as provided in the search results.
                 5. source_name must be the actual publisher (e.g. 'TechCrunch', 'The Verge', 'Reuters').
                 
                 STRICT OUTPUT CONTRACT (JSON ONLY):
@@ -91,22 +104,12 @@ class NewsFetchAgent:
                 ]
                 """
                 try:
-                    # Attempt with Google Search grounding
-                    if self.model_with_search:
-                        response = await self.model_with_search.generate_content_async(prompt)
-                    else:
-                        response = await self.model_basic.generate_content_async(prompt)
-                    
+                    # Feed the model the DDG context manually
+                    response = await self.model_basic.generate_content_async(prompt)
                     text = response.text.strip()
                 except Exception as e:
-                    # FALLBACK: If Google Search fails (400 error), try basic model without search tool
-                    print(f"[WARNING] Search tool failed for {batch}, falling back to basic model: {e}")
-                    try:
-                        response = await self.model_basic.generate_content_async(prompt)
-                        text = response.text.strip()
-                    except Exception as fallback_e:
-                        print(f"[ERROR] Fallback also failed for {batch}: {fallback_e}")
-                        return []
+                    print(f"[ERROR] Gemini generation failed for {batch}: {e}")
+                    return []
 
                 if "```json" in text:
                     text = text.split("```json")[1].split("```")[0].strip()
