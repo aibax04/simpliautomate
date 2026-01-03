@@ -75,15 +75,16 @@ class LinkedInBlogAgent:
         1. HUMAN LANGUAGE: Write in a natural, professional human voice.
         2. NO AI PHRASES: Avoid common AI-sounding words like 'delve', 'tapestry', 'testament', 'ever-evolving', 'In conclusion', etc.
         3. NO EMOJIS: Do not use any emojis in the article.
-        4. STRUCTURE: 
+        4. NO UNWANTED CHARACTERS: The generated content MUST NOT start with a hash symbol (#), a single quote ('), or any other non-alphabetic character unless it's part of the headline title.
+        5. STRUCTURE: 
            - Start with a compelling, scroll-stopping headline in ALL CAPS or Bold-style text (using plain text).
            - A strong introduction that sets the stage.
            - DO NOT use '#' or Markdown headers for sub-headings. Instead, use bullet marks (● or ■) or ALL CAPS for sub-headings to make them stand out.
-           - Use bullet points for lists to ensure readability.
+           - Use bullet points for lists to ensure readability and structure the core arguments.
            - A concluding section with a professional call-to-reflection (not a salesy CTA).
-        5. FACTUAL GROUNDING: Use ONLY the information provided in the input data. Do not hallucinate or invent facts.
-        6. NO MARKETING FLUFF: Stay focused on data-driven insights and professional analysis.
-        7. LENGTH CONSTRAINT: If the target length is "LinkedIn Post", ensure the ENTIRE content (including headline and sources) is strictly under 1400 characters.
+        6. FACTUAL GROUNDING: Use ONLY the information provided in the input data. Do not hallucinate or invent facts.
+        7. NO MARKETING FLUFF: Stay focused on data-driven insights and professional analysis.
+        8. LENGTH CONSTRAINT: If the target length is "LinkedIn Post", ensure the ENTIRE content (including headline and sources) is strictly under 1400 characters.
         """
 
         try:

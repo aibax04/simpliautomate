@@ -1,13 +1,19 @@
 document.addEventListener('DOMContentLoaded', () => {
     const blogBtn = document.getElementById('blog-generator-btn');
-    const blogModal = document.getElementById('blog-modal');
-    const closeBlogModal = document.getElementById('close-blog-modal');
+    const blogCatModal = document.getElementById('blog-category-modal');
+    const blogSettingsModal = document.getElementById('blog-settings-modal');
+    const closeBlogCatModal = document.getElementById('close-blog-cat-modal');
+    const backToCatsBtn = document.getElementById('back-to-cats-btn');
     const generateBlogBtn = document.getElementById('generate-blog-btn');
+    
     const blogTopicInput = document.getElementById('blog-topic-input');
     const blogToneSelect = document.getElementById('blog-tone-select');
     const blogLengthSelect = document.getElementById('blog-length-select');
     const blogStatus = document.getElementById('blog-status');
     const blogStatusText = document.getElementById('blog-status-text');
+    const catBoxes = document.querySelectorAll('.blog-cat-box');
+
+    let selectedCategory = "";
 
     const blogResultModal = document.getElementById('blog-result-modal');
     const blogResultTitle = document.getElementById('blog-result-title');
@@ -18,57 +24,72 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (!blogBtn) return;
 
-    // Open blog modal
+    // Open Category Modal
     blogBtn.addEventListener('click', () => {
-        blogModal.classList.remove('hidden');
+        blogCatModal.classList.remove('hidden');
     });
 
-    // Close blog modal
-    closeBlogModal.addEventListener('click', () => {
-        blogModal.classList.add('hidden');
-        resetBlogModal();
+    // Close Category Modal
+    closeBlogCatModal.addEventListener('click', () => {
+        blogCatModal.classList.add('hidden');
     });
 
-    function resetBlogModal() {
+    // Category Selection -> Go to Settings Modal
+    catBoxes.forEach(box => {
+        box.addEventListener('click', () => {
+            selectedCategory = box.getAttribute('data-cat');
+            blogTopicInput.placeholder = `e.g. Impact of AI on ${selectedCategory} in 2026`;
+            
+            blogCatModal.classList.add('hidden');
+            blogSettingsModal.classList.remove('hidden');
+        });
+    });
+
+    // Back to Category Modal from Settings Modal
+    backToCatsBtn.addEventListener('click', () => {
+        blogSettingsModal.classList.add('hidden');
+        blogCatModal.classList.remove('hidden');
+    });
+
+    function resetBlogWorkflow() {
+        selectedCategory = "";
         blogTopicInput.value = '';
         blogStatus.classList.add('hidden');
         generateBlogBtn.disabled = false;
+        blogSettingsModal.classList.add('hidden');
+        blogCatModal.classList.add('hidden');
     }
 
     // Generate blog
     generateBlogBtn.addEventListener('click', async () => {
-        const topic = blogTopicInput.value.trim();
+        const topicInput = blogTopicInput.value.trim();
+        const finalTopic = topicInput ? `${selectedCategory}: ${topicInput}` : selectedCategory;
         const tone = blogToneSelect.value;
         const length = blogLengthSelect.value;
-
-        if (!topic) {
-            Toast.show('Please enter a blog topic', 'error');
-            return;
-        }
 
         generateBlogBtn.disabled = true;
         blogStatus.classList.remove('hidden');
         blogStatusText.innerText = "Sourcing facts & sending to queue...";
 
         try {
-            const result = await Api.enqueueBlog(topic, tone, length);
+            const result = await Api.enqueueBlog(finalTopic, tone, length);
             
             if (result.job_id) {
-                blogModal.classList.add('hidden');
+                resetBlogWorkflow();
                 Toast.show('Blog generation started! Check the Activity Queue.');
                 if (window.queuePanel && window.queuePanel.fetchJobs) {
                     window.queuePanel.fetchJobs();
                 }
             } else {
                 Toast.show(result.error || 'Failed to start blog generation', 'error');
+                generateBlogBtn.disabled = false;
+                blogStatus.classList.add('hidden');
             }
         } catch (e) {
             console.error(e);
             Toast.show('An error occurred during blog generation', 'error');
-        } finally {
             generateBlogBtn.disabled = false;
             blogStatus.classList.add('hidden');
-            resetBlogModal();
         }
     });
 

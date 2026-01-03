@@ -576,6 +576,37 @@ input:focus {
 }
 
 /* Buttons */
+/* Blog Category Grid */
+.blog-cat-box {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+    text-align: center;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.blog-cat-box:hover {
+    border-color: var(--primary);
+    background: #DEEBFF;
+    color: var(--primary);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+.blog-cat-box.selected {
+    background: var(--primary);
+    color: white;
+    border-color: var(--primary);
+}
+
 .modal-actions {
     display: flex;
     justify-content: stretch;

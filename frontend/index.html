@@ -252,14 +252,41 @@
             </div>
         </div>
 
-        <!-- LinkedIn Blog Modal -->
-        <div id="blog-modal" class="modal hidden">
+        <!-- LinkedIn Blog: Step 1 (Category) -->
+        <div id="blog-category-modal" class="modal hidden">
             <div class="modal-overlay"></div>
             <div class="modal-content">
-                <h2>LinkedIn Blog Generator</h2>
+                <h2>LinkedIn Blog: Choose Focus</h2>
+                <div class="category-grid" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 20px;">
+                    <div class="blog-cat-box" data-cat="HealthTech">HealthTech</div>
+                    <div class="blog-cat-box" data-cat="FinTech">FinTech</div>
+                    <div class="blog-cat-box" data-cat="LLMOps">LLMOps</div>
+                    <div class="blog-cat-box" data-cat="Industrial IoT">Industrial IoT</div>
+                    <div class="blog-cat-box" data-cat="Urban Tech">Urban Tech</div>
+                    <div class="blog-cat-box" data-cat="LegalTech">LegalTech</div>
+                    <div class="blog-cat-box" data-cat="HR Tech">HR Tech</div>
+                    <div class="blog-cat-box" data-cat="Generative NLP">Generative NLP</div>
+                    <div class="blog-cat-box" data-cat="Industrial AI">Industrial AI</div>
+                    <div class="blog-cat-box" data-cat="Secure AI">Secure AI</div>
+                    <div class="blog-cat-box" data-cat="Consumer AI">Consumer AI</div>
+                    <div class="blog-cat-box" data-cat="EdTech">EdTech</div>
+                    <div class="blog-cat-box" data-cat="AI in Marketing">AI in Marketing</div>
+                    <div class="blog-cat-box" data-cat="CivicTech">CivicTech</div>
+                </div>
+                <div class="modal-actions">
+                    <button id="close-blog-cat-modal" class="btn-secondary">Cancel</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- LinkedIn Blog: Step 2 (Settings) -->
+        <div id="blog-settings-modal" class="modal hidden">
+            <div class="modal-overlay"></div>
+            <div class="modal-content">
+                <h2 id="blog-settings-title">Blog Settings</h2>
                 <div class="form-group">
-                    <label>Blog Topic</label>
-                    <input type="text" id="blog-topic-input" placeholder="e.g. The Future of AI in Healthcare 2026">
+                    <label>Specific Topic (Optional)</label>
+                    <input type="text" id="blog-topic-input" placeholder="e.g. Impact of AI on Radiology in 2026">
                 </div>
                 <div class="form-group">
                     <label>Tone</label>
@@ -281,11 +308,11 @@
 
                 <div id="blog-status" class="hidden">
                     <div class="mini-spinner"></div>
-                    <span id="blog-status-text">DuckDuckGo is sourcing facts & Gemini 2.5 is writing...</span>
+                    <span id="blog-status-text">Sourcing facts & sending to queue...</span>
                 </div>
 
                 <div class="modal-actions">
-                    <button id="close-blog-modal" class="btn-secondary">Cancel</button>
+                    <button id="back-to-cats-btn" class="btn-secondary">Back</button>
                     <button id="generate-blog-btn" class="btn-primary">Generate Blog</button>
                 </div>
             </div>
