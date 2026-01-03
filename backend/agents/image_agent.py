@@ -101,19 +101,34 @@ class ImageAgent:
         # FEATURE 5: STRICT ADHERENCE TO STYLE AND PALETTE
         selected_style = visual_plan.get('style', 'Futuristic')
         selected_palette = visual_plan.get('palette_preference', 'Multi-color vibrant')
+        
+        # EXTRACT RICH CONTEXT FROM VISUAL PLAN
+        headline_data = visual_plan.get('headline_hierarchy', {})
+        main_headline = headline_data.get('main', 'News Update')
+        sub_headline = headline_data.get('sub', '')
+        
+        layers = visual_plan.get('visual_layers', [])
+        layer_descriptions = ". ".join([f"{l.get('type')}: {l.get('description')}" for l in layers])
 
         style_rules = f"STYLE: {selected_style}. The design must strictly follow this style. Avoid any other artistic directions."
         palette_rules = f"COLORS: {selected_palette}. The color palette must be respected strictly. Do not use random colors outside this theme."
         
+        content_grounding = (
+            f"CONTENT GROUNDING: The infographic MUST be about '{main_headline}'. "
+            f"Sub-headline: '{sub_headline}'. "
+            f"Visual Elements to include: {layer_descriptions}. "
+            "Ensure the visual data and icons directly represent the news facts mentioned."
+        )
+
         clarity_rules = (
             "CLARITY: Maintain editorial/consulting infographic clarity. "
             "Clear alignment, spacing, and hierarchy. Readable typography at all sizes."
         )
         
-        prompt = visual_plan.get('image_prompt', 'Professional news infographic')
+        base_prompt = visual_plan.get('image_prompt', 'Professional news infographic')
         # Refine prompt for elite, custom-styled editorial masterpiece
         refined_prompt = (
-            f"{prompt}. {spelling_rules} {alignment_rules} {typography_rules} {subtext_constraints} "
+            f"{base_prompt}. {content_grounding} {spelling_rules} {alignment_rules} {typography_rules} {subtext_constraints} "
             f"{style_rules} {palette_rules} {clarity_rules} "
             "Quality: Elite Studio-Grade, 4K resolution, razor-sharp vector edges, zero blur. "
             "Visual Depth: Rich multi-layered composition with subtle drop shadows, glowing highlights, and sophisticated texture hierarchy. "

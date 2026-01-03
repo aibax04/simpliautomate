@@ -256,6 +256,25 @@ class SwipeApp {
             }
         };
 
+        document.getElementById('download-img-btn').onclick = () => {
+            if (!this.generatedPost || !this.generatedPost.image_url) {
+                if (window.Toast) window.Toast.show("No image available to download.", "error");
+                return;
+            }
+
+            const imageUrl = this.generatedPost.image_url;
+            const link = document.createElement('a');
+            link.href = imageUrl;
+            // Extract filename from URL or use a default
+            const filename = imageUrl.split('/').pop() || 'simplii-post.png';
+            link.download = filename;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            
+            if (window.Toast) window.Toast.show("Starting image download...");
+        };
+
         document.getElementById('publish-btn').onclick = async () => {
             if (!this.generatedPost) return;
 

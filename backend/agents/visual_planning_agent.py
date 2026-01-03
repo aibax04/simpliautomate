@@ -67,7 +67,7 @@ class VisualPlanningAgent:
                 "texture": "Clean professional matte according to {image_style} style",
                 "lighting": "High-energy editorial lighting"
             }},
-            "image_prompt": "An elite-tier 4K 4:5 vertical editorial infographic. STYLE: {image_style}. PALETTE: {image_palette}. High-fidelity design studio output, multi-layered layout, razor-sharp text, center-aligned headings, simple common English words only, no jargon in small text, clean margins, complex data visualization, ZERO spelling errors, perfect alignment."
+            "image_prompt": f"An elite-tier 4K 4:5 vertical editorial infographic about {headline}. DOMAIN: {domain}. SUMMARY: {summary}. STRATEGIC INSIGHTS: {', '.join([str(i) for i in strategic_insights])}. STYLE: {image_style}. PALETTE: {image_palette}. High-fidelity design studio output, multi-layered layout, razor-sharp text, center-aligned headings, simple common English words only, no jargon in small text, clean margins, complex data visualization, ZERO spelling errors, perfect alignment."
         }}
         Return ONLY valid JSON.
         """
