@@ -53,6 +53,7 @@ class LinkedInBlogAgent:
             source_data_str += f"Source {i+1}:\nTitle: {src['title']}\nSnippet: {src['snippet']}\nURL: {src['link']}\n\n"
         
         word_count_guide = {
+            "LinkedIn Post": "STRICTLY less than 1400 characters. This must fit in a single LinkedIn post.",
             "Short": "approx 400-600 words",
             "Medium": "approx 800-1000 words",
             "Long": "approx 1200-1500 words"
@@ -61,11 +62,11 @@ class LinkedInBlogAgent:
 
         prompt = f"""
         Act as an elite LinkedIn Thought Leader and Professional Ghostwriter.
-        Your goal is to write a high-quality, long-form LinkedIn Article (Blog) based ONLY on the provided factual data.
+        Your goal is to write a high-quality, professional LinkedIn piece based ONLY on the provided factual data.
 
         TOPIC: {topic}
         TONE: {tone}
-        TARGET LENGTH: {length_str}
+        TARGET LENGTH/CONSTRAINT: {length_str}
 
         INPUT DATA FROM DUCKDUCKGO:
         {source_data_str}
@@ -82,33 +83,55 @@ class LinkedInBlogAgent:
            - A concluding section with a professional call-to-reflection (not a salesy CTA).
         5. FACTUAL GROUNDING: Use ONLY the information provided in the input data. Do not hallucinate or invent facts.
         6. NO MARKETING FLUFF: Stay focused on data-driven insights and professional analysis.
-
-        OUTPUT FORMAT (JSON):
-        {{
-            "title": "The article headline",
-            "content": "The full body text (using markdown for formatting, excluding the sources list)",
-            "sources": ["URL1", "URL2", "URL3", ...]
-        }}
-        Return ONLY valid JSON.
+        7. LENGTH CONSTRAINT: If the target length is "LinkedIn Post", ensure the ENTIRE content (including headline and sources) is strictly under 1400 characters.
         """
 
         try:
             response = await self.model.generate_content_async(prompt)
-            clean_text = response.text.strip()
+            if not response or not response.text:
+                raise Exception("Empty response from Gemini API")
+                
+            raw_text = response.text.strip()
+            print(f"[BLOG_AGENT] Raw response received (first 100 chars): {raw_text[:100]}...")
+            sys.stdout.flush()
+
+            clean_text = raw_text
             if "```json" in clean_text:
                 clean_text = clean_text.split("```json")[1].split("```")[0].strip()
             elif "```" in clean_text:
-                clean_text = clean_text.split("```")[1].split("```")[0].strip()
+                parts = clean_text.split("```")
+                if len(parts) >= 3:
+                    clean_text = parts[1].strip()
+                else:
+                    clean_text = parts[0].strip()
             
-            result = json.loads(clean_text)
+            # Remove any trailing/leading characters that aren't part of the JSON object
+            start_idx = clean_text.find('{')
+            end_idx = clean_text.rfind('}')
+            if start_idx != -1 and end_idx != -1:
+                clean_text = clean_text[start_idx:end_idx+1]
+            
+            try:
+                result = json.loads(clean_text)
+            except json.JSONDecodeError as je:
+                print(f"[BLOG_AGENT] JSON parse error: {je}. Attempting to recover...")
+                # Fallback: if it's not valid JSON, try to wrap the raw text into a result
+                result = {
+                    "title": topic,
+                    "content": raw_text,
+                    "sources": [src['link'] for src in unique_sources]
+                }
             
             # Ensure sources are exactly as provided from DDG
             final_sources = [src['link'] for src in unique_sources]
-            result['sources'] = final_sources
+            if 'sources' not in result or not result['sources']:
+                result['sources'] = final_sources
             
-            # Append Sources section to content
-            sources_list = "\n\nSources\n" + "\n".join([f"- {url}" for url in final_sources])
-            result['content'] += sources_list
+            # Append Sources section to content if not already there
+            if "Sources" not in result['content']:
+                sources_list = "\n\nSources\n" + "\n".join([f"- {url}" for url in final_sources])
+                result['content'] += sources_list
+            
             result['success'] = True
             
             print(f"[BLOG_AGENT] Blog generation successful.")
@@ -116,7 +139,9 @@ class LinkedInBlogAgent:
             return result
         except Exception as e:
             logger.error(f"Error in LinkedInBlogAgent: {e}")
-            print(f"[BLOG_AGENT] Error: {e}")
+            print(f"[BLOG_AGENT] Error details: {str(e)}")
+            import traceback
+            traceback.print_exc()
             sys.stdout.flush()
             return {
                 "success": False,
