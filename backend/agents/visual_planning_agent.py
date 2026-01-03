@@ -8,9 +8,9 @@ class VisualPlanningAgent:
     async def plan_visual(self, news_item: Dict, caption_data: Dict, user_prefs: Dict) -> Dict:
         """
         Creates an elite-tier studio-grade blueprint for a professional editorial infographic.
-        Pushes for maximum visual richness, information density, and sophisticated hierarchy.
+        If it's a custom post, it sticks strictly to the user's prompt and creative style.
         """
-        # Updated to use new field names: headline, summary, domain
+        is_custom = news_item.get('is_custom', False)
         domain = news_item.get('domain', 'AI Intelligence')
         headline = news_item.get('headline', 'Breaking News')
         summary = news_item.get('summary', '')
@@ -20,54 +20,56 @@ class VisualPlanningAgent:
         image_style = user_prefs.get('image_style', 'Futuristic')
         image_palette = user_prefs.get('image_palette', 'Multi-color vibrant')
 
-        prompt = f"""
-        Design an elite, studio-grade editorial infographic blueprint for a premium LinkedIn post.
-        
-        GOAL: Elevate visual richness and professional data journalism to the highest possible level. 
-        It MUST look like a handcrafted masterpiece from a top-tier newsroom (NYT, Bloomberg, Reuters) or strategy firm (McKinsey, BCG).
+        if is_custom:
+            persona = "Elite Creative Director and Visual Strategist"
+            objective = f"Design a high-fidelity visual based strictly on this custom request: '{summary}'."
+            guidelines = f"""
+            1. CONTENT FIDELITY: The visual MUST focus 100% on the user's prompt: '{summary}'. Do NOT frame this as 'news' or an 'article' if it's a creative or abstract request.
+            2. THEMATIC FOCUS: If the user asks for an object (e.g., 'a robot'), the core of the visual should be that object in the requested style.
+            3. STYLE ADHERENCE: Strictly follow the style '{image_style}' and palette '{image_palette}'.
+            4. INFO OVERLAY: Integrate the strategic insights ({strategic_insights}) as elegant, non-intrusive textual overlays that complement the main subject.
+            """
+            visual_type = "custom_creative_piece"
+        else:
+            persona = "Elite Data Journalist and Visual Editor at a top-tier newsroom (NYT, Bloomberg)"
+            objective = f"Design an elite editorial infographic for this news update: '{headline}'."
+            guidelines = """
+            1. Information Density: Rich layout with multiple visual layers.
+            2. Supporting Elements: A primary data visualization and at least two 'Insight Cards' using the provided strategic insights.
+            3. Editorial Hierarchy: Clear visual flow from Headline -> Summary -> Deep Dive.
+            """
+            visual_type = "studio_grade_infographic"
 
+        prompt = f"""
+        Act as an {persona}.
+        {objective}
+        
+        GOAL: {guidelines}
+        
         MANDATORY STYLE: {image_style}
         MANDATORY COLOR PALETTE: {image_palette}
-
-        NEWS DETAILS:
-        - HEADLINE: {headline}
-        - SUMMARY: {summary}
-        - DOMAIN: {domain}
-        - STRATEGIC INSIGHTS: {strategic_insights}
         
-        VISUAL ENHANCEMENT GUIDELINES:
-        1. Information Density: Rich layout with multiple visual layers. Do NOT simplify. 
-        2. Supporting Elements: Mandate at least THREE distinct visual components:
-           - A primary data visualization (e.g., trend line, complex flow diagram, or multi-axis comparison).
-           - A set of 3-4 micro-illustrations or high-fidelity labeled icons.
-           - At least two "Insight Cards" (callout boxes) using the 'STRATEGIC INSIGHTS' provided.
-        3. Hierarchy & Depth: Use a strong editorial grid. Plan for clear visual flow from Headline -> Summary -> Deep Dive -> Conclusion.
-        6. Linguistic Excellence: All text must be grammatically correct and 100% free of spelling errors. Do not invent words. Use standard professional English only.
-        7. Sub-Text & Labels: Sub-headings and small text MUST use simple, common English words. Avoid technical jargon or complex terminology in secondary/tertiary layers. Prefer nouns over verbs.
-        8. Length Constraints: No small text or label may exceed 8 words. No compound or hyphenated words in small text. Rephrase to be concise.
-        9. Text Alignment: All headings must be center-aligned. Body text must be left-aligned. Ensure clear separation between sections and consistent line spacing.
-        10. Hierarchy & Contrast: Implement a clear hierarchy: (1) Bold primary headline, (2) Concise sub-headlines, (3) Minimal dictionary-valid labels. Maintain high contrast. No overlapping or diagonal text.
-
+        STRATEGIC INSIGHTS TO INCLUDE: {strategic_insights}
+        
+        STRICT RULES:
+        1. Linguistic Excellence: All text must be 100% free of spelling errors.
+        2. Alignment: Headings center-aligned, body text left-aligned.
+        3. Constraints: No small text line may exceed 8 words. Use simple, common English only.
+        
         OUTPUT FORMAT (JSON):
         {{
-            "visual_type": "studio_grade_infographic",
+            "visual_type": "{visual_type}",
             "style": "{image_style}",
             "palette_preference": "{image_palette}",
             "headline_hierarchy": {{
-                "main": "Punchy, bold editorial headline",
-                "sub": "Contextual one-line sub-headline"
+                "main": "{summary if is_custom else headline}",
+                "sub": "{'' if is_custom else 'Contextual sub-headline'}"
             }},
             "visual_layers": [
-                {{"type": "primary_chart", "description": "Description of a rich, non-generic data visualization or process map"}},
-                {{"type": "icon_cluster", "description": "3-4 specific labeled icons representing key entities"}},
-                {{"type": "insight_cards", "description": "Content for 2 callout boxes highlighting impact"}}
+                {{"type": "primary_subject", "description": "The core visual representation of the prompt"}},
+                {{"type": "insight_overlays", "description": "How the strategic insights are visually integrated"}}
             ],
-            "aesthetic_tokens": {{
-                "palette": "Strictly use {image_palette}",
-                "texture": "Clean professional matte according to {image_style} style",
-                "lighting": "High-energy editorial lighting"
-            }},
-            "image_prompt": f"An elite-tier 4K 4:5 vertical editorial infographic about {headline}. DOMAIN: {domain}. SUMMARY: {summary}. STRATEGIC INSIGHTS: {', '.join([str(i) for i in strategic_insights])}. STYLE: {image_style}. PALETTE: {image_palette}. High-fidelity design studio output, multi-layered layout, razor-sharp text, center-aligned headings, simple common English words only, no jargon in small text, clean margins, complex data visualization, ZERO spelling errors, perfect alignment."
+            "image_prompt": "An elite-tier 4K 4:5 vertical masterpiece. SUBJECT: {summary if is_custom else headline}. STYLE: {image_style}. PALETTE: {image_palette}. {f'Ensure it strictly represents {summary} without generic news framing.' if is_custom else 'High-fidelity editorial infographic layout.'} Razor-sharp edges, perfect alignment, zero spelling errors."
         }}
         Return ONLY valid JSON.
         """

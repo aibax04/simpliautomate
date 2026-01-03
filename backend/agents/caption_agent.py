@@ -29,14 +29,14 @@ class CaptionStrategyAgent:
         domain = news_item.get('domain')
 
         if is_custom:
-            persona = "elite Personal Branding Expert and Ghostwriter for top-tier executives"
-            objective = f"Create a personal, highly engaging post based strictly on this user request: \"{summary}\"."
+            persona = "elite Creative Copywriter and Professional Brand Voice Expert"
+            objective = f"Create a highly engaging post based strictly on this specific user request: \"{summary}\"."
             rules = """
-            1. Personal Touch: Write with a human, authentic voice. Avoid generic 'news' language.
-            2. Content Fidelity: Focus 100% on the user's specific request. If they want a story, tell a story. If they want an opinion, be bold.
-            3. Hook: Start with a powerful, relatable opening.
-            4. Strategic Highlights: Extract 3 'Key Takeaways' or 'Personal Insights' that would look great on an infographic.
-            5. Aesthetics: Clean breaks, no clutter.
+            1. Literal Fidelity: Focus 100% on the user's specific prompt. If they ask for 'a robot', write about that robot. Do NOT try to frame it as a 'news update' or 'industry analysis' unless requested.
+            2. Authentic Tone: Write with a natural, human voice that matches the user's creative intent.
+            3. Hook: Start with a powerful opening relevant to the specific subject.
+            4. Strategic Highlights: Extract 3 'Key Points' or 'Subject Specialities' from the request that would look great as overlays.
+            5. No Fluff: Keep it focused and impactful.
             """
         else:
             persona = "elite LinkedIn Content Strategist and Industry Analyst for high-level business networks"
