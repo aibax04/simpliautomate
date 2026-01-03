@@ -581,10 +581,12 @@ input:focus {
     justify-content: stretch;
     gap: 12px;
     margin-top: 32px;
+    flex-wrap: wrap;
 }
 
 .modal-actions button {
-    flex: 1;
+    flex: 1 1 auto;
+    min-width: 120px;
 }
 
 .btn-primary {

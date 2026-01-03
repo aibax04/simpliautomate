@@ -275,6 +275,54 @@ class SwipeApp {
             if (window.Toast) window.Toast.show("Starting image download...");
         };
 
+        document.getElementById('copy-caption-btn').onclick = () => {
+            const captionEl = document.querySelector('.preview-caption');
+            const hashtagsEl = document.querySelector('.preview-hashtags');
+            
+            if (!captionEl) {
+                if (window.Toast) window.Toast.show("No caption found to copy.", "error");
+                return;
+            }
+
+            let textToCopy = captionEl.innerText;
+            if (hashtagsEl) {
+                textToCopy += "\n\n" + hashtagsEl.innerText;
+            }
+
+            navigator.clipboard.writeText(textToCopy).then(() => {
+                if (window.Toast) window.Toast.show("Caption copied to clipboard!");
+            }).catch(err => {
+                console.error('Copy error:', err);
+                if (window.Toast) window.Toast.show("Failed to copy caption.", "error");
+            });
+        };
+
+        document.getElementById('copy-image-btn').onclick = async () => {
+            if (!this.generatedPost || !this.generatedPost.image_url) {
+                if (window.Toast) window.Toast.show("No image to copy.", "error");
+                return;
+            }
+
+            if (window.Toast) window.Toast.show("Preparing image for clipboard...", "info");
+
+            try {
+                const response = await fetch(this.generatedPost.image_url);
+                const blob = await response.blob();
+                
+                // Clipboard API requires PNG for image copying in most browsers
+                const item = new ClipboardItem({ [blob.type]: blob });
+                await navigator.clipboard.write([item]);
+                
+                if (window.Toast) window.Toast.show("Image copied to clipboard!");
+            } catch (err) {
+                console.error('Image copy error:', err);
+                // Fallback: Copy URL if direct blob copy fails
+                navigator.clipboard.writeText(window.location.origin + this.generatedPost.image_url).then(() => {
+                    if (window.Toast) window.Toast.show("Direct copy failed. Image URL copied instead.", "info");
+                });
+            }
+        };
+
         document.getElementById('publish-btn').onclick = async () => {
             if (!this.generatedPost) return;
 
