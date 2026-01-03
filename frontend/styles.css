@@ -1,20 +1,25 @@
 :root {
-    --bg: #F4F5F7;
-    /* Slightly cooler technical grey */
+    --bg: #F8F9FA;
+    /* Clean, off-white background */
     --surface: #FFFFFF;
-    --text: #172B4D;
-    /* Deep navy/slate for text */
-    --text-secondary: #5E6C84;
-    --primary: #0052CC;
-    /* Jira/Atlassian Blue */
-    --accent: #0052CC;
-    --success: #36B37E;
-    --warning: #FFAB00;
-    --error: #FF5630;
-    --border: #DFE1E6;
-    --card-shadow: 0 1px 3px rgba(0, 0, 0, 0.12), 0 1px 2px rgba(0, 0, 0, 0.24);
-    --modal-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
-    --ease-squish: cubic-bezier(0.2, 0, 0, 1);
+    --text: #1A1F23;
+    /* Professional charcoal */
+    --text-secondary: #64748B;
+    /* Muted slate for secondary text */
+    --primary: #334155;
+    /* Neutral charcoal for primary actions */
+    --accent: #2563EB;
+    /* Muted blue used sparingly */
+    --success: #334155;
+    /* No green - use neutral charcoal */
+    --warning: #64748B;
+    /* No yellow - use muted slate */
+    --error: #EF4444;
+    /* Muted red for errors */
+    --border: #E2E8F0;
+    --card-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+    --modal-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    --ease-squish: cubic-bezier(0.4, 0, 0.2, 1);
     --font-heading: 'Libre Baskerville', serif;
     --font-ui: 'Plus Jakarta Sans', -apple-system, sans-serif;
 }
@@ -28,7 +33,7 @@
 }
 
 body {
-    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-family: var(--font-ui);
     background-color: var(--bg);
     color: var(--text);
     overflow: hidden;
@@ -36,6 +41,54 @@ body {
     display: flex;
     justify-content: center;
     line-height: 1.5;
+}
+
+/* Modal Close Button Style */
+.close-modal-btn {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    background: transparent;
+    border: none;
+    font-size: 24px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    transition: all 0.2s;
+    z-index: 10;
+}
+
+.close-modal-btn:hover {
+    background: var(--bg);
+    color: var(--text);
+}
+
+/* Sidebar Stability - Smooth Transitions */
+#queue-list {
+    transition: opacity 0.2s ease;
+}
+
+.queue-item {
+    transition: transform 0.2s ease, opacity 0.2s ease, border-color 0.2s ease;
+}
+
+/* Loader for status */
+.mini-spinner {
+    width: 14px;
+    height: 14px;
+    border: 2px solid var(--border);
+    border-top-color: var(--primary);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
 }
 
 #app {
@@ -443,8 +496,6 @@ body {
     width: 100%;
     height: 100%;
     background: rgba(0, 0, 0, 0.4);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
 }
 
 .modal-content {

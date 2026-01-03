@@ -25,73 +25,107 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!blogBtn) return;
 
     // Open Category Modal
-    blogBtn.addEventListener('click', () => {
-        blogCatModal.classList.remove('hidden');
-    });
+    if (blogBtn) {
+        blogBtn.addEventListener('click', () => {
+            if (blogCatModal) blogCatModal.classList.remove('hidden');
+        });
+    }
 
-    // Close Category Modal
-    closeBlogCatModal.addEventListener('click', () => {
-        blogCatModal.classList.add('hidden');
+    // Specific close listeners for buttons that aren't .close-modal-btn
+    if (closeBlogCatModal) {
+        closeBlogCatModal.addEventListener('click', () => {
+            if (blogCatModal) blogCatModal.classList.add('hidden');
+        });
+    }
+
+    if (closeBlogResult) {
+        closeBlogResult.addEventListener('click', () => {
+            if (blogResultModal) blogResultModal.classList.add('hidden');
+        });
+    }
+
+    // Close buttons logic for blog modals (the X buttons)
+    document.querySelectorAll('#blog-category-modal, #blog-settings-modal, #blog-result-modal').forEach(modal => {
+        const closeBtn = modal.querySelector('.close-modal-btn');
+        if (closeBtn) {
+            closeBtn.addEventListener('click', () => {
+                modal.classList.add('hidden');
+                if (modal === blogSettingsModal) resetBlogWorkflow();
+            });
+        }
     });
 
     // Category Selection -> Go to Settings Modal
-    catBoxes.forEach(box => {
-        box.addEventListener('click', () => {
-            selectedCategory = box.getAttribute('data-cat');
-            blogTopicInput.placeholder = `e.g. Impact of AI on ${selectedCategory} in 2026`;
-            
-            blogCatModal.classList.add('hidden');
-            blogSettingsModal.classList.remove('hidden');
+    if (catBoxes) {
+        catBoxes.forEach(box => {
+            box.addEventListener('click', () => {
+                selectedCategory = box.getAttribute('data-cat');
+                if (blogTopicInput) {
+                    blogTopicInput.placeholder = `e.g. Impact of AI on ${selectedCategory} in 2026`;
+                }
+                
+                if (blogCatModal) blogCatModal.classList.add('hidden');
+                if (blogSettingsModal) blogSettingsModal.classList.remove('hidden');
+            });
         });
-    });
+    }
 
     // Back to Category Modal from Settings Modal
-    backToCatsBtn.addEventListener('click', () => {
-        blogSettingsModal.classList.add('hidden');
-        blogCatModal.classList.remove('hidden');
-    });
+    if (backToCatsBtn) {
+        backToCatsBtn.addEventListener('click', () => {
+            if (blogSettingsModal) blogSettingsModal.classList.add('hidden');
+            if (blogCatModal) blogCatModal.classList.remove('hidden');
+        });
+    }
 
     function resetBlogWorkflow() {
         selectedCategory = "";
-        blogTopicInput.value = '';
-        blogStatus.classList.add('hidden');
-        generateBlogBtn.disabled = false;
-        blogSettingsModal.classList.add('hidden');
-        blogCatModal.classList.add('hidden');
+        if (blogTopicInput) blogTopicInput.value = '';
+        if (blogStatus) blogStatus.classList.add('hidden');
+        if (generateBlogBtn) generateBlogBtn.disabled = false;
+        if (blogSettingsModal) blogSettingsModal.classList.add('hidden');
+        if (blogCatModal) blogCatModal.classList.add('hidden');
     }
 
     // Generate blog
-    generateBlogBtn.addEventListener('click', async () => {
-        const topicInput = blogTopicInput.value.trim();
-        const finalTopic = topicInput ? `${selectedCategory}: ${topicInput}` : selectedCategory;
-        const tone = blogToneSelect.value;
-        const length = blogLengthSelect.value;
+    if (generateBlogBtn) {
+        generateBlogBtn.addEventListener('click', async () => {
+            const topicInput = blogTopicInput ? blogTopicInput.value.trim() : "";
+            const finalTopic = topicInput ? `${selectedCategory}: ${topicInput}` : selectedCategory;
+            const tone = blogToneSelect ? blogToneSelect.value : "Professional";
+            const length = blogLengthSelect ? blogLengthSelect.value : "Medium";
 
-        generateBlogBtn.disabled = true;
-        blogStatus.classList.remove('hidden');
-        blogStatusText.innerText = "Sourcing facts & sending to queue...";
-
-        try {
-            const result = await Api.enqueueBlog(finalTopic, tone, length);
-            
-            if (result.job_id) {
-                resetBlogWorkflow();
-                Toast.show('Blog generation started! Check the Activity Queue.');
-                if (window.queuePanel && window.queuePanel.fetchJobs) {
-                    window.queuePanel.fetchJobs();
-                }
-            } else {
-                Toast.show(result.error || 'Failed to start blog generation', 'error');
-                generateBlogBtn.disabled = false;
-                blogStatus.classList.add('hidden');
+            if (!selectedCategory) {
+                Toast.show("Please select a category first", "error");
+                return;
             }
-        } catch (e) {
-            console.error(e);
-            Toast.show('An error occurred during blog generation', 'error');
-            generateBlogBtn.disabled = false;
-            blogStatus.classList.add('hidden');
-        }
-    });
+
+            generateBlogBtn.disabled = true;
+            if (blogStatus) blogStatus.classList.remove('hidden');
+            if (blogStatusText) blogStatusText.innerText = "Sourcing facts & sending to queue...";
+
+            try {
+                const result = await Api.enqueueBlog(finalTopic, tone, length);
+                
+                if (result && result.job_id) {
+                    resetBlogWorkflow();
+                    Toast.show('Blog generation started! Check the Activity Queue.');
+                    if (window.queuePanel && window.queuePanel.fetchJobs) {
+                        window.queuePanel.fetchJobs();
+                    }
+                } else {
+                    Toast.show((result && result.error) || 'Failed to start blog generation', 'error');
+                    generateBlogBtn.disabled = false;
+                    if (blogStatus) blogStatus.classList.add('hidden');
+                }
+            } catch (e) {
+                console.error("Blog Generation Click Error:", e);
+                Toast.show('An error occurred during blog generation', 'error');
+                generateBlogBtn.disabled = false;
+                if (blogStatus) blogStatus.classList.add('hidden');
+            }
+        });
+    }
 
     window.showBlogResult = function(blog) {
         blogResultTitle.innerText = blog.title;

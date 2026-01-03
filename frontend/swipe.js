@@ -21,6 +21,20 @@ class SwipeApp {
         this.init();
         this.bindGlobalEvents();
         this.bindCustomEvents();
+        this.bindModalCloseEvents();
+    }
+
+    bindModalCloseEvents() {
+        // Find all modals and their close buttons
+        document.querySelectorAll('.modal').forEach(modal => {
+            const closeBtn = modal.querySelector('.close-modal-btn');
+            if (closeBtn) {
+                closeBtn.onclick = () => {
+                    modal.classList.add('hidden');
+                    if (modal === this.customModal) this.isCustomPost = false;
+                };
+            }
+        });
     }
 
     bindCustomEvents() {

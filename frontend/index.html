@@ -106,6 +106,7 @@
         <div id="upload-modal" class="modal hidden">
             <div class="modal-overlay"></div>
             <div class="modal-content">
+                <button class="close-modal-btn">&times;</button>
                 <h2>Ingest Content Source</h2>
                 <div class="tab-header">
                     <button class="tab-btn active" data-tab="file">File Upload</button>
@@ -128,7 +129,6 @@
 
                 <div id="ingest-status" class="hidden ingest-status">
                     <div class="mini-spinner"></div>
-                    <span>Analyzing & Searching Live News...</span>
                 </div>
 
                 <div class="modal-actions">
@@ -142,6 +142,7 @@
         <div id="custom-post-modal" class="modal hidden">
             <div class="modal-overlay"></div>
             <div class="modal-content">
+                <button class="close-modal-btn">&times;</button>
                 <h2>Create Custom Post</h2>
                 <div class="form-group">
                     <label>What would you like to post about?</label>
@@ -159,6 +160,7 @@
         <div id="pref-modal" class="modal hidden">
             <div class="modal-overlay"></div>
             <div class="modal-content">
+                <button class="close-modal-btn">&times;</button>
                 <h2>Generate LinkedIn Post</h2>
                 <div class="form-group">
                     <label>Post Tone</label>
@@ -190,7 +192,6 @@
 
                 <div id="generation-status" class="hidden">
                     <div class="mini-spinner"></div>
-                    <span>Agents are crafting your post...</span>
                 </div>
 
                 <div class="modal-actions">
@@ -204,6 +205,7 @@
         <div id="image-options-modal" class="modal hidden">
             <div class="modal-overlay"></div>
             <div class="modal-content">
+                <button class="close-modal-btn">&times;</button>
                 <h2>Custom Visual Style</h2>
 
                 <div class="form-divider">Image Generation Options</div>
@@ -211,8 +213,8 @@
                 <div class="form-group">
                     <label>Image Style</label>
                     <select id="style-select">
-                        <option value="Minimalistic">Minimalistic</option>
-                        <option value="Futuristic" selected>Futuristic</option>
+                        <option value="Minimalistic" selected>Minimalistic</option>
+                        <option value="Futuristic">Futuristic</option>
                         <option value="Editorial / Infographic">Editorial / Infographic</option>
                         <option value="Data-centric">Data-centric</option>
                     </select>
@@ -221,9 +223,9 @@
                 <div class="form-group">
                     <label>Color Palette Preference</label>
                     <select id="palette-select">
-                        <option value="Cool tones">Cool tones</option>
+                        <option value="Cool tones" selected>Cool tones</option>
                         <option value="Warm tones">Warm tones</option>
-                        <option value="Multi-color vibrant" selected>Multi-color vibrant</option>
+                        <option value="Multi-color vibrant">Multi-color vibrant</option>
                         <option value="Monochrome">Monochrome</option>
                     </select>
                 </div>
@@ -239,6 +241,7 @@
         <div id="result-modal" class="modal hidden">
             <div class="modal-overlay"></div>
             <div class="modal-content wide">
+                <button class="close-modal-btn">&times;</button>
                 <h2 id="result-modal-title">Your Curated Post</h2>
                 <div id="post-preview" class="post-preview"></div>
                 <div class="modal-actions">
@@ -256,6 +259,7 @@
         <div id="blog-category-modal" class="modal hidden">
             <div class="modal-overlay"></div>
             <div class="modal-content">
+                <button class="close-modal-btn">&times;</button>
                 <h2>LinkedIn Blog: Choose Focus</h2>
                 <div class="category-grid" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 20px;">
                     <div class="blog-cat-box" data-cat="HealthTech">HealthTech</div>
@@ -283,6 +287,7 @@
         <div id="blog-settings-modal" class="modal hidden">
             <div class="modal-overlay"></div>
             <div class="modal-content">
+                <button class="close-modal-btn">&times;</button>
                 <h2 id="blog-settings-title">Blog Settings</h2>
                 <div class="form-group">
                     <label>Specific Topic (Optional)</label>
@@ -308,7 +313,6 @@
 
                 <div id="blog-status" class="hidden">
                     <div class="mini-spinner"></div>
-                    <span id="blog-status-text">Sourcing facts & sending to queue...</span>
                 </div>
 
                 <div class="modal-actions">
@@ -322,6 +326,7 @@
         <div id="blog-result-modal" class="modal hidden">
             <div class="modal-overlay"></div>
             <div class="modal-content wide">
+                <button class="close-modal-btn">&times;</button>
                 <h2 id="blog-result-title">Generated Blog</h2>
                 <div id="blog-result-content" class="blog-result-content" style="max-height: 400px; overflow-y: auto; padding: 20px; border: 1px solid var(--border); border-radius: 8px; background: white; white-space: pre-wrap; font-family: inherit; line-height: 1.6; font-size: 15px;"></div>
                 <div class="modal-actions">

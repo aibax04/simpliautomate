@@ -98,20 +98,51 @@ class QueuePanel {
     }
 
     render(jobs) {
-        this.list.innerHTML = '';
-        if (jobs.length === 0) {
-            this.list.innerHTML = '<div class="empty-state">No activity yet.</div>';
-            return;
+        // Simple ID-based matching to prevent flickering
+        const currentIds = Array.from(this.list.children).map(child => child.getAttribute('data-job-id'));
+        const newIds = jobs.map(job => (job.id || job.job_id).toString());
+
+        // Check if the order or content is actually different
+        const isSameOrder = currentIds.length === newIds.length && currentIds.every((id, idx) => id === newIds[idx]);
+        
+        // If same order, check if any status or progress changed
+        if (isSameOrder) {
+            let hasChanges = false;
+            jobs.forEach((job, idx) => {
+                const item = this.list.children[idx];
+                const oldStatus = item.getAttribute('data-status');
+                const oldProgress = item.getAttribute('data-progress');
+                if (oldStatus !== job.status || oldProgress !== (job.progress || 0).toString()) {
+                    hasChanges = true;
+                }
+            });
+            if (!hasChanges) return;
         }
 
-        jobs.forEach(job => {
-            const item = this.createJobElement(job);
-            this.list.appendChild(item);
-        });
+        // Apply smooth transition if changing content
+        this.list.style.opacity = '0.7';
+
+        setTimeout(() => {
+            this.list.innerHTML = '';
+            if (jobs.length === 0) {
+                this.list.innerHTML = '<div class="empty-state">No activity yet.</div>';
+            } else {
+                jobs.forEach(job => {
+                    const item = this.createJobElement(job);
+                    this.list.appendChild(item);
+                });
+            }
+            this.list.style.opacity = '1';
+        }, 50);
     }
 
     createJobElement(job) {
         const item = document.createElement('div');
+        const jobId = job.id || job.job_id;
+        item.setAttribute('data-job-id', jobId);
+        item.setAttribute('data-status', job.status);
+        item.setAttribute('data-progress', job.progress || 0);
+        
         // Add specific class for animation/status styling
         const status = job.status || 'queued';
         const isGenerating = (status.includes('generating') || status === 'processing');
