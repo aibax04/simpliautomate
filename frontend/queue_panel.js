@@ -147,6 +147,7 @@ class QueuePanel {
 
         // Handle headline from payload or direct properties (depends on backend)
         const headline = job.payload?.headline || job.headline || 'Untitled Source';
+        const category = job.payload?.news_item?.domain || job.payload?.topic || '';
 
         item.innerHTML = `
             <div class="job-header">
@@ -155,7 +156,10 @@ class QueuePanel {
             </div>
             
             <div class="job-meta">
-                <span class="status-badge">${statusLabel}</span>
+                <div style="display:flex; gap:6px; align-items:center;">
+                    <span class="status-badge">${statusLabel}</span>
+                    ${category ? `<span style="font-size:0.6rem; color:var(--primary); font-weight:600; text-transform:uppercase; opacity:0.7;">• ${category}</span>` : ''}
+                </div>
                 ${progress > 0 && progress < 100 ? `<span style="font-size:0.7rem; color:var(--text-secondary); opacity:0.8;">${progress}%</span>` : ''}
             </div>
 

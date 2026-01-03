@@ -457,10 +457,21 @@ class SwipeApp {
             if (job.payload.news_item) this.currentNews = job.payload.news_item;
             if (job.payload.user_prefs) this.currentPrefs = job.payload.user_prefs;
         }
+
+        // Update modal title with news headline
+        const modalTitle = document.getElementById('result-modal-title');
+        if (modalTitle) {
+            modalTitle.innerText = this.currentNews ? this.currentNews.headline : "Your Curated Post";
+        }
+
         const rawCaption = result.caption_data ? result.caption_data.body : result.text;
         const hashtags = result.caption_data ? result.caption_data.hashtags : "";
         const hook = result.caption_data ? result.caption_data.hook : "";
-        const displayBody = hook ? `<strong>${hook}</strong>\n\n${rawCaption}` : rawCaption;
+        
+        // Include the original news headline in the content display for context
+        const headlinePrefix = (this.currentNews && !this.generatedPost.is_custom) ? `NEWS UPDATE: ${this.currentNews.headline}\n\n` : "";
+        const displayBody = hook ? `${headlinePrefix}<strong>${hook}</strong>\n\n${rawCaption}` : `${headlinePrefix}${rawCaption}`;
+        
         const container = document.getElementById('post-preview');
         const timestamp = new Date().getTime();
         const imageUrl = result.image_url ? `${result.image_url}?t=${timestamp}` : null;
