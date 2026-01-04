@@ -29,10 +29,10 @@ class SwipeApp {
         document.querySelectorAll('.modal').forEach(modal => {
             const closeBtn = modal.querySelector('.close-modal-btn');
             if (closeBtn) {
-                closeBtn.onclick = () => {
+                closeBtn.addEventListener('click', () => {
                     modal.classList.add('hidden');
                     if (modal === this.customModal) this.isCustomPost = false;
-                };
+                });
             }
         });
     }
@@ -43,30 +43,37 @@ class SwipeApp {
         const nextCustomBtn = document.getElementById('next-to-prefs-custom-btn');
 
         if (customBtn) {
-            customBtn.onclick = () => {
-                this.customModal.classList.remove('hidden');
-                this.isCustomPost = true;
-            };
+            customBtn.addEventListener('click', () => {
+                if (this.customModal) {
+                    this.customModal.classList.remove('hidden');
+                    this.isCustomPost = true;
+                }
+            });
         }
 
         if (closeCustomBtn) {
-            closeCustomBtn.onclick = () => {
-                this.customModal.classList.add('hidden');
-                this.isCustomPost = false;
-            };
+            closeCustomBtn.addEventListener('click', () => {
+                if (this.customModal) {
+                    this.customModal.classList.add('hidden');
+                    this.isCustomPost = false;
+                }
+            });
         }
 
         if (nextCustomBtn) {
-            nextCustomBtn.onclick = () => {
-                const prompt = document.getElementById('custom-prompt-input').value.trim();
+            nextCustomBtn.addEventListener('click', () => {
+                const promptEl = document.getElementById('custom-prompt-input');
+                if (!promptEl) return;
+                
+                const prompt = promptEl.value.trim();
                 if (!prompt) {
                     alert("Please enter a prompt.");
                     return;
                 }
                 this.customPrompt = prompt;
-                this.customModal.classList.add('hidden');
+                if (this.customModal) this.customModal.classList.add('hidden');
                 this.showPrefs();
-            };
+            });
         }
     }
 
@@ -220,171 +227,206 @@ class SwipeApp {
     }
 
     bindGlobalEvents() {
-        document.getElementById('close-modal').onclick = () => {
-            this.prefModal.classList.add('hidden');
-        };
+        const closeModal = document.getElementById('close-modal');
+        if (closeModal) {
+            closeModal.addEventListener('click', () => {
+                this.prefModal.classList.add('hidden');
+            });
+        }
 
         const filterSelect = document.getElementById('category-filter');
         if (filterSelect) {
-            filterSelect.onchange = (e) => {
+            filterSelect.addEventListener('change', (e) => {
                 this.filterNews(e.target.value);
-            };
+            });
         }
 
-        document.getElementById('next-to-image-btn').onclick = () => {
-            const tone = document.getElementById('tone-select').value;
-            const audience = document.getElementById('audience-select').value;
-            const length = document.getElementById('length-select').value;
+        const nextToImageBtn = document.getElementById('next-to-image-btn');
+        if (nextToImageBtn) {
+            nextToImageBtn.addEventListener('click', () => {
+                const toneSelect = document.getElementById('tone-select');
+                const audienceSelect = document.getElementById('audience-select');
+                const lengthSelect = document.getElementById('length-select');
+                
+                if (!toneSelect || !audienceSelect || !lengthSelect) return;
 
-            this.currentPrefs = { tone, audience, length };
+                const tone = toneSelect.value;
+                const audience = audienceSelect.value;
+                const length = lengthSelect.value;
 
-            this.prefModal.classList.add('hidden');
-            this.imageOptionsModal.show();
-        };
+                this.currentPrefs = { tone, audience, length };
 
-        document.getElementById('regenerate-img-btn').onclick = async () => {
-            if (!this.currentNews || !this.currentPrefs) {
-                if (window.Toast) window.Toast.show("Original context lost. Please try swiping again.", "error");
-                return;
-            }
-
-            // Close result modal and re-trigger generation
-            this.resultModal.classList.add('hidden');
-
-            const tempId = 'temp_' + Date.now();
-            if (window.queuePanel) {
-                window.queuePanel.addOptimisticJob(tempId, this.currentNews.headline);
-            }
-
-            if (window.Toast) window.Toast.show("Regenerating post with same settings...", "info");
-
-            try {
-                const resp = await Api.enqueuePost(this.currentNews, this.currentPrefs);
-                if (window.queuePanel) {
-                    window.queuePanel.updateOptimisticId(tempId, resp.job_id);
-                }
-            } catch (e) {
-                console.error(e);
-                if (window.Toast) window.Toast.show("Failed to regenerate.", "error");
-                if (window.queuePanel) window.queuePanel.removeJob(tempId);
-            }
-        };
-
-        document.getElementById('download-img-btn').onclick = () => {
-            if (!this.generatedPost || !this.generatedPost.image_url) {
-                if (window.Toast) window.Toast.show("No image available to download.", "error");
-                return;
-            }
-
-            const imageUrl = this.generatedPost.image_url;
-            const link = document.createElement('a');
-            link.href = imageUrl;
-            // Extract filename from URL or use a default
-            const filename = imageUrl.split('/').pop() || 'simplii-post.png';
-            link.download = filename;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            
-            if (window.Toast) window.Toast.show("Starting image download...");
-        };
-
-        document.getElementById('copy-caption-btn').onclick = () => {
-            const captionEl = document.querySelector('.preview-caption');
-            const hashtagsEl = document.querySelector('.preview-hashtags');
-            
-            if (!captionEl) {
-                if (window.Toast) window.Toast.show("No caption found to copy.", "error");
-                return;
-            }
-
-            let textToCopy = captionEl.innerText;
-            if (hashtagsEl) {
-                textToCopy += "\n\n" + hashtagsEl.innerText;
-            }
-
-            navigator.clipboard.writeText(textToCopy).then(() => {
-                if (window.Toast) window.Toast.show("Caption copied to clipboard!");
-            }).catch(err => {
-                console.error('Copy error:', err);
-                if (window.Toast) window.Toast.show("Failed to copy caption.", "error");
+                if (this.prefModal) this.prefModal.classList.add('hidden');
+                this.imageOptionsModal.show();
             });
-        };
+        }
 
-        document.getElementById('copy-image-btn').onclick = async () => {
-            if (!this.generatedPost || !this.generatedPost.image_url) {
-                if (window.Toast) window.Toast.show("No image to copy.", "error");
-                return;
-            }
-
-            if (window.Toast) window.Toast.show("Preparing image for clipboard...", "info");
-
-            try {
-                const response = await fetch(this.generatedPost.image_url);
-                const blob = await response.blob();
-                
-                // Clipboard API requires PNG for image copying in most browsers
-                const item = new ClipboardItem({ [blob.type]: blob });
-                await navigator.clipboard.write([item]);
-                
-                if (window.Toast) window.Toast.show("Image copied to clipboard!");
-            } catch (err) {
-                console.error('Image copy error:', err);
-                // Fallback: Copy URL if direct blob copy fails
-                navigator.clipboard.writeText(window.location.origin + this.generatedPost.image_url).then(() => {
-                    if (window.Toast) window.Toast.show("Direct copy failed. Image URL copied instead.", "info");
-                });
-            }
-        };
-
-        document.getElementById('publish-btn').onclick = async () => {
-            if (!this.generatedPost) return;
-
-            let finalPayload = "";
-            if (this.generatedPost.caption_data && this.generatedPost.caption_data.full_caption) {
-                finalPayload = this.generatedPost.caption_data.full_caption;
-            } else {
-                finalPayload = this.generatedPost.text;
-            }
-
-            const pBtn = document.getElementById('publish-btn');
-            pBtn.disabled = true;
-            pBtn.innerText = "Posting...";
-
-            if (window.Toast) window.Toast.show("Publishing to LinkedIn...", "info");
-            this.resultModal.classList.add('hidden');
-
-            const accountId = LinkedInAccounts.getSelectedAccountId('post-account-selector');
-
-            try {
-                const res = await Api.publishPost(finalPayload, this.generatedPost.image_url, accountId);
-                if (res.status === 'success') {
-                    if (window.Toast) window.Toast.show(res.message || "Published successfully!", "success");
-                } else {
-                    if (window.Toast) window.Toast.show("Publishing error: " + (res.error || res.message), "error");
+        const regenerateBtn = document.getElementById('regenerate-img-btn');
+        if (regenerateBtn) {
+            regenerateBtn.addEventListener('click', async () => {
+                if (!this.currentNews || !this.currentPrefs) {
+                    if (window.Toast) window.Toast.show("Original context lost. Please try swiping again.", "error");
+                    return;
                 }
-            } catch (e) {
-                if (window.Toast) window.Toast.show("Publishing failed: " + e.message, "error");
-            } finally {
-                pBtn.disabled = false;
-                pBtn.innerText = "Post to LinkedIn";
-            }
-        };
 
-        document.getElementById('edit-btn').onclick = () => {
-            this.resultModal.classList.add('hidden');
-            this.prefModal.classList.remove('hidden');
-        };
+                // Close result modal and re-trigger generation
+                if (this.resultModal) this.resultModal.classList.add('hidden');
 
-        document.getElementById('skip-btn').onclick = () => {
-            if (this.cards.length) this.handleLeftSwipe(this.cards[0]);
-        };
-        document.getElementById('approve-btn').onclick = () => {
-            if (this.cards.length) {
-                const card = this.cards[0];
-                this.handleRightSwipe(card, card.__newsData);
-            }
-        };
+                const tempId = 'temp_' + Date.now();
+                if (window.queuePanel) {
+                    window.queuePanel.addOptimisticJob(tempId, this.currentNews.headline);
+                }
+
+                if (window.Toast) window.Toast.show("Regenerating post with same settings...", "info");
+
+                try {
+                    const resp = await Api.enqueuePost(this.currentNews, this.currentPrefs);
+                    if (window.queuePanel) {
+                        window.queuePanel.updateOptimisticId(tempId, resp.job_id);
+                    }
+                } catch (e) {
+                    console.error(e);
+                    if (window.Toast) window.Toast.show("Failed to regenerate.", "error");
+                    if (window.queuePanel) window.queuePanel.removeJob(tempId);
+                }
+            });
+        }
+
+        const downloadBtn = document.getElementById('download-img-btn');
+        if (downloadBtn) {
+            downloadBtn.addEventListener('click', () => {
+                if (!this.generatedPost || !this.generatedPost.image_url) {
+                    if (window.Toast) window.Toast.show("No image available to download.", "error");
+                    return;
+                }
+
+                const imageUrl = this.generatedPost.image_url;
+                const link = document.createElement('a');
+                link.href = imageUrl;
+                const filename = imageUrl.split('/').pop() || 'simplii-post.png';
+                link.download = filename;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                
+                if (window.Toast) window.Toast.show("Starting image download...");
+            });
+        }
+
+        const copyCaptionBtn = document.getElementById('copy-caption-btn');
+        if (copyCaptionBtn) {
+            copyCaptionBtn.addEventListener('click', () => {
+                const captionEl = document.querySelector('.preview-caption');
+                const hashtagsEl = document.querySelector('.preview-hashtags');
+                
+                if (!captionEl) {
+                    if (window.Toast) window.Toast.show("No caption found to copy.", "error");
+                    return;
+                }
+
+                let textToCopy = captionEl.innerText;
+                if (hashtagsEl) {
+                    textToCopy += "\n\n" + hashtagsEl.innerText;
+                }
+
+                navigator.clipboard.writeText(textToCopy).then(() => {
+                    if (window.Toast) window.Toast.show("Caption copied to clipboard!");
+                }).catch(err => {
+                    console.error('Copy error:', err);
+                    if (window.Toast) window.Toast.show("Failed to copy caption.", "error");
+                });
+            });
+        }
+
+        const copyImageBtn = document.getElementById('copy-image-btn');
+        if (copyImageBtn) {
+            copyImageBtn.addEventListener('click', async () => {
+                if (!this.generatedPost || !this.generatedPost.image_url) {
+                    if (window.Toast) window.Toast.show("No image to copy.", "error");
+                    return;
+                }
+
+                if (window.Toast) window.Toast.show("Preparing image for clipboard...", "info");
+
+                try {
+                    const response = await fetch(this.generatedPost.image_url);
+                    const blob = await response.blob();
+                    
+                    const item = new ClipboardItem({ [blob.type]: blob });
+                    await navigator.clipboard.write([item]);
+                    
+                    if (window.Toast) window.Toast.show("Image copied to clipboard!");
+                } catch (err) {
+                    console.error('Image copy error:', err);
+                    navigator.clipboard.writeText(window.location.origin + this.generatedPost.image_url).then(() => {
+                        if (window.Toast) window.Toast.show("Direct copy failed. Image URL copied instead.", "info");
+                    });
+                }
+            });
+        }
+
+        const publishBtn = document.getElementById('publish-btn');
+        if (publishBtn) {
+            publishBtn.addEventListener('click', async () => {
+                if (!this.generatedPost) return;
+
+                let finalPayload = "";
+                if (this.generatedPost.caption_data && this.generatedPost.caption_data.full_caption) {
+                    finalPayload = this.generatedPost.caption_data.full_caption;
+                } else {
+                    finalPayload = this.generatedPost.text;
+                }
+
+                const pBtn = document.getElementById('publish-btn');
+                pBtn.disabled = true;
+                const originalText = pBtn.innerText;
+                pBtn.innerText = "Posting...";
+
+                if (window.Toast) window.Toast.show("Publishing to LinkedIn...", "info");
+                if (this.resultModal) this.resultModal.classList.add('hidden');
+
+                const accountId = LinkedInAccounts.getSelectedAccountId('post-account-selector');
+
+                try {
+                    const res = await Api.publishPost(finalPayload, this.generatedPost.image_url, accountId);
+                    if (res.status === 'success') {
+                        if (window.Toast) window.Toast.show(res.message || "Published successfully!", "success");
+                    } else {
+                        if (window.Toast) window.Toast.show("Publishing error: " + (res.error || res.message), "error");
+                    }
+                } catch (e) {
+                    if (window.Toast) window.Toast.show("Publishing failed: " + e.message, "error");
+                } finally {
+                    pBtn.disabled = false;
+                    pBtn.innerText = originalText;
+                }
+            });
+        }
+
+        const editBtn = document.getElementById('edit-btn');
+        if (editBtn) {
+            editBtn.addEventListener('click', () => {
+                if (this.resultModal) this.resultModal.classList.add('hidden');
+                if (this.prefModal) this.prefModal.classList.remove('hidden');
+            });
+        }
+
+        const skipBtn = document.getElementById('skip-btn');
+        if (skipBtn) {
+            skipBtn.addEventListener('click', () => {
+                if (this.cards.length) this.handleLeftSwipe(this.cards[0]);
+            });
+        }
+
+        const approveBtn = document.getElementById('approve-btn');
+        if (approveBtn) {
+            approveBtn.addEventListener('click', () => {
+                if (this.cards.length) {
+                    const card = this.cards[0];
+                    this.handleRightSwipe(card, card.__newsData);
+                }
+            });
+        }
     }
 
     async finalizeGeneration(imgPrefs) {
@@ -520,6 +562,10 @@ class SwipeApp {
     }
 }
 
-window.onload = () => {
-    window.app = new SwipeApp();
-};
+window.addEventListener('DOMContentLoaded', () => {
+    try {
+        window.app = new SwipeApp();
+    } catch (e) {
+        console.error("Critical: SwipeApp failed to initialize", e);
+    }
+});

@@ -146,6 +146,40 @@ const Api = {
         return await this.handleResponse(response);
     },
 
+    // --- Scheduling & Email API ---
+    async schedulePost(payload) {
+        const response = await fetch('/api/scheduler/schedule', {
+            method: 'POST',
+            headers: this.getHeaders(),
+            body: JSON.stringify(payload)
+        });
+        return await this.handleResponse(response);
+    },
+
+    async getScheduledPosts() {
+        const response = await fetch('/api/scheduler/scheduled-posts', {
+            headers: this.getHeaders()
+        });
+        return await this.handleResponse(response);
+    },
+
+    async cancelScheduledPost(postId) {
+        const response = await fetch(`/api/scheduler/scheduled-posts/${postId}`, {
+            method: 'DELETE',
+            headers: this.getHeaders()
+        });
+        return await this.handleResponse(response);
+    },
+
+    async sendTestEmail(email) {
+        const response = await fetch('/api/scheduler/test-email', {
+            method: 'POST',
+            headers: this.getHeaders(),
+            body: JSON.stringify({ email })
+        });
+        return await this.handleResponse(response);
+    },
+
     async getProducts() {
         const response = await fetch('/api/products', { headers: this.getHeaders() });
         return await this.handleResponse(response);

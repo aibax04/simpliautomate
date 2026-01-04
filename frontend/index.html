@@ -50,6 +50,9 @@
                     <button id="manage-products-btn" class="sidebar-btn">
                         <span class="icon">🚀</span> Products
                     </button>
+                    <button id="manage-scheduled-btn" class="sidebar-btn">
+                        <span class="icon">📅</span> Scheduled Posts
+                    </button>
                     <!-- LinkedIn button will be injected here by JS or we can place it manually -->
                     <div id="sidebar-linkedin-container"></div>
                 </div>
@@ -346,6 +349,33 @@
             </div>
         </div>
 
+        <!-- Scheduled Posts Management Modal -->
+        <div id="scheduled-posts-modal" class="modal hidden">
+            <div class="modal-overlay"></div>
+            <div class="modal-content wide">
+                <button class="close-modal-btn" onclick="document.getElementById('scheduled-posts-modal').classList.add('hidden')">&times;</button>
+                <h2>Manage Scheduled Posts</h2>
+                
+                <div id="scheduled-posts-list" class="account-list" style="max-height: 400px;">
+                    <!-- Scheduled posts injected here -->
+                </div>
+
+                <div class="form-divider">Email Notifications</div>
+                <div class="form-group">
+                    <label>Test Email Notification</label>
+                    <div style="display: flex; gap: 10px;">
+                        <input type="text" id="test-email-input" placeholder="Enter your email" style="flex: 1;">
+                        <button id="send-test-email-btn" class="btn-primary" style="width: auto;">Send Test</button>
+                    </div>
+                    <p style="font-size: 11px; color: var(--text-secondary); margin-top: 8px;">We'll send a confirmation to this address when scheduled posts are published.</p>
+                </div>
+                
+                <div class="modal-actions">
+                    <button class="btn-secondary" onclick="document.getElementById('scheduled-posts-modal').classList.add('hidden')">Close</button>
+                </div>
+            </div>
+        </div>
+
         <!-- Result Modal -->
         <div id="result-modal" class="modal hidden">
             <div class="modal-overlay"></div>
@@ -357,13 +387,23 @@
                     <label style="font-size: 13px; color: var(--text-secondary);">Post as:</label>
                     <select id="post-account-selector" class="linkedin-account-selector" style="width: 100%; margin-top: 5px;"></select>
                 </div>
+
+                <!-- Scheduling Section -->
+                <div class="form-divider">Optional: Schedule for later</div>
+                <div class="form-group" style="margin: 10px 0;">
+                    <label style="font-size: 13px; color: var(--text-secondary);">Notification Email:</label>
+                    <input type="email" id="post-notification-email" placeholder="Enter email for confirmation" style="width: 100%; margin-top: 5px; background: var(--bg); border: 1px solid var(--border); padding: 10px; border-radius: 8px;">
+                </div>
+                <div class="form-group" style="margin: 10px 0;">
+                    <label style="font-size: 13px; color: var(--text-secondary);">Schedule Date & Time:</label>
+                    <input type="datetime-local" id="post-schedule-time" style="width: 100%; margin-top: 5px;">
+                </div>
+
                 <div class="modal-actions">
                     <button id="edit-btn" class="btn-secondary">Back</button>
                     <button id="copy-caption-btn" class="btn-secondary">Copy Caption</button>
-                    <button id="copy-image-btn" class="btn-secondary">Copy Image</button>
-                    <button id="download-img-btn" class="btn-secondary">Download Image</button>
-                    <button id="regenerate-img-btn" class="btn-secondary">Regenerate Image</button>
-                    <button id="publish-btn" class="btn-primary">Post to LinkedIn</button>
+                    <button id="publish-btn" class="btn-primary">Post Now</button>
+                    <button id="schedule-btn" class="btn-secondary" style="background: var(--text); color: white;">Schedule Post</button>
                 </div>
             </div>
         </div>
@@ -454,10 +494,23 @@
                     <label style="font-size: 13px; color: var(--text-secondary);">Post as:</label>
                     <select id="blog-account-selector" class="linkedin-account-selector" style="width: 100%; margin-top: 5px;"></select>
                 </div>
+
+                <!-- Scheduling Section -->
+                <div class="form-divider">Optional: Schedule for later</div>
+                <div class="form-group" style="margin: 10px 0;">
+                    <label style="font-size: 13px; color: var(--text-secondary);">Notification Email:</label>
+                    <input type="email" id="blog-notification-email" placeholder="Enter email for confirmation" style="width: 100%; margin-top: 5px; background: var(--bg); border: 1px solid var(--border); padding: 10px; border-radius: 8px;">
+                </div>
+                <div class="form-group" style="margin: 10px 0;">
+                    <label style="font-size: 13px; color: var(--text-secondary);">Schedule Date & Time:</label>
+                    <input type="datetime-local" id="blog-schedule-time" style="width: 100%; margin-top: 5px;">
+                </div>
+
                 <div class="modal-actions">
                     <button id="close-blog-result" class="btn-secondary">Close</button>
-                    <button id="copy-blog-btn" class="btn-secondary">Copy to Clipboard</button>
-                    <button id="publish-blog-btn" class="btn-primary">Post to LinkedIn</button>
+                    <button id="copy-blog-btn" class="btn-secondary">Copy Text</button>
+                    <button id="publish-blog-btn" class="btn-primary">Post Now</button>
+                    <button id="schedule-blog-btn" class="btn-secondary" style="background: var(--text); color: white;">Schedule Blog</button>
                 </div>
             </div>
         </div>
@@ -466,6 +519,7 @@
     <script src="static/js/api.js"></script>
     <script src="static/js/linkedin_accounts.js"></script>
     <script src="static/js/products.js"></script>
+    <script src="static/js/scheduler.js"></script>
     <script src="static/js/queue_panel.js"></script>
     <script src="static/js/image_options_modal.js"></script>
     <script src="static/js/blog_generator.js"></script>

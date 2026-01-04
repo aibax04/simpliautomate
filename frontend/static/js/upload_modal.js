@@ -1,7 +1,10 @@
 document.addEventListener('DOMContentLoaded', () => {
     const uploadModal = document.getElementById('upload-modal');
+    if (!uploadModal) return;
+
     const openBtn = document.getElementById('upload-main-btn');
     const closeBtn = document.getElementById('close-upload-modal');
+    const timesBtn = uploadModal.querySelector('.close-modal-btn');
     const ingestBtn = document.getElementById('ingest-btn');
 
     // Tabs
@@ -12,14 +15,25 @@ document.addEventListener('DOMContentLoaded', () => {
     let activeTab = 'file';
 
     // 1. Open/Close Modal
-    openBtn.addEventListener('click', () => {
-        uploadModal.classList.remove('hidden');
-    });
+    if (openBtn) {
+        openBtn.addEventListener('click', () => {
+            uploadModal.classList.remove('hidden');
+        });
+    }
 
-    closeBtn.addEventListener('click', () => {
-        uploadModal.classList.add('hidden');
-        resetForm();
-    });
+    if (closeBtn) {
+        closeBtn.addEventListener('click', () => {
+            uploadModal.classList.add('hidden');
+            resetForm();
+        });
+    }
+
+    if (timesBtn) {
+        timesBtn.addEventListener('click', () => {
+            uploadModal.classList.add('hidden');
+            resetForm();
+        });
+    }
 
     // 2. Tab Switching
     tabBtns.forEach(btn => {

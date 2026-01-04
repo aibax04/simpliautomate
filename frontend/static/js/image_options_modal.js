@@ -11,19 +11,28 @@ class ImageOptionsModal {
     init() {
         if (!this.modal) return;
 
-        this.closeBtn.onclick = () => {
-            this.modal.classList.add('hidden');
-        };
+        if (this.closeBtn) {
+            this.closeBtn.addEventListener('click', () => {
+                this.modal.classList.add('hidden');
+            });
+        }
 
-        this.confirmBtn.onclick = () => {
-            const style = document.getElementById('style-select').value;
-            const palette = document.getElementById('palette-select').value;
+        if (this.confirmBtn) {
+            this.confirmBtn.addEventListener('click', () => {
+                const styleSelect = document.getElementById('style-select');
+                const paletteSelect = document.getElementById('palette-select');
+                
+                if (!styleSelect || !paletteSelect) return;
 
-            this.modal.classList.add('hidden');
-            if (this.onConfirm) {
-                this.onConfirm({ style, palette });
-            }
-        };
+                const style = styleSelect.value;
+                const palette = paletteSelect.value;
+
+                this.modal.classList.add('hidden');
+                if (this.onConfirm) {
+                    this.onConfirm({ style, palette });
+                }
+            });
+        }
     }
 
     show() {

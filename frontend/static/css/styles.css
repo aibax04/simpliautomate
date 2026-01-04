@@ -1343,6 +1343,39 @@ img.generated-post-image {
     color: #BF2600;
 }
 
+.status-badge.completed {
+    background: #E3FCEF;
+    color: #006644;
+}
+
+.status-badge.pending {
+    background: #DEEBFF;
+    color: #0052CC;
+}
+
+.status-badge.failed {
+    background: #FFEBE6;
+    color: #BF2600;
+}
+
+input[type="datetime-local"] {
+    appearance: none;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    padding: 10px 14px;
+    border-radius: 8px;
+    font-family: var(--font-ui);
+    font-size: 0.9rem;
+    color: var(--text);
+    width: 100%;
+    outline: none;
+}
+
+input[type="datetime-local"]:focus {
+    border-color: var(--text);
+    background: var(--surface);
+}
+
 .btn-icon {
     background: transparent;
     border: none;

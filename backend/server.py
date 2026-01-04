@@ -12,6 +12,7 @@ from backend.routes.queue_router import router as queue_router
 from backend.routes.auth import router as auth_router
 from backend.routes.linkedin import router as linkedin_router
 from backend.routes.products import router as products_router
+from backend.routes.scheduler import router as scheduler_router
 from backend.routes.media import setup_media_routes
 from backend.auth.security import decode_access_token, get_current_user, decrypt_token
 from fastapi.security import OAuth2PasswordBearer
@@ -19,8 +20,8 @@ import google.generativeai as genai
 import uvicorn
 import asyncio
 from backend.agents.news_fetch_agent import NewsFetchAgent
-from backend.db.models import GeneratedPost, SavedPost, NewsItem, User, LinkedInAccount
-from sqlalchemy import select
+from backend.db.models import GeneratedPost, SavedPost, NewsItem, User, LinkedInAccount, ScheduledPost
+from sqlalchemy import select, update
 from backend.db.database import AsyncSessionLocal, check_db_connection, get_db
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -33,6 +34,7 @@ app = FastAPI(title="Simplii News API")
 app.include_router(auth_router, prefix="/api")
 app.include_router(linkedin_router, prefix="/api")
 app.include_router(products_router, prefix="/api", dependencies=[Depends(get_current_user)])
+app.include_router(scheduler_router, prefix="/api", dependencies=[Depends(get_current_user)])
 app.include_router(ingest_router, prefix="/api", dependencies=[Depends(get_current_user)])
 app.include_router(queue_router, prefix="/api", dependencies=[Depends(get_current_user)])
 
@@ -46,6 +48,60 @@ async def background_news_fetcher():
         except Exception as e:
             print(f"[BACKGROUND ERROR] {e}")
         await asyncio.sleep(600) # Refresh every 10 minutes
+
+async def post_scheduler():
+    """Background task to publish scheduled posts."""
+    from backend.utils.email_sender import send_email
+    while True:
+        try:
+            async with AsyncSessionLocal() as session:
+                now = datetime.now(timezone.utc)
+                stmt = select(ScheduledPost, User, LinkedInAccount).join(
+                    User, ScheduledPost.user_id == User.id
+                ).join(
+                    LinkedInAccount, ScheduledPost.linkedin_account_id == LinkedInAccount.id
+                ).where(
+                    ScheduledPost.status == "pending",
+                    ScheduledPost.scheduled_at <= now
+                )
+                
+                res = await session.execute(stmt)
+                due_posts = res.all()
+                
+                for post, user, account in due_posts:
+                    print(f"[SCHEDULER] Publishing post {post.id} for user {user.username}...")
+                    
+                    access_token = decrypt_token(account.access_token)
+                    person_urn = account.linkedin_person_urn
+                    
+                    agent = LinkedInAgent(access_token=access_token, person_urn=person_urn)
+                    result = agent.post_to_linkedin(post.content, image_path=post.image_url)
+                    
+                    if result.get("status") == "success":
+                        post.status = "completed"
+                        print(f"[SCHEDULER] Post {post.id} published successfully.")
+                        
+                        # Send confirmation email
+                        target_email = post.notification_email or user.email
+                        subject = "LinkedIn Post Published Successfully"
+                        body = f"<h1>Great news {user.username}!</h1><p>Your scheduled post was published successfully to LinkedIn.</p><p><strong>Account:</strong> {account.display_name}</p><p><strong>Content:</strong> {post.content[:100]}...</p>"
+                        send_email(target_email, subject, body)
+                    else:
+                        post.status = "failed"
+                        post.error_message = result.get("error")
+                        print(f"[SCHEDULER] Post {post.id} failed: {post.error_message}")
+                        
+                        # Send failure email
+                        target_email = post.notification_email or user.email
+                        subject = "LinkedIn Post Publication Failed"
+                        body = f"<h1>Attention {user.username},</h1><p>Your scheduled post failed to publish.</p><p><strong>Error:</strong> {post.error_message}</p><p>Please check your LinkedIn connection and try again.</p>"
+                        send_email(target_email, subject, body)
+                
+                await session.commit()
+        except Exception as e:
+            print(f"[SCHEDULER ERROR] {e}")
+        
+        await asyncio.sleep(60) # Check every minute
 
 @app.on_event("startup")
 async def startup_event():
@@ -61,6 +117,7 @@ async def startup_event():
     # 2. Verify DB connection on startup
     await check_db_connection()
     asyncio.create_task(background_news_fetcher())
+    asyncio.create_task(post_scheduler())
 
 # Setup Media Serving (Critical for Image Visibility)
 setup_media_routes(app)

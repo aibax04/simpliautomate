@@ -29,7 +29,7 @@ const LinkedInAccounts = {
         if (linkedinContainer) {
             const mgmtBtn = document.createElement('button');
             mgmtBtn.className = 'sidebar-btn';
-            mgmtBtn.innerHTML = '<span class="icon">🔗</span> <span>LinkedIn</span>';
+            mgmtBtn.innerHTML = '<span class="icon">🔗</span> <span>LinkedIn Accounts</span>';
             mgmtBtn.onclick = () => this.showManagementModal();
             linkedinContainer.appendChild(mgmtBtn);
         }

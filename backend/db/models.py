@@ -98,3 +98,18 @@ class SavedPost(Base):
     post_id = Column(Integer, ForeignKey("generated_posts.id"))
     notes = Column(String, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+class ScheduledPost(Base):
+    __tablename__ = "scheduled_posts"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    linkedin_account_id = Column(Integer, ForeignKey("linkedin_accounts.id"), nullable=False)
+    content = Column(String, nullable=False)
+    image_url = Column(String, nullable=True)
+    scheduled_at = Column(DateTime(timezone=True), nullable=False)
+    notification_email = Column(String, nullable=True)
+    status = Column(String, default="pending") # pending, completed, failed
+    error_message = Column(String, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
