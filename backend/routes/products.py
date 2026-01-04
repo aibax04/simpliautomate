@@ -8,6 +8,8 @@ import os
 import uuid
 from typing import List, Optional
 
+from sqlalchemy.orm import selectinload
+
 router = APIRouter(prefix="/products", tags=["products"])
 
 UPLOAD_DIR = "uploads/collateral"
@@ -17,21 +19,68 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 async def create_product(
     name: str = Form(...),
     description: Optional[str] = Form(None),
+    website_url: Optional[str] = Form(None),
+    documents: List[UploadFile] = File([]),
+    photos: List[UploadFile] = File([]),
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user)
 ):
-    product = Product(user_id=user.id, name=name, description=description)
+    product = Product(user_id=user.id, name=name, description=description, website_url=website_url)
     db.add(product)
     await db.commit()
     await db.refresh(product)
-    return product
+
+    # Handle Documents
+    for doc in documents:
+        if doc.filename:
+            file_ext = os.path.splitext(doc.filename)[1]
+            unique_filename = f"{uuid.uuid4()}{file_ext}"
+            file_path = os.path.join(UPLOAD_DIR, unique_filename)
+            
+            with open(file_path, "wb") as f:
+                content = await doc.read()
+                f.write(content)
+            
+            collateral = ProductCollateral(
+                product_id=product.id,
+                file_name=doc.filename,
+                file_path=file_path,
+                file_type="document"
+            )
+            db.add(collateral)
+
+    # Handle Photos
+    for photo in photos:
+        if photo.filename:
+            file_ext = os.path.splitext(photo.filename)[1]
+            unique_filename = f"{uuid.uuid4()}{file_ext}"
+            file_path = os.path.join(UPLOAD_DIR, unique_filename)
+            
+            with open(file_path, "wb") as f:
+                content = await photo.read()
+                f.write(content)
+            
+            collateral = ProductCollateral(
+                product_id=product.id,
+                file_name=photo.filename,
+                file_path=file_path,
+                file_type="photo"
+            )
+            db.add(collateral)
+
+    await db.commit()
+    
+    # Reload with collateral
+    stmt = select(Product).where(Product.id == product.id).options(selectinload(Product.collateral))
+    res = await db.execute(stmt)
+    return res.scalar_one()
 
 @router.get("")
 async def get_products(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user)
 ):
-    stmt = select(Product).where(Product.user_id == user.id)
+    stmt = select(Product).where(Product.user_id == user.id).options(selectinload(Product.collateral))
     result = await db.execute(stmt)
     return result.scalars().all()
 
@@ -41,8 +90,23 @@ async def delete_product(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user)
 ):
-    stmt = delete(Product).where(Product.id == product_id, Product.user_id == user.id)
-    await db.execute(stmt)
+    # Fetch product with collateral to delete files
+    stmt = select(Product).where(Product.id == product_id, Product.user_id == user.id).options(selectinload(Product.collateral))
+    result = await db.execute(stmt)
+    product = result.scalar_one_or_none()
+    
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found")
+
+    # Delete physical files
+    for collateral in product.collateral:
+        if os.path.exists(collateral.file_path):
+            try:
+                os.remove(collateral.file_path)
+            except Exception as e:
+                print(f"Failed to delete file {collateral.file_path}: {e}")
+
+    await db.delete(product)
     await db.commit()
     return {"status": "success"}
 

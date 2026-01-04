@@ -21,24 +21,19 @@ const PostScheduler = {
     },
 
     setupEventListeners() {
-        const manageBtn = document.getElementById('manage-scheduled-btn');
-        if (manageBtn) {
-            manageBtn.onclick = () => this.showManagementModal();
-        }
-
         const scheduleBtn = document.getElementById('schedule-btn');
         if (scheduleBtn) {
-            scheduleBtn.onclick = () => this.handleSchedulePost('post-account-selector', 'post-schedule-time', 'post-preview', 'post-notification-email');
+            scheduleBtn.addEventListener('click', () => this.handleSchedulePost('post-account-selector', 'post-schedule-time', 'post-preview', 'post-notification-email'));
         }
 
         const scheduleBlogBtn = document.getElementById('schedule-blog-btn');
         if (scheduleBlogBtn) {
-            scheduleBlogBtn.onclick = () => this.handleSchedulePost('blog-account-selector', 'blog-schedule-time', 'blog-result-content', 'blog-notification-email');
+            scheduleBlogBtn.addEventListener('click', () => this.handleSchedulePost('blog-account-selector', 'blog-schedule-time', 'blog-result-content', 'blog-notification-email'));
         }
 
         const testEmailBtn = document.getElementById('send-test-email-btn');
         if (testEmailBtn) {
-            testEmailBtn.onclick = () => this.handleTestEmail();
+            testEmailBtn.addEventListener('click', () => this.handleTestEmail());
         }
 
         const emailInput = document.getElementById('test-email-input');

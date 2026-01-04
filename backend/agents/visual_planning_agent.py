@@ -22,10 +22,17 @@ class VisualPlanningAgent:
 
         branding_note = ""
         if product_info:
+            collateral_info = ""
+            if product_info.get('collateral'):
+                photos = [c['file_name'] for c in product_info['collateral'] if c['file_type'] == 'photo']
+                if photos:
+                    collateral_info = f"\n            - Available Brand Photos for reference: {', '.join(photos)}"
+
             branding_note = f"""
             BRANDING REQUIREMENTS (Crucial):
             This post is branded for: {product_info.get('name')}.
-            - The visual should subtly reflect the brand's identity.
+            - The visual should subtly reflect the brand's identity.{collateral_info}
+            - Website URL for reference: {product_info.get('website_url') or 'N/A'}
             - Ensure the product name '{product_info.get('name')}' is elegantly placed as a 'Presented by' or 'Powered by' badge in the corner of the visual.
             """
 

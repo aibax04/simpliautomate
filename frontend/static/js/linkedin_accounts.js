@@ -21,18 +21,11 @@ const LinkedInAccounts = {
     setupEventListeners() {
         const connectBtn = document.getElementById('connect-linkedin-btn');
         if (connectBtn) {
-            connectBtn.onclick = () => this.initiateOAuth();
+            connectBtn.addEventListener('click', () => this.initiateOAuth());
         }
 
-        // Add account management button to sidebar
-        const linkedinContainer = document.getElementById('sidebar-linkedin-container');
-        if (linkedinContainer) {
-            const mgmtBtn = document.createElement('button');
-            mgmtBtn.className = 'sidebar-btn';
-            mgmtBtn.innerHTML = '<span class="icon">🔗</span> <span>LinkedIn Accounts</span>';
-            mgmtBtn.onclick = () => this.showManagementModal();
-            linkedinContainer.appendChild(mgmtBtn);
-        }
+        // The manage-linkedin-btn now uses an inline onclick handler in index.html
+        // for maximum reliability. No extra binding needed here.
     },
 
     async initiateOAuth() {

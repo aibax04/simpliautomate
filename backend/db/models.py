@@ -26,6 +26,8 @@ class LinkedInAccount(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
+from sqlalchemy.orm import relationship
+
 class Product(Base):
     __tablename__ = "products"
     
@@ -33,8 +35,11 @@ class Product(Base):
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     name = Column(String, index=True, nullable=False)
     description = Column(String, nullable=True)
+    website_url = Column(String, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    collateral = relationship("ProductCollateral", backref="product", cascade="all, delete-orphan")
 
 class ProductCollateral(Base):
     __tablename__ = "product_collateral"

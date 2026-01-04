@@ -38,18 +38,8 @@ class SwipeApp {
     }
 
     bindCustomEvents() {
-        const customBtn = document.getElementById('custom-post-btn');
         const closeCustomBtn = document.getElementById('close-custom-modal');
         const nextCustomBtn = document.getElementById('next-to-prefs-custom-btn');
-
-        if (customBtn) {
-            customBtn.addEventListener('click', () => {
-                if (this.customModal) {
-                    this.customModal.classList.remove('hidden');
-                    this.isCustomPost = true;
-                }
-            });
-        }
 
         if (closeCustomBtn) {
             closeCustomBtn.addEventListener('click', () => {
@@ -74,6 +64,13 @@ class SwipeApp {
                 if (this.customModal) this.customModal.classList.add('hidden');
                 this.showPrefs();
             });
+        }
+    }
+
+    showCustomPostModal() {
+        if (this.customModal) {
+            this.customModal.classList.remove('hidden');
+            this.isCustomPost = true;
         }
     }
 
@@ -230,7 +227,7 @@ class SwipeApp {
         const closeModal = document.getElementById('close-modal');
         if (closeModal) {
             closeModal.addEventListener('click', () => {
-                this.prefModal.classList.add('hidden');
+                if (this.prefModal) this.prefModal.classList.add('hidden');
             });
         }
 
@@ -257,7 +254,7 @@ class SwipeApp {
                 this.currentPrefs = { tone, audience, length };
 
                 if (this.prefModal) this.prefModal.classList.add('hidden');
-                this.imageOptionsModal.show();
+                if (this.imageOptionsModal) this.imageOptionsModal.show();
             });
         }
 
@@ -377,10 +374,9 @@ class SwipeApp {
                     finalPayload = this.generatedPost.text;
                 }
 
-                const pBtn = document.getElementById('publish-btn');
-                pBtn.disabled = true;
-                const originalText = pBtn.innerText;
-                pBtn.innerText = "Posting...";
+                publishBtn.disabled = true;
+                const originalText = publishBtn.innerText;
+                publishBtn.innerText = "Posting...";
 
                 if (window.Toast) window.Toast.show("Publishing to LinkedIn...", "info");
                 if (this.resultModal) this.resultModal.classList.add('hidden');
@@ -397,8 +393,8 @@ class SwipeApp {
                 } catch (e) {
                     if (window.Toast) window.Toast.show("Publishing failed: " + e.message, "error");
                 } finally {
-                    pBtn.disabled = false;
-                    pBtn.innerText = originalText;
+                    publishBtn.disabled = false;
+                    publishBtn.innerText = originalText;
                 }
             });
         }

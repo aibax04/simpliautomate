@@ -30,11 +30,21 @@ class CaptionStrategyAgent:
 
         branding_context = ""
         if product_info:
+            collateral_info = ""
+            if product_info.get('collateral'):
+                docs = [c['file_name'] for c in product_info['collateral'] if c['file_type'] == 'document']
+                photos = [c['file_name'] for c in product_info['collateral'] if c['file_type'] == 'photo']
+                if docs:
+                    collateral_info += f"\n            - Supporting Documents: {', '.join(docs)}"
+                if photos:
+                    collateral_info += f"\n            - Brand Photos: {', '.join(photos)}"
+
             branding_context = f"""
             BRANDING CONTEXT (Crucial):
             The user wants this post to relate to their product/service:
             - Product Name: {product_info.get('name')}
             - Product Description: {product_info.get('description')}
+            - Website: {product_info.get('website_url') or 'N/A'}{collateral_info}
             
             MANDATORY RULE: Find a natural and professional way to connect the news/topic to this product. 
             The product should be mentioned or alluded to as a solution, relevant example, or related entity.

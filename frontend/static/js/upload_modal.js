@@ -15,11 +15,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let activeTab = 'file';
 
     // 1. Open/Close Modal
-    if (openBtn) {
-        openBtn.addEventListener('click', () => {
-            uploadModal.classList.remove('hidden');
-        });
-    }
+    // Note: openBtn now uses an inline onclick in index.html for better reliability
 
     if (closeBtn) {
         closeBtn.addEventListener('click', () => {

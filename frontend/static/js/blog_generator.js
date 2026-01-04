@@ -22,14 +22,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const copyBlogBtn = document.getElementById('copy-blog-btn');
     const publishBlogBtn = document.getElementById('publish-blog-btn');
 
-    if (!blogBtn) return;
+    if (!blogSettingsModal) return;
 
     // Open Category Modal
-    if (blogBtn) {
-        blogBtn.addEventListener('click', () => {
-            if (blogCatModal) blogCatModal.classList.remove('hidden');
-        });
-    }
+    // Note: blogBtn now uses an inline onclick in index.html for better reliability
 
     // Specific close listeners for buttons that aren't .close-modal-btn
     if (closeBlogCatModal) {
@@ -135,46 +131,52 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     // Close blog result modal
-    closeBlogResult.addEventListener('click', () => {
-        blogResultModal.classList.add('hidden');
-    });
+    if (closeBlogResult) {
+        closeBlogResult.addEventListener('click', () => {
+            blogResultModal.classList.add('hidden');
+        });
+    }
 
     // Copy to clipboard
-    copyBlogBtn.addEventListener('click', () => {
-        const text = blogResultContent.innerText;
-        navigator.clipboard.writeText(text).then(() => {
-            Toast.show('Blog copied to clipboard');
-        }).catch(err => {
-            console.error('Could not copy text: ', err);
-            Toast.show('Failed to copy text', 'error');
+    if (copyBlogBtn) {
+        copyBlogBtn.addEventListener('click', () => {
+            const text = blogResultContent.innerText;
+            navigator.clipboard.writeText(text).then(() => {
+                Toast.show('Blog copied to clipboard');
+            }).catch(err => {
+                console.error('Could not copy text: ', err);
+                Toast.show('Failed to copy text', 'error');
+            });
         });
-    });
+    }
 
     // Post to LinkedIn
-    publishBlogBtn.addEventListener('click', async () => {
-        const text = blogResultContent.innerText;
-        const title = blogResultTitle.innerText;
-        const fullContent = `${title}\n\n${text}`;
+    if (publishBlogBtn) {
+        publishBlogBtn.addEventListener('click', async () => {
+            const text = blogResultContent.innerText;
+            const title = blogResultTitle.innerText;
+            const fullContent = `${title}\n\n${text}`;
 
-        publishBlogBtn.disabled = true;
-        publishBlogBtn.innerText = 'Publishing...';
+            publishBlogBtn.disabled = true;
+            publishBlogBtn.innerText = 'Publishing...';
 
-        const accountId = LinkedInAccounts.getSelectedAccountId('blog-account-selector');
+            const accountId = LinkedInAccounts.getSelectedAccountId('blog-account-selector');
 
-        try {
-            const result = await Api.publishPost(fullContent, null, accountId);
-            if (result.status === 'success') {
-                Toast.show('Blog published successfully to LinkedIn!');
-                blogResultModal.classList.add('hidden');
-            } else {
-                Toast.show(result.error || 'Failed to publish blog', 'error');
+            try {
+                const result = await Api.publishPost(fullContent, null, accountId);
+                if (result.status === 'success') {
+                    Toast.show('Blog published successfully to LinkedIn!');
+                    blogResultModal.classList.add('hidden');
+                } else {
+                    Toast.show(result.error || 'Failed to publish blog', 'error');
+                }
+            } catch (e) {
+                console.error(e);
+                Toast.show('An error occurred while publishing', 'error');
+            } finally {
+                publishBlogBtn.disabled = false;
+                publishBlogBtn.innerText = 'Post to LinkedIn';
             }
-        } catch (e) {
-            console.error(e);
-            Toast.show('An error occurred while publishing', 'error');
-        } finally {
-            publishBlogBtn.disabled = false;
-            publishBlogBtn.innerText = 'Post to LinkedIn';
-        }
-    });
+        });
+    }
 });

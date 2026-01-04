@@ -9,6 +9,7 @@ from backend.db.database import AsyncSessionLocal, get_db
 from backend.db.models import GenerationQueue, GeneratedPost, NewsItem, User, Product
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 from backend.auth.security import get_current_user
 
 router = APIRouter()
@@ -90,13 +91,18 @@ async def process_post_generation(job_id: str, news_item: Dict, user_prefs: Dict
         product_info = None
         if product_id:
             async with AsyncSessionLocal() as session:
-                stmt = select(Product).where(Product.id == product_id)
+                stmt = select(Product).where(Product.id == product_id).options(selectinload(Product.collateral))
                 res = await session.execute(stmt)
                 product = res.scalar_one_or_none()
                 if product:
                     product_info = {
                         "name": product.name,
-                        "description": product.description
+                        "description": product.description,
+                        "website_url": product.website_url,
+                        "collateral": [
+                            {"file_name": c.file_name, "file_path": c.file_path, "file_type": c.file_type}
+                            for c in product.collateral
+                        ]
                     }
 
         # Initialize agent
@@ -130,13 +136,18 @@ async def process_blog_generation(job_id: str, topic: str, tone: str, length: st
         product_info = None
         if product_id:
             async with AsyncSessionLocal() as session:
-                stmt = select(Product).where(Product.id == product_id)
+                stmt = select(Product).where(Product.id == product_id).options(selectinload(Product.collateral))
                 res = await session.execute(stmt)
                 product = res.scalar_one_or_none()
                 if product:
                     product_info = {
                         "name": product.name,
-                        "description": product.description
+                        "description": product.description,
+                        "website_url": product.website_url,
+                        "collateral": [
+                            {"file_name": c.file_name, "file_path": c.file_path, "file_type": c.file_type}
+                            for c in product.collateral
+                        ]
                     }
 
         agent = LinkedInBlogAgent()

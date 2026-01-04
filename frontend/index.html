@@ -34,27 +34,28 @@
             <div class="sidebar-content">
                 <div class="sidebar-section">
                     <label>Main Actions</label>
-                    <button id="upload-main-btn" class="sidebar-btn">
+                    <button id="upload-main-btn" class="sidebar-btn" onclick="document.getElementById('upload-modal').classList.remove('hidden')">
                         <span class="icon">+</span> New Source
                     </button>
-                    <button id="custom-post-btn" class="sidebar-btn">
+                    <button id="custom-post-btn" class="sidebar-btn" onclick="window.app.showCustomPostModal()">
                         <span class="icon">✎</span> Custom Post
                     </button>
-                    <button id="blog-generator-btn" class="sidebar-btn">
+                    <button id="blog-generator-btn" class="sidebar-btn" onclick="document.getElementById('blog-category-modal').classList.remove('hidden')">
                         <span class="icon">📰</span> LinkedIn Blog
                     </button>
                 </div>
 
                 <div class="sidebar-section">
                     <label>Management</label>
-                    <button id="manage-products-btn" class="sidebar-btn">
+                    <button id="manage-products-btn" class="sidebar-btn" onclick="ProductManagement.showModal()">
                         <span class="icon">🚀</span> Products
                     </button>
-                    <button id="manage-scheduled-btn" class="sidebar-btn">
+                    <button id="manage-scheduled-btn" class="sidebar-btn" onclick="PostScheduler.showManagementModal()">
                         <span class="icon">📅</span> Scheduled Posts
                     </button>
-                    <!-- LinkedIn button will be injected here by JS or we can place it manually -->
-                    <div id="sidebar-linkedin-container"></div>
+                    <button id="manage-linkedin-btn" class="sidebar-btn" onclick="LinkedInAccounts.showManagementModal()">
+                        <span class="icon">@</span> LinkedIn Accounts
+                    </button>
                 </div>
 
                 <div class="sidebar-section">
@@ -273,37 +274,45 @@
             </div>
         </div>
 
-        <!-- Product Management Modal -->
-        <div id="product-mgmt-modal" class="modal hidden">
+        <!-- Manage Products Modal -->
+        <div id="products-modal" class="modal hidden">
             <div class="modal-overlay"></div>
             <div class="modal-content">
-                <button class="close-modal-btn" onclick="document.getElementById('product-mgmt-modal').classList.add('hidden')">&times;</button>
+                <button class="close-modal-btn" onclick="document.getElementById('products-modal').classList.add('hidden')">&times;</button>
                 <h2>Manage Products & Ventures</h2>
-                <div id="products-list" class="account-list">
+                
+                <div id="product-list" class="account-list" style="max-height: 300px; overflow-y: auto; margin-bottom: 20px;">
                     <!-- Products injected here -->
                 </div>
+
                 <div class="form-divider">Add New Product</div>
-                <form id="add-product-form">
-                    <div class="form-group">
-                        <label>Product Name</label>
-                        <input type="text" id="product-name" placeholder="e.g. Simplii AI" required>
-                    </div>
-                    <div class="form-group">
-                        <label>Description / Focus</label>
-                        <textarea id="product-desc" rows="2" style="width: 100%; border: 1px solid var(--border); border-radius: 8px; padding: 10px;"></textarea>
-                    </div>
-                    <div class="form-group">
-                        <label>Collateral (PDF/Doc for context)</label>
-                        <input type="file" id="product-collateral" accept=".pdf,.docx,.txt">
-                    </div>
-                    <div class="form-group">
-                        <label>Logo (Optional)</label>
-                        <input type="file" id="product-logo" accept="image/*">
-                    </div>
-                    <div class="modal-actions">
-                        <button type="submit" class="btn-primary">Save Product</button>
-                    </div>
-                </form>
+                <div class="form-group">
+                    <label>Product Name</label>
+                    <input type="text" id="new-product-name" placeholder="e.g. Simplii AI">
+                </div>
+                <div class="form-group">
+                    <label>Description / Value Prop</label>
+                    <textarea id="new-product-desc" rows="2" style="width: 100%; border-radius: 12px; border: 1px solid var(--border); padding: 12px; font-family: inherit; margin-bottom: 10px;"></textarea>
+                </div>
+                
+                <div class="form-group">
+                    <label>Website / Product URL</label>
+                    <input type="text" id="new-product-url" placeholder="https://example.com" style="margin-bottom: 10px;">
+                </div>
+                
+                <div class="form-group">
+                    <label>Documents (PDF, DOCX, TXT)</label>
+                    <input type="file" id="new-product-docs" accept=".pdf,.docx,.txt" multiple class="file-drop-area" style="padding: 10px; margin-bottom: 10px;">
+                </div>
+
+                <div class="form-group">
+                    <label>Company Photos / Logo</label>
+                    <input type="file" id="new-product-photos" accept="image/*" multiple class="file-drop-area" style="padding: 10px; margin-bottom: 10px;">
+                </div>
+
+                <div class="modal-actions">
+                    <button id="add-product-btn" class="btn-primary">Create Product</button>
+                </div>
             </div>
         </div>
 
@@ -318,33 +327,6 @@
                 </div>
                 <div class="modal-actions">
                     <button id="connect-linkedin-btn" class="btn-primary">Connect another LinkedIn account</button>
-                </div>
-            </div>
-        </div>
-
-        <!-- Manage Products Modal -->
-        <div id="products-modal" class="modal hidden">
-            <div class="modal-overlay"></div>
-            <div class="modal-content">
-                <button class="close-modal-btn" onclick="document.getElementById('products-modal').classList.add('hidden')">&times;</button>
-                <h2>Manage Products/Ventures</h2>
-                
-                <div id="product-list" class="account-list">
-                    <!-- Products injected here -->
-                </div>
-
-                <div class="form-divider">Add New Product</div>
-                <div class="form-group">
-                    <label>Product Name</label>
-                    <input type="text" id="new-product-name" placeholder="e.g. Simplii AI">
-                </div>
-                <div class="form-group">
-                    <label>Description / Value Prop</label>
-                    <textarea id="new-product-desc" rows="3" style="width: 100%; border-radius: 12px; border: 1px solid var(--border); padding: 12px; font-family: inherit;"></textarea>
-                </div>
-                
-                <div class="modal-actions">
-                    <button id="add-product-btn" class="btn-primary">Create Product</button>
                 </div>
             </div>
         </div>
