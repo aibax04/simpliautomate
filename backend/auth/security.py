@@ -10,12 +10,44 @@ from backend.db.database import get_db
 from backend.db.models import User
 import os
 from dotenv import load_dotenv
+from cryptography.fernet import Fernet
 
 load_dotenv()
 
 SECRET_KEY = os.getenv("SECRET_KEY", "your-super-secret-key-change-this-in-production")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 # 1 day
+
+# Fernet encryption for LinkedIn tokens
+ENCRYPTION_KEY = os.getenv("ENCRYPTION_KEY")
+if not ENCRYPTION_KEY:
+    # Use a derived key from SECRET_KEY if ENCRYPTION_KEY is not provided
+    # This ensures stability in dev environments
+    import base64
+    from cryptography.hazmat.primitives import hashes
+    from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+    
+    salt = b"simplii-salt" # In production, use a unique salt
+    kdf = PBKDF2HMAC(
+        algorithm=hashes.SHA256(),
+        length=32,
+        salt=salt,
+        iterations=100000,
+    )
+    key = base64.urlsafe_b64encode(kdf.derive(SECRET_KEY.encode()))
+    ENCRYPTION_KEY = key.decode()
+
+fernet = Fernet(ENCRYPTION_KEY.encode())
+
+def encrypt_token(token: str) -> str:
+    if not token:
+        return None
+    return fernet.encrypt(token.encode()).decode()
+
+def decrypt_token(encrypted_token: str) -> str:
+    if not encrypted_token:
+        return None
+    return fernet.decrypt(encrypted_token.encode()).decode()
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/auth/login")
 

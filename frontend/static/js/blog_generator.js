@@ -94,6 +94,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const finalTopic = topicInput ? `${selectedCategory}: ${topicInput}` : selectedCategory;
             const tone = blogToneSelect ? blogToneSelect.value : "Professional";
             const length = blogLengthSelect ? blogLengthSelect.value : "Medium";
+            const productId = document.getElementById('blog-product-select').value;
 
             if (!selectedCategory) {
                 Toast.show("Please select a category first", "error");
@@ -105,7 +106,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (blogStatusText) blogStatusText.innerText = "Sourcing facts & sending to queue...";
 
             try {
-                const result = await Api.enqueueBlog(finalTopic, tone, length);
+                const result = await Api.enqueueBlog(finalTopic, tone, length, productId ? parseInt(productId) : null);
                 
                 if (result && result.job_id) {
                     resetBlogWorkflow();
@@ -158,8 +159,10 @@ document.addEventListener('DOMContentLoaded', () => {
         publishBlogBtn.disabled = true;
         publishBlogBtn.innerText = 'Publishing...';
 
+        const accountId = LinkedInAccounts.getSelectedAccountId('blog-account-selector');
+
         try {
-            const result = await Api.publishPost(fullContent, null);
+            const result = await Api.publishPost(fullContent, null, accountId);
             if (result.status === 'success') {
                 Toast.show('Blog published successfully to LinkedIn!');
                 blogResultModal.classList.add('hidden');

@@ -5,21 +5,18 @@ class LinkedInAgent:
     """
     Handles LinkedIn OAuth2 and UGC Post API with Image Support.
     """
-    def __init__(self, access_token=None):
+    def __init__(self, access_token=None, person_urn=None):
         # Force reload from .env in project root
         from dotenv import load_dotenv
         import os
         from pathlib import Path
         
-        # Calculate project root (3 levels up from agents/linkedin_agent.py)
-        # simplistic: current cwd is usually project root in run.py context
-        # but let's be safe.
+        # Calculate project root
         env_path = Path(os.getcwd()) / '.env'
-        print(f"[DEBUG] Loading .env from: {env_path}")
         load_dotenv(dotenv_path=env_path, override=True)
         
         self.access_token = access_token or os.getenv("LINKEDIN_ACCESS_TOKEN")
-        self.person_urn = os.getenv("LINKEDIN_USER_URN")
+        self.person_urn = person_urn or os.getenv("LINKEDIN_USER_URN")
         self.base_url = "https://api.linkedin.com/v2"
         
         # DEBUG: Print status (masked)

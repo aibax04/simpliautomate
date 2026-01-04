@@ -354,8 +354,10 @@ class SwipeApp {
             if (window.Toast) window.Toast.show("Publishing to LinkedIn...", "info");
             this.resultModal.classList.add('hidden');
 
+            const accountId = LinkedInAccounts.getSelectedAccountId('post-account-selector');
+
             try {
-                const res = await Api.publishPost(finalPayload, this.generatedPost.image_url);
+                const res = await Api.publishPost(finalPayload, this.generatedPost.image_url, accountId);
                 if (res.status === 'success') {
                     if (window.Toast) window.Toast.show(res.message || "Published successfully!", "success");
                 } else {
@@ -390,6 +392,8 @@ class SwipeApp {
         gBtn.disabled = true;
         gBtn.innerText = "Queueing...";
 
+        const productId = document.getElementById('product-select').value;
+
         const fullPrefs = {
             ...this.currentPrefs,
             image_style: imgPrefs.style,
@@ -414,13 +418,13 @@ class SwipeApp {
         try {
             let resp;
             if (this.isCustomPost) {
-                resp = await Api.enqueueCustomPost(this.customPrompt, fullPrefs);
+                resp = await Api.enqueueCustomPost(this.customPrompt, fullPrefs, productId ? parseInt(productId) : null);
                 // Reset custom state
                 this.isCustomPost = false;
                 this.customPrompt = "";
                 document.getElementById('custom-prompt-input').value = "";
             } else {
-                resp = await Api.enqueuePost(this.currentNews, fullPrefs);
+                resp = await Api.enqueuePost(this.currentNews, fullPrefs, productId ? parseInt(productId) : null);
             }
 
             if (window.queuePanel) {

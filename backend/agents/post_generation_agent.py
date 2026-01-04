@@ -10,7 +10,7 @@ class PostGenerationAgent:
         self.image_agent = ImageAgent()
         self.qa_agent = QualityAssuranceAgent()
 
-    async def generate(self, news_item, user_prefs, on_progress=None):
+    async def generate(self, news_item, user_prefs, on_progress=None, product_info=None):
         """
         Orchestrates the full post generation pipeline with mandatory Quality Gate:
         1. Caption Strategy (Text)
@@ -40,7 +40,7 @@ class PostGenerationAgent:
         # 1. Generate Caption
         print("1. Running Caption Strategy...")
         if on_progress: await on_progress("generating_caption", 20)
-        caption_data = await self.caption_agent.generate_caption(news_item, user_prefs)
+        caption_data = await self.caption_agent.generate_caption(news_item, user_prefs, product_info=product_info)
         
         # QUALITY GATE 1: Verify Caption Text
         print("   [Quality Gate] Verifying Caption Language...")
@@ -52,7 +52,7 @@ class PostGenerationAgent:
         # 2. Plan Visual
         print("2. Planning Visuals...")
         if on_progress: await on_progress("generating_visual_plan", 50)
-        visual_plan = await self.visual_agent.plan_visual(news_item, caption_data, user_prefs)
+        visual_plan = await self.visual_agent.plan_visual(news_item, caption_data, user_prefs, product_info=product_info)
         
         # QUALITY GATE 2: Verify Visual Plan Text (Crucial for Image Generation)
         print("   [Quality Gate] Verifying Visual Blueprint Language...")

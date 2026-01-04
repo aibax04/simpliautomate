@@ -5,7 +5,7 @@ class VisualPlanningAgent:
     def __init__(self):
         self.model = genai.GenerativeModel('models/gemini-2.5-flash')
 
-    async def plan_visual(self, news_item: Dict, caption_data: Dict, user_prefs: Dict) -> Dict:
+    async def plan_visual(self, news_item: Dict, caption_data: Dict, user_prefs: Dict, product_info: Dict = None) -> Dict:
         """
         Creates an elite-tier studio-grade blueprint for a professional editorial infographic.
         If it's a custom post, it sticks strictly to the user's prompt and creative style.
@@ -20,6 +20,15 @@ class VisualPlanningAgent:
         image_style = user_prefs.get('image_style', 'Futuristic')
         image_palette = user_prefs.get('image_palette', 'Multi-color vibrant')
 
+        branding_note = ""
+        if product_info:
+            branding_note = f"""
+            BRANDING REQUIREMENTS (Crucial):
+            This post is branded for: {product_info.get('name')}.
+            - The visual should subtly reflect the brand's identity.
+            - Ensure the product name '{product_info.get('name')}' is elegantly placed as a 'Presented by' or 'Powered by' badge in the corner of the visual.
+            """
+
         if is_custom:
             persona = "Elite Creative Director and Visual Strategist"
             objective = f"Design a high-fidelity visual based strictly on this custom request: '{summary}'."
@@ -28,15 +37,17 @@ class VisualPlanningAgent:
             2. THEMATIC FOCUS: If the user asks for an object (e.g., 'a robot'), the core of the visual should be that object in the requested style.
             3. STYLE ADHERENCE: Strictly follow the style '{image_style}' and palette '{image_palette}'.
             4. INFO OVERLAY: Integrate the strategic insights ({strategic_insights}) as elegant, non-intrusive textual overlays that complement the main subject.
+            {branding_note}
             """
             visual_type = "custom_creative_piece"
         else:
             persona = "Elite Data Journalist and Visual Editor at a top-tier newsroom (NYT, Bloomberg)"
             objective = f"Design an elite editorial infographic for this news update: '{headline}'."
-            guidelines = """
+            guidelines = f"""
             1. Information Density: Rich layout with multiple visual layers.
             2. Supporting Elements: A primary data visualization and at least two 'Insight Cards' using the provided strategic insights.
             3. Editorial Hierarchy: Clear visual flow from Headline -> Summary -> Deep Dive.
+            {branding_note}
             """
             visual_type = "studio_grade_infographic"
 
@@ -69,7 +80,7 @@ class VisualPlanningAgent:
                 {{"type": "primary_subject", "description": "The core visual representation of the prompt"}},
                 {{"type": "insight_overlays", "description": "How the strategic insights are visually integrated"}}
             ],
-            "image_prompt": "An elite-tier 4K 4:5 vertical masterpiece. SUBJECT: {summary if is_custom else headline}. STYLE: {image_style}. PALETTE: {image_palette}. {f'Ensure it strictly represents {summary} without generic news framing.' if is_custom else 'High-fidelity editorial infographic layout.'} Razor-sharp edges, perfect alignment, zero spelling errors."
+            "image_prompt": "An elite-tier 4K 4:5 vertical masterpiece. SUBJECT: {summary if is_custom else headline}. STYLE: {image_style}. PALETTE: {image_palette}. {f'Ensure it strictly represents {summary} without generic news framing.' if is_custom else 'High-fidelity editorial infographic layout.'} Razor-sharp edges, perfect alignment, zero spelling errors. {f'Subtly include {product_info.get('name')} branding elements.' if product_info else ''}"
         }}
         Return ONLY valid JSON.
         """

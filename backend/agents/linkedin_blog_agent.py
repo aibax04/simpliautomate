@@ -12,7 +12,7 @@ class LinkedInBlogAgent:
         # Using 2.5 Flash as requested for high-quality long-form content
         self.model = genai.GenerativeModel('models/gemini-2.5-flash')
 
-    async def generate_blog(self, topic: str, tone: str = "Professional", length: str = "Medium") -> Dict:
+    async def generate_blog(self, topic: str, tone: str = "Professional", length: str = "Medium", product_info: Dict = None) -> Dict:
         """
         Orchestrates the blog generation workflow:
         1. Fetch data from DuckDuckGo
@@ -23,10 +23,10 @@ class LinkedInBlogAgent:
         print(f"[BLOG_AGENT] Starting blog generation for topic: {topic}")
         sys.stdout.flush()
 
-        # 1. Fetch data from DuckDuckGo
+        # ... rest of the fetch logic ...
         search_results = search_duckduckgo(topic, max_results=10)
         
-        # 2. Validate sources (at least 3 unique sources)
+        # ... rest of validation logic ...
         unique_sources = []
         seen_urls = set()
         for res in search_results:
@@ -60,6 +60,18 @@ class LinkedInBlogAgent:
         }
         length_str = word_count_guide.get(length, "approx 800-1000 words")
 
+        branding_context = ""
+        if product_info:
+            branding_context = f"""
+            BRANDING CONTEXT (Crucial):
+            The user wants this piece to relate to their product/venture:
+            - Product Name: {product_info.get('name')}
+            - Description: {product_info.get('description')}
+            
+            MANDATORY RULE: Connect the factual data from the sources to this product. 
+            The blog should position the product as a relevant solution or example in the context of the topic.
+            """
+
         prompt = f"""
         Act as an elite LinkedIn Thought Leader and Professional Ghostwriter.
         Your goal is to write a high-quality, professional LinkedIn piece based ONLY on the provided factual data.
@@ -67,6 +79,8 @@ class LinkedInBlogAgent:
         TOPIC: {topic}
         TONE: {tone}
         TARGET LENGTH/CONSTRAINT: {length_str}
+
+        {branding_context}
 
         INPUT DATA FROM DUCKDUCKGO:
         {source_data_str}

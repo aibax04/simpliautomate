@@ -43,12 +43,15 @@ const Api = {
         }
     },
 
-    async enqueuePost(newsItem, prefs) {
+    async enqueuePost(newsItem, prefs, productId = null) {
         try {
+            const body = { news_item: newsItem, user_prefs: prefs };
+            if (productId) body.product_id = productId;
+            
             const response = await fetch('/api/enqueue-post', {
                 method: 'POST',
                 headers: this.getHeaders(),
-                body: JSON.stringify({ news_item: newsItem, user_prefs: prefs })
+                body: JSON.stringify(body)
             });
             return await this.handleResponse(response);
         } catch (e) {
@@ -57,12 +60,15 @@ const Api = {
         }
     },
 
-    async enqueueCustomPost(customPrompt, prefs) {
+    async enqueueCustomPost(customPrompt, prefs, productId = null) {
         try {
+            const body = { custom_prompt: customPrompt, user_prefs: prefs };
+            if (productId) body.product_id = productId;
+
             const response = await fetch('/api/enqueue-post', {
                 method: 'POST',
                 headers: this.getHeaders(),
-                body: JSON.stringify({ custom_prompt: customPrompt, user_prefs: prefs })
+                body: JSON.stringify(body)
             });
             return await this.handleResponse(response);
         } catch (e) {
@@ -95,18 +101,76 @@ const Api = {
         }
     },
 
-    async publishPost(content, imageUrl) {
+    async publishPost(content, imageUrl, accountId) {
         try {
             const response = await fetch('/api/post-linkedin', {
                 method: 'POST',
                 headers: this.getHeaders(),
-                body: JSON.stringify({ content, image_url: imageUrl })
+                body: JSON.stringify({ 
+                    content, 
+                    image_url: imageUrl,
+                    linkedin_account_id: accountId
+                })
             });
             return await this.handleResponse(response);
         } catch (e) {
             console.error("API Error:", e);
             return { error: "Failed to publish." };
         }
+    },
+
+    async getLinkedInAuthUrl() {
+        const response = await fetch('/api/linkedin/auth-url', { headers: this.getHeaders() });
+        return await this.handleResponse(response);
+    },
+
+    async connectLinkedIn(code) {
+        const response = await fetch('/api/linkedin/connect', {
+            method: 'POST',
+            headers: this.getHeaders(),
+            body: JSON.stringify({ code })
+        });
+        return await this.handleResponse(response);
+    },
+
+    async getLinkedInAccounts() {
+        const response = await fetch('/api/linkedin/accounts', { headers: this.getHeaders() });
+        return await this.handleResponse(response);
+    },
+
+    async disconnectLinkedInAccount(accountId) {
+        const response = await fetch(`/api/linkedin/accounts/${accountId}`, {
+            method: 'DELETE',
+            headers: this.getHeaders()
+        });
+        return await this.handleResponse(response);
+    },
+
+    async getProducts() {
+        const response = await fetch('/api/products', { headers: this.getHeaders() });
+        return await this.handleResponse(response);
+    },
+
+    async createProduct(formData) {
+        const token = localStorage.getItem('simplii_token');
+        const headers = {}; // Fetch will handle multipart/form-data
+        if (token) {
+            headers['Authorization'] = `Bearer ${token}`;
+        }
+        const response = await fetch('/api/products', {
+            method: 'POST',
+            headers: headers,
+            body: formData
+        });
+        return await this.handleResponse(response);
+    },
+
+    async deleteProduct(productId) {
+        const response = await fetch(`/api/products/${productId}`, {
+            method: 'DELETE',
+            headers: this.getHeaders()
+        });
+        return await this.handleResponse(response);
     },
 
     async generateBlog(topic, tone, length) {
@@ -123,12 +187,15 @@ const Api = {
         }
     },
 
-    async enqueueBlog(topic, tone, length) {
+    async enqueueBlog(topic, tone, length, productId = null) {
         try {
+            const body = { topic, tone, length };
+            if (productId) body.product_id = productId;
+
             const response = await fetch('/api/enqueue-blog', {
                 method: 'POST',
                 headers: this.getHeaders(),
-                body: JSON.stringify({ topic, tone, length })
+                body: JSON.stringify(body)
             });
             return await this.handleResponse(response);
         } catch (e) {

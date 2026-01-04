@@ -25,57 +25,83 @@
 
 <body>
     <div id="app">
-        <header id="main-header">
-            <div class="header-left">
+        <nav id="sidebar">
+            <div class="sidebar-header">
                 <div class="logo">SIMPLII</div>
-                <div class="divider-vertical"></div>
-                <div class="app-context">
-                    <span class="app-name">News Intelligence</span>
-                    <span class="app-version">v1.2</span>
+                <div class="app-version">v1.2</div>
+            </div>
+
+            <div class="sidebar-content">
+                <div class="sidebar-section">
+                    <label>Main Actions</label>
+                    <button id="upload-main-btn" class="sidebar-btn">
+                        <span class="icon">+</span> New Source
+                    </button>
+                    <button id="custom-post-btn" class="sidebar-btn">
+                        <span class="icon">✎</span> Custom Post
+                    </button>
+                    <button id="blog-generator-btn" class="sidebar-btn">
+                        <span class="icon">📰</span> LinkedIn Blog
+                    </button>
+                </div>
+
+                <div class="sidebar-section">
+                    <label>Management</label>
+                    <button id="manage-products-btn" class="sidebar-btn">
+                        <span class="icon">🚀</span> Products
+                    </button>
+                    <!-- LinkedIn button will be injected here by JS or we can place it manually -->
+                    <div id="sidebar-linkedin-container"></div>
+                </div>
+
+                <div class="sidebar-section">
+                    <label>Settings</label>
+                    <select id="category-filter" class="sidebar-select">
+                        <option value="All">All News</option>
+                        <option value="HealthTech">HealthTech</option>
+                        <option value="FinTech">FinTech</option>
+                        <option value="LLMOps">LLMOps</option>
+                        <option value="Industrial IoT">Industrial IoT</option>
+                        <option value="Urban Tech">Urban Tech</option>
+                        <option value="LegalTech">LegalTech</option>
+                        <option value="HR Tech">HR Tech</option>
+                        <option value="Generative NLP">Generative NLP</option>
+                        <option value="Industrial AI">Industrial AI</option>
+                        <option value="Secure AI">Secure AI</option>
+                        <option value="Consumer AI">Consumer AI</option>
+                        <option value="EdTech">EdTech</option>
+                        <option value="AI in Marketing">AI in Marketing</option>
+                        <option value="CivicTech">CivicTech</option>
+                    </select>
                 </div>
             </div>
 
-            <div class="header-center">
-                <div id="system-status" class="status-pill idle">
-                    <span class="status-dot"></span>
-                    <span id="system-status-text">System Ready</span>
+            <div class="sidebar-footer">
+                <button onclick="logout()" class="sidebar-btn btn-logout">
+                    <span class="icon">🚪</span> Logout
+                </button>
+            </div>
+        </nav>
+
+        <div class="main-wrapper">
+            <header id="main-header">
+                <div class="header-left">
+                    <span class="app-name">News Intelligence Dashboard</span>
                 </div>
-            </div>
 
-            <div class="header-right">
-                <select id="category-filter" class="btn-compact filter-select">
-                    <option value="All">All News</option>
-                    <option value="HealthTech">HealthTech</option>
-                    <option value="FinTech">FinTech</option>
-                    <option value="LLMOps">LLMOps</option>
-                    <option value="Industrial IoT">Industrial IoT</option>
-                    <option value="Urban Tech">Urban Tech</option>
-                    <option value="LegalTech">LegalTech</option>
-                    <option value="HR Tech">HR Tech</option>
-                    <option value="Generative NLP">Generative NLP</option>
-                    <option value="Industrial AI">Industrial AI</option>
-                    <option value="Secure AI">Secure AI</option>
-                    <option value="Consumer AI">Consumer AI</option>
-                    <option value="EdTech">EdTech</option>
-                    <option value="AI in Marketing">AI in Marketing</option>
-                    <option value="CivicTech">CivicTech</option>
-                </select>
-                <button id="upload-main-btn" class="btn-compact">
-                    <span class="icon">+</span> New Source
-                </button>
-                <button id="custom-post-btn" class="btn-compact">
-                    <span class="icon">✎</span> Custom Post
-                </button>
-                <button id="blog-generator-btn" class="btn-compact">
-                    <span class="icon">📰</span> LinkedIn Blog
-                </button>
-                <button onclick="logout()" class="btn-compact btn-logout">
-                    Logout
-                </button>
-            </div>
-        </header>
+                <div class="header-center">
+                    <div id="system-status" class="status-pill idle">
+                        <span class="status-dot"></span>
+                        <span id="system-status-text">System Ready</span>
+                    </div>
+                </div>
 
-        <div class="layout-container">
+                <div class="header-right">
+                    <!-- Empty for now or can hold profile pic -->
+                </div>
+            </header>
+
+            <div class="layout-container">
             <main id="swipe-container">
                 <div id="card-stack">
                     <!-- Cards will be injected here -->
@@ -190,6 +216,13 @@
                     </select>
                 </div>
 
+                <div class="form-group">
+                    <label>Link to Product (Optional)</label>
+                    <select id="product-select" class="product-selector">
+                        <option value="">None (Generic Industry News)</option>
+                    </select>
+                </div>
+
                 <div id="generation-status" class="hidden">
                     <div class="mini-spinner"></div>
                 </div>
@@ -237,6 +270,82 @@
             </div>
         </div>
 
+        <!-- Product Management Modal -->
+        <div id="product-mgmt-modal" class="modal hidden">
+            <div class="modal-overlay"></div>
+            <div class="modal-content">
+                <button class="close-modal-btn" onclick="document.getElementById('product-mgmt-modal').classList.add('hidden')">&times;</button>
+                <h2>Manage Products & Ventures</h2>
+                <div id="products-list" class="account-list">
+                    <!-- Products injected here -->
+                </div>
+                <div class="form-divider">Add New Product</div>
+                <form id="add-product-form">
+                    <div class="form-group">
+                        <label>Product Name</label>
+                        <input type="text" id="product-name" placeholder="e.g. Simplii AI" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Description / Focus</label>
+                        <textarea id="product-desc" rows="2" style="width: 100%; border: 1px solid var(--border); border-radius: 8px; padding: 10px;"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label>Collateral (PDF/Doc for context)</label>
+                        <input type="file" id="product-collateral" accept=".pdf,.docx,.txt">
+                    </div>
+                    <div class="form-group">
+                        <label>Logo (Optional)</label>
+                        <input type="file" id="product-logo" accept="image/*">
+                    </div>
+                    <div class="modal-actions">
+                        <button type="submit" class="btn-primary">Save Product</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- LinkedIn Accounts Management Modal -->
+        <div id="linkedin-mgmt-modal" class="modal hidden">
+            <div class="modal-overlay"></div>
+            <div class="modal-content">
+                <button class="close-modal-btn" onclick="document.getElementById('linkedin-mgmt-modal').classList.add('hidden')">&times;</button>
+                <h2>Connected LinkedIn Accounts</h2>
+                <div id="linkedin-accounts-list" class="account-list">
+                    <!-- Accounts injected here -->
+                </div>
+                <div class="modal-actions">
+                    <button id="connect-linkedin-btn" class="btn-primary">Connect another LinkedIn account</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Manage Products Modal -->
+        <div id="products-modal" class="modal hidden">
+            <div class="modal-overlay"></div>
+            <div class="modal-content">
+                <button class="close-modal-btn" onclick="document.getElementById('products-modal').classList.add('hidden')">&times;</button>
+                <h2>Manage Products/Ventures</h2>
+                
+                <div id="product-list" class="account-list">
+                    <!-- Products injected here -->
+                </div>
+
+                <div class="form-divider">Add New Product</div>
+                <div class="form-group">
+                    <label>Product Name</label>
+                    <input type="text" id="new-product-name" placeholder="e.g. Simplii AI">
+                </div>
+                <div class="form-group">
+                    <label>Description / Value Prop</label>
+                    <textarea id="new-product-desc" rows="3" style="width: 100%; border-radius: 12px; border: 1px solid var(--border); padding: 12px; font-family: inherit;"></textarea>
+                </div>
+                
+                <div class="modal-actions">
+                    <button id="add-product-btn" class="btn-primary">Create Product</button>
+                </div>
+            </div>
+        </div>
+
         <!-- Result Modal -->
         <div id="result-modal" class="modal hidden">
             <div class="modal-overlay"></div>
@@ -244,6 +353,10 @@
                 <button class="close-modal-btn">&times;</button>
                 <h2 id="result-modal-title">Your Curated Post</h2>
                 <div id="post-preview" class="post-preview"></div>
+                <div class="form-group" style="margin: 15px 0;">
+                    <label style="font-size: 13px; color: var(--text-secondary);">Post as:</label>
+                    <select id="post-account-selector" class="linkedin-account-selector" style="width: 100%; margin-top: 5px;"></select>
+                </div>
                 <div class="modal-actions">
                     <button id="edit-btn" class="btn-secondary">Back</button>
                     <button id="copy-caption-btn" class="btn-secondary">Copy Caption</button>
@@ -311,8 +424,16 @@
                     </select>
                 </div>
 
-                <div id="blog-status" class="hidden">
+                <div class="form-group">
+                    <label>Link to Product (Optional)</label>
+                    <select id="blog-product-select" class="product-selector">
+                        <option value="">None (Generic industry piece)</option>
+                    </select>
+                </div>
+
+                <div id="blog-status" class="hidden" style="margin-top: 15px; text-align: center; color: var(--primary); font-weight: 500;">
                     <div class="mini-spinner"></div>
+                    <span id="blog-status-text">Sourcing facts...</span>
                 </div>
 
                 <div class="modal-actions">
@@ -329,6 +450,10 @@
                 <button class="close-modal-btn">&times;</button>
                 <h2 id="blog-result-title">Generated Blog</h2>
                 <div id="blog-result-content" class="blog-result-content" style="max-height: 400px; overflow-y: auto; padding: 20px; border: 1px solid var(--border); border-radius: 8px; background: white; white-space: pre-wrap; font-family: inherit; line-height: 1.6; font-size: 15px;"></div>
+                <div class="form-group" style="margin: 15px 0;">
+                    <label style="font-size: 13px; color: var(--text-secondary);">Post as:</label>
+                    <select id="blog-account-selector" class="linkedin-account-selector" style="width: 100%; margin-top: 5px;"></select>
+                </div>
                 <div class="modal-actions">
                     <button id="close-blog-result" class="btn-secondary">Close</button>
                     <button id="copy-blog-btn" class="btn-secondary">Copy to Clipboard</button>
@@ -339,6 +464,8 @@
     </div>
 
     <script src="static/js/api.js"></script>
+    <script src="static/js/linkedin_accounts.js"></script>
+    <script src="static/js/products.js"></script>
     <script src="static/js/queue_panel.js"></script>
     <script src="static/js/image_options_modal.js"></script>
     <script src="static/js/blog_generator.js"></script>

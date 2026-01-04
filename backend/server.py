@@ -1,6 +1,7 @@
 from fastapi import FastAPI, Request, Depends, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from datetime import datetime, timezone
 from backend.graph import create_graph
 from backend.agents.post_generation_agent import PostGenerationAgent
 from backend.agents.linkedin_agent import LinkedInAgent
@@ -9,14 +10,16 @@ from backend.config import Config
 from backend.routes.ingest import router as ingest_router
 from backend.routes.queue_router import router as queue_router
 from backend.routes.auth import router as auth_router
+from backend.routes.linkedin import router as linkedin_router
+from backend.routes.products import router as products_router
 from backend.routes.media import setup_media_routes
-from backend.auth.security import decode_access_token, get_current_user
+from backend.auth.security import decode_access_token, get_current_user, decrypt_token
 from fastapi.security import OAuth2PasswordBearer
 import google.generativeai as genai
 import uvicorn
 import asyncio
 from backend.agents.news_fetch_agent import NewsFetchAgent
-from backend.db.models import GeneratedPost, SavedPost, NewsItem, User
+from backend.db.models import GeneratedPost, SavedPost, NewsItem, User, LinkedInAccount
 from sqlalchemy import select
 from backend.db.database import AsyncSessionLocal, check_db_connection, get_db
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -28,6 +31,8 @@ app = FastAPI(title="Simplii News API")
 
 # Routes
 app.include_router(auth_router, prefix="/api")
+app.include_router(linkedin_router, prefix="/api")
+app.include_router(products_router, prefix="/api", dependencies=[Depends(get_current_user)])
 app.include_router(ingest_router, prefix="/api", dependencies=[Depends(get_current_user)])
 app.include_router(queue_router, prefix="/api", dependencies=[Depends(get_current_user)])
 
@@ -117,14 +122,36 @@ async def generate_blog(request: Request, user: User = Depends(get_current_user)
     return result
 
 @app.post("/api/post-linkedin")
-async def post_linkedin(request: Request, user: User = Depends(get_current_user)):
+async def post_linkedin(request: Request, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     """Endpoint to trigger LinkedIn posting"""
     data = await request.json()
     content = data.get("content")
     image_url = data.get("image_url")
+    account_id = data.get("linkedin_account_id")
     
-    # Use Config credentials (default behavior of Agent)
-    agent = LinkedInAgent() 
+    access_token = None
+    person_urn = None
+
+    if account_id:
+        # Use specific account
+        stmt = select(LinkedInAccount).where(
+            LinkedInAccount.id == account_id,
+            LinkedInAccount.simplii_user_id == user.id
+        )
+        res = await db.execute(stmt)
+        account = res.scalar_one_or_none()
+        if not account:
+            raise HTTPException(status_code=404, detail="LinkedIn account not found")
+        
+        # Check if token is expired
+        if account.token_expires_at and account.token_expires_at < datetime.now(timezone.utc):
+             raise HTTPException(status_code=401, detail="LinkedIn account connection expired. Please reconnect.")
+
+        access_token = decrypt_token(account.access_token)
+        person_urn = account.linkedin_person_urn
+    
+    # Use Config credentials if no account specified (legacy/default behavior)
+    agent = LinkedInAgent(access_token=access_token, person_urn=person_urn) 
     result = agent.post_to_linkedin(content, image_path=image_url)
     
     # DB Persistence (Optional update of status)

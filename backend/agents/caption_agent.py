@@ -6,7 +6,7 @@ class CaptionStrategyAgent:
         # Using 2.5 Flash for high quality text generation
         self.model = genai.GenerativeModel('models/gemini-2.5-flash')
 
-    async def generate_caption(self, news_item: Dict, prefs: Dict) -> Dict:
+    async def generate_caption(self, news_item: Dict, prefs: Dict, product_info: Dict = None) -> Dict:
         """
         Generates a premium LinkedIn caption, hook, and strategic highlights.
         If it's a custom/personal request, it switches to a personal branding persona.
@@ -28,24 +28,38 @@ class CaptionStrategyAgent:
         summary = news_item.get('summary')
         domain = news_item.get('domain')
 
+        branding_context = ""
+        if product_info:
+            branding_context = f"""
+            BRANDING CONTEXT (Crucial):
+            The user wants this post to relate to their product/service:
+            - Product Name: {product_info.get('name')}
+            - Product Description: {product_info.get('description')}
+            
+            MANDATORY RULE: Find a natural and professional way to connect the news/topic to this product. 
+            The product should be mentioned or alluded to as a solution, relevant example, or related entity.
+            """
+
         if is_custom:
             persona = "elite Creative Copywriter and Professional Brand Voice Expert"
             objective = f"Create a highly engaging post based strictly on this specific user request: \"{summary}\"."
-            rules = """
+            rules = f"""
             1. Literal Fidelity: Focus 100% on the user's specific prompt. If they ask for 'a robot', write about that robot. Do NOT try to frame it as a 'news update' or 'industry analysis' unless requested.
             2. Authentic Tone: Write with a natural, human voice that matches the user's creative intent.
             3. Hook: Start with a powerful opening relevant to the specific subject.
             4. Strategic Highlights: Extract 3 'Key Points' or 'Subject Specialities' from the request that would look great as overlays.
             5. No Fluff: Keep it focused and impactful.
+            {branding_context}
             """
         else:
             persona = "elite LinkedIn Content Strategist and Industry Analyst for high-level business networks"
             objective = f"Analyze and summarize this news update: \"{headline}\"."
-            rules = """
+            rules = f"""
             1. Professional Grade: Write for C-suite and Industry Leaders. No fluff.
             2. Visual Framing: First 2 sentences MUST be "scroll-stopping" hooks.
             3. Strategic Highlights: Extract 3 specific 'Power Insights' or 'Data Trends' from the news.
             4. Precision: Use industry-specific terminology correctly.
+            {branding_context}
             """
 
         prompt = f"""

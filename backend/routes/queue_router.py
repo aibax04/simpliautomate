@@ -6,7 +6,7 @@ from backend.agents.post_generation_agent import PostGenerationAgent
 from backend.agents.linkedin_blog_agent import LinkedInBlogAgent
 import asyncio
 from backend.db.database import AsyncSessionLocal, get_db
-from backend.db.models import GenerationQueue, GeneratedPost, NewsItem, User
+from backend.db.models import GenerationQueue, GeneratedPost, NewsItem, User, Product
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from backend.auth.security import get_current_user
@@ -18,11 +18,13 @@ class EnqueueRequest(BaseModel):
     news_item: Optional[Dict[str, Any]] = None
     user_prefs: Dict[str, Any]
     custom_prompt: Optional[str] = None
+    product_id: Optional[int] = None
 
 class BlogEnqueueRequest(BaseModel):
     topic: str
     tone: str = "Professional"
     length: str = "Medium"
+    product_id: Optional[int] = None
 
 class JobResponse(BaseModel):
     job_id: str
@@ -75,7 +77,7 @@ async def _persist_post(news_item: Dict, result: Dict, user_prefs: Dict, user_id
             await session.rollback()
             print(f"[DB ERROR] Post persistence failed: {e}")
 
-async def process_post_generation(job_id: str, news_item: Dict, user_prefs: Dict, user_id: int):
+async def process_post_generation(job_id: str, news_item: Dict, user_prefs: Dict, user_id: int, product_id: Optional[int] = None):
     """
     Background task wrapper for post generation.
     """
@@ -84,12 +86,25 @@ async def process_post_generation(job_id: str, news_item: Dict, user_prefs: Dict
         async def progress_callback(status, progress):
             queue.update_job(job_id, status=status, progress=progress)
             
+        # Fetch product info if requested
+        product_info = None
+        if product_id:
+            async with AsyncSessionLocal() as session:
+                stmt = select(Product).where(Product.id == product_id)
+                res = await session.execute(stmt)
+                product = res.scalar_one_or_none()
+                if product:
+                    product_info = {
+                        "name": product.name,
+                        "description": product.description
+                    }
+
         # Initialize agent
         agent = PostGenerationAgent()
         
         # Run the official workflow with progress updates
         print(f"[Job {job_id}] Starting official workflow for user {user_id}...")
-        result = await agent.generate(news_item, user_prefs, on_progress=progress_callback)
+        result = await agent.generate(news_item, user_prefs, on_progress=progress_callback, product_info=product_info)
         
         if result:
             queue.update_job(job_id, status="ready", result=result, progress=100)
@@ -103,7 +118,7 @@ async def process_post_generation(job_id: str, news_item: Dict, user_prefs: Dict
         print(f"[Job {job_id}] Failed: {e}")
         queue.update_job(job_id, status="failed", error=str(e))
 
-async def process_blog_generation(job_id: str, topic: str, tone: str, length: str, user_id: int):
+async def process_blog_generation(job_id: str, topic: str, tone: str, length: str, user_id: int, product_id: Optional[int] = None):
     """
     Background task wrapper for LinkedIn blog generation.
     """
@@ -111,13 +126,26 @@ async def process_blog_generation(job_id: str, topic: str, tone: str, length: st
         queue.update_job(job_id, status="fetching_sources", progress=10)
         print(f"[Job {job_id}] Starting blog generation for topic: {topic}...")
         
+        # Fetch product info if requested
+        product_info = None
+        if product_id:
+            async with AsyncSessionLocal() as session:
+                stmt = select(Product).where(Product.id == product_id)
+                res = await session.execute(stmt)
+                product = res.scalar_one_or_none()
+                if product:
+                    product_info = {
+                        "name": product.name,
+                        "description": product.description
+                    }
+
         agent = LinkedInBlogAgent()
         
         # We'll simulate progress since the agent doesn't have a callback yet
         # or we could add one if needed, but for now simple steps
         queue.update_job(job_id, status="generating_content", progress=40)
         
-        result = await agent.generate_blog(topic, tone, length)
+        result = await agent.generate_blog(topic, tone, length, product_info=product_info)
         
         if result.get("success"):
             queue.update_job(job_id, status="ready", result=result, progress=100)
@@ -155,7 +183,8 @@ async def enqueue_post(
         job_id, 
         news_payload, 
         request.user_prefs,
-        user.id
+        user.id,
+        request.product_id
     )
     
     return {
@@ -181,9 +210,10 @@ async def enqueue_blog(
         process_blog_generation, 
         job_id, 
         request.topic, 
-        request.tone,
-        request.length,
-        user.id
+        request.tone, 
+        request.length, 
+        user.id,
+        request.product_id
     )
     
     return {
