@@ -190,9 +190,15 @@ async def post_linkedin(request: Request, user: User = Depends(get_current_user)
     person_urn = None
 
     if account_id:
+        # Ensure account_id is an integer to avoid DB type mismatch
+        try:
+            account_id_int = int(account_id)
+        except (ValueError, TypeError):
+            raise HTTPException(status_code=400, detail="Invalid LinkedIn account ID format")
+
         # Use specific account
         stmt = select(LinkedInAccount).where(
-            LinkedInAccount.id == account_id,
+            LinkedInAccount.id == account_id_int,
             LinkedInAccount.simplii_user_id == user.id
         )
         res = await db.execute(stmt)
