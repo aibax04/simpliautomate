@@ -8,6 +8,15 @@ const Api = {
         return headers;
     },
 
+    getAuthHeaders() {
+        const token = localStorage.getItem('simplii_token');
+        const headers = {};
+        if (token) {
+            headers['Authorization'] = `Bearer ${token}`;
+        }
+        return headers;
+    },
+
     async handleResponse(response) {
         if (response.status === 401) {
             localStorage.removeItem('simplii_token');
@@ -186,14 +195,9 @@ const Api = {
     },
 
     async createProduct(formData) {
-        const token = localStorage.getItem('simplii_token');
-        const headers = {}; // Fetch will handle multipart/form-data
-        if (token) {
-            headers['Authorization'] = `Bearer ${token}`;
-        }
         const response = await fetch('/api/products', {
             method: 'POST',
-            headers: headers,
+            headers: this.getAuthHeaders(),
             body: formData
         });
         return await this.handleResponse(response);

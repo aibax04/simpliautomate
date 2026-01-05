@@ -668,7 +668,34 @@ body {
 }
 
 .modal-content.wide {
-    max-width: 480px;
+    max-width: 800px;
+}
+
+.custom-tab-content {
+    animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(5px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.tab-btn, .custom-tab-btn {
+    border: none;
+    background: none;
+    font-size: 0.95rem;
+    font-weight: 500;
+    cursor: pointer;
+    color: var(--text-secondary);
+    padding-bottom: 8px;
+    border-bottom: 2px solid transparent;
+    transition: all 0.2s;
+}
+
+.tab-btn.active, .custom-tab-btn.active {
+    color: var(--primary) !important;
+    border-bottom: 2px solid var(--primary) !important;
+    font-weight: 600;
 }
 
 h2 {

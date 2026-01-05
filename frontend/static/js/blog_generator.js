@@ -20,7 +20,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const blogResultContent = document.getElementById('blog-result-content');
     const closeBlogResult = document.getElementById('close-blog-result');
     const copyBlogBtn = document.getElementById('copy-blog-btn');
+    const copyBlogImageBtn = document.getElementById('copy-blog-image-btn');
+    const downloadBlogImgBtn = document.getElementById('download-blog-img-btn');
     const publishBlogBtn = document.getElementById('publish-blog-btn');
+
+    let currentBlogImage = null;
 
     if (!blogSettingsModal) return;
 
@@ -127,6 +131,24 @@ document.addEventListener('DOMContentLoaded', () => {
     window.showBlogResult = function(blog) {
         blogResultTitle.innerText = blog.title;
         blogResultContent.innerText = blog.content;
+        
+        currentBlogImage = blog.image_url || null;
+        const imgContainer = document.getElementById('blog-result-image-container');
+        const imgEl = document.getElementById('blog-result-image');
+        const copyImgBtn = document.getElementById('copy-blog-image-btn');
+        const downImgBtn = document.getElementById('download-blog-img-btn');
+
+        if (currentBlogImage) {
+            imgEl.src = currentBlogImage;
+            imgContainer.style.display = 'block';
+            if (copyImgBtn) copyImgBtn.style.display = 'inline-block';
+            if (downImgBtn) downImgBtn.style.display = 'inline-block';
+        } else {
+            imgContainer.style.display = 'none';
+            if (copyImgBtn) copyImgBtn.style.display = 'none';
+            if (downImgBtn) downImgBtn.style.display = 'none';
+        }
+
         blogResultModal.classList.remove('hidden');
     };
 
@@ -147,6 +169,38 @@ document.addEventListener('DOMContentLoaded', () => {
                 console.error('Could not copy text: ', err);
                 Toast.show('Failed to copy text', 'error');
             });
+        });
+    }
+
+    if (copyBlogImageBtn) {
+        copyBlogImageBtn.addEventListener('click', async () => {
+            if (!currentBlogImage) return;
+            Toast.show("Preparing image for clipboard...", "info");
+            try {
+                const response = await fetch(currentBlogImage);
+                const blob = await response.blob();
+                const item = new ClipboardItem({ [blob.type]: blob });
+                await navigator.clipboard.write([item]);
+                Toast.show("Image copied to clipboard!");
+            } catch (err) {
+                console.error('Image copy error:', err);
+                navigator.clipboard.writeText(window.location.origin + currentBlogImage).then(() => {
+                    Toast.show("Direct copy failed. URL copied instead.", "info");
+                });
+            }
+        });
+    }
+
+    if (downloadBlogImgBtn) {
+        downloadBlogImgBtn.addEventListener('click', () => {
+            if (!currentBlogImage) return;
+            const link = document.createElement('a');
+            link.href = currentBlogImage;
+            link.download = currentBlogImage.split('/').pop() || 'blog-logo.png';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            Toast.show("Starting download...");
         });
     }
 

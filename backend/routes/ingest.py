@@ -5,11 +5,48 @@ from backend.agents.document_reader_agent import DocumentReaderAgent
 from backend.agents.url_reader_agent import URLReaderAgent
 from backend.agents.topic_normalizer_agent import TopicNormalizerAgent
 from backend.agents.news_suggestion_agent import LiveNewsSuggestionAgent
+from backend.agents.detailed_prompt_agent import DetailedPromptAgent
 
 router = APIRouter()
 
 class IngestRequest(BaseModel):
     url: Optional[str] = None
+
+@router.post("/generate-detailed-prompt")
+async def generate_detailed_prompt(
+    file: Optional[UploadFile] = File(None),
+    url_data: Optional[str] = Form(None),
+    raw_prompt: Optional[str] = Form(None)
+):
+    """
+    Takes a file, URL, or raw prompt and generates a detailed, AI-expanded prompt for post generation.
+    """
+    doc_agent = DocumentReaderAgent()
+    url_agent = URLReaderAgent()
+    prompt_agent = DetailedPromptAgent()
+    
+    content = ""
+    source_type = "prompt"
+    
+    if file:
+        source_type = "PDF/Document"
+        file_content = await file.read()
+        content = await doc_agent.parse_document(file_content, file.filename)
+    elif url_data:
+        source_type = "URL/Link"
+        content = await url_agent.parse_url(url_data)
+    elif raw_prompt:
+        source_type = "Raw User Prompt"
+        content = raw_prompt
+    else:
+        raise HTTPException(status_code=400, detail="No valid input provided")
+
+    if not content or (isinstance(content, dict) and "error" in content):
+        error_msg = content.get("error") if isinstance(content, dict) else "Could not extract content"
+        raise HTTPException(status_code=422, detail=error_msg)
+
+    detailed_prompt = await prompt_agent.generate(content, source_type)
+    return {"detailed_prompt": detailed_prompt}
 
 @router.post("/ingest-source")
 async def ingest_source(

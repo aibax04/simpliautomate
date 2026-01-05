@@ -4,6 +4,8 @@ class SwipeApp {
         this.prefModal = document.getElementById('pref-modal');
         this.resultModal = document.getElementById('result-modal');
         this.customModal = document.getElementById('custom-post-modal');
+        this.customReviewModal = document.getElementById('custom-review-modal');
+        this.activeCustomTab = 'custom-prompt';
         this.cards = [];
         this.currentNews = null;
         this.currentPrefs = null;
@@ -31,44 +33,189 @@ class SwipeApp {
             if (closeBtn) {
                 closeBtn.addEventListener('click', () => {
                     modal.classList.add('hidden');
-                    if (modal === this.customModal) this.isCustomPost = false;
+                    if (modal === this.customModal || modal === this.customReviewModal) {
+                        this.isCustomPost = false;
+                        this.resetCustomStages();
+                    }
                 });
             }
         });
     }
 
     bindCustomEvents() {
+        console.log("Binding Custom Post events...");
         const closeCustomBtn = document.getElementById('close-custom-modal');
-        const nextCustomBtn = document.getElementById('next-to-prefs-custom-btn');
+        const nextToPrefsBtn = document.getElementById('next-to-prefs-custom-btn');
+        const generateDetailedBtn = document.getElementById('generate-detailed-prompt-btn');
+        const backToInputBtn = document.getElementById('back-to-input-btn');
+        const regenerateBtn = document.getElementById('regenerate-prompt-btn');
+        
+        // Tab switching for custom input
+        const customTabs = document.querySelectorAll('.custom-tab-btn');
+        const customContents = document.querySelectorAll('.custom-tab-content');
+
+        if (customTabs.length > 0) {
+            customTabs.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    customTabs.forEach(b => b.classList.remove('active'));
+                    customContents.forEach(c => c.classList.add('hidden'));
+                    btn.classList.add('active');
+                    this.activeCustomTab = btn.dataset.tab;
+                    const stage = document.getElementById(`stage-${this.activeCustomTab}`);
+                    if (stage) stage.classList.remove('hidden');
+                });
+            });
+        }
 
         if (closeCustomBtn) {
             closeCustomBtn.addEventListener('click', () => {
                 if (this.customModal) {
                     this.customModal.classList.add('hidden');
                     this.isCustomPost = false;
+                    this.resetCustomStages();
                 }
             });
         }
 
-        if (nextCustomBtn) {
-            nextCustomBtn.addEventListener('click', () => {
-                const promptEl = document.getElementById('custom-prompt-input');
-                if (!promptEl) return;
+        if (generateDetailedBtn) {
+            generateDetailedBtn.addEventListener('click', async () => {
+                console.log("[DEBUG] Generate Prompt Button Clicked");
+                const rawPromptEl = document.getElementById('custom-raw-prompt');
+                const urlInputEl = document.getElementById('custom-url-input');
+                const fileInputEl = document.getElementById('custom-file-input');
                 
-                const prompt = promptEl.value.trim();
-                if (!prompt) {
-                    alert("Please enter a prompt.");
+                const rawPrompt = rawPromptEl ? rawPromptEl.value.trim() : "";
+                const url = urlInputEl ? urlInputEl.value.trim() : "";
+                
+                const formData = new FormData();
+                let hasInput = false;
+
+                if (this.activeCustomTab === 'custom-prompt' && rawPrompt) {
+                    formData.append('raw_prompt', rawPrompt);
+                    hasInput = true;
+                } else if (this.activeCustomTab === 'custom-url' && url) {
+                    formData.append('url_data', url);
+                    hasInput = true;
+                } else if (this.activeCustomTab === 'custom-pdf' && fileInputEl && fileInputEl.files[0]) {
+                    formData.append('file', fileInputEl.files[0]);
+                    hasInput = true;
+                }
+
+                if (!hasInput) {
+                    alert("Please provide a prompt, URL, or file first.");
                     return;
                 }
-                this.customPrompt = prompt;
+
+                // Transition modals immediately
                 if (this.customModal) this.customModal.classList.add('hidden');
+                if (this.customReviewModal) this.customReviewModal.classList.remove('hidden');
+                
+                if (typeof Toast !== 'undefined') {
+                    Toast.show("Strategic prompt is being crafted by AI...", "info");
+                }
+
+                const reviewContent = document.getElementById('custom-review-content');
+                const customGenStatus = document.getElementById('custom-gen-status');
+                
+                if (customGenStatus) customGenStatus.classList.remove('hidden');
+                if (reviewContent) reviewContent.classList.add('hidden');
+                
+                try {
+                    console.log("[DEBUG] Fetching expanded prompt...");
+                    const response = await fetch('/api/generate-detailed-prompt', {
+                        method: 'POST',
+                        headers: Api.getAuthHeaders(),
+                        body: formData
+                    });
+                    
+                    if (!response.ok) {
+                        const errorData = await response.json().catch(() => ({ detail: "Unknown error" }));
+                        throw new Error(errorData.detail || "Failed to generate detailed prompt");
+                    }
+                    
+                    const data = await response.json();
+                    console.log("[DEBUG] Expanded prompt received successfully.");
+                    const promptArea = document.getElementById('custom-detailed-prompt');
+                    if (promptArea) {
+                        promptArea.value = data.detailed_prompt;
+                    }
+                    
+                } catch (e) {
+                    console.error("Prompt expansion error:", e);
+                    if (typeof Toast !== 'undefined') {
+                        Toast.show("AI Architect error: " + e.message, "error");
+                    }
+                    // Return to step 1
+                    if (this.customReviewModal) this.customReviewModal.classList.add('hidden');
+                    if (this.customModal) this.customModal.classList.remove('hidden');
+                } finally {
+                    if (customGenStatus) customGenStatus.classList.add('hidden');
+                    if (reviewContent) reviewContent.classList.remove('hidden');
+                }
+            });
+        }
+
+        if (backToInputBtn) {
+            backToInputBtn.addEventListener('click', () => {
+                if (this.customReviewModal) this.customReviewModal.classList.add('hidden');
+                if (this.customModal) this.customModal.classList.remove('hidden');
+            });
+        }
+
+        if (regenerateBtn) {
+            regenerateBtn.addEventListener('click', () => {
+                console.log("Regenerate clicked.");
+                generateDetailedBtn.click();
+            });
+        }
+
+        if (nextToPrefsBtn) {
+            nextToPrefsBtn.addEventListener('click', () => {
+                const detailedPrompt = document.getElementById('custom-detailed-prompt').value.trim();
+                if (!detailedPrompt) {
+                    alert("Prompt cannot be empty.");
+                    return;
+                }
+                this.customPrompt = detailedPrompt;
+                if (this.customReviewModal) this.customReviewModal.classList.add('hidden');
                 this.showPrefs();
             });
         }
     }
 
+    resetCustomStages() {
+        this.activeCustomTab = 'custom-prompt';
+        const rawPromptEl = document.getElementById('custom-raw-prompt');
+        const urlInputEl = document.getElementById('custom-url-input');
+        const fileInputEl = document.getElementById('custom-file-input');
+        const promptArea = document.getElementById('custom-detailed-prompt');
+        
+        if (rawPromptEl) rawPromptEl.value = '';
+        if (urlInputEl) urlInputEl.value = '';
+        if (fileInputEl) fileInputEl.value = '';
+        if (promptArea) promptArea.value = '';
+
+        // Reset tab UI
+        const customTabs = document.querySelectorAll('.custom-tab-btn');
+        const customContents = document.querySelectorAll('.custom-tab-content');
+        if (customTabs.length > 0) {
+            customTabs.forEach(btn => btn.classList.remove('active'));
+            customTabs[0].classList.add('active');
+        }
+        if (customContents.length > 0) {
+            customContents.forEach(c => c.classList.add('hidden'));
+            const defaultStage = document.getElementById('stage-custom-prompt');
+            if (defaultStage) defaultStage.classList.remove('hidden');
+        }
+
+        // Reset modals if needed
+        if (this.customModal) this.customModal.classList.add('hidden');
+        if (this.customReviewModal) this.customReviewModal.classList.add('hidden');
+    }
+
     showCustomPostModal() {
         if (this.customModal) {
+            this.resetCustomStages();
             this.customModal.classList.remove('hidden');
             this.isCustomPost = true;
         }
@@ -458,9 +605,7 @@ class SwipeApp {
             if (this.isCustomPost) {
                 resp = await Api.enqueueCustomPost(this.customPrompt, fullPrefs, productId ? parseInt(productId) : null);
                 // Reset custom state
-                this.isCustomPost = false;
-                this.customPrompt = "";
-                document.getElementById('custom-prompt-input').value = "";
+                this.resetCustomStages();
             } else {
                 resp = await Api.enqueuePost(this.currentNews, fullPrefs, productId ? parseInt(productId) : null);
             }
@@ -531,6 +676,13 @@ class SwipeApp {
         const container = document.getElementById('post-preview');
         const timestamp = new Date().getTime();
         const imageUrl = result.image_url ? `${result.image_url}?t=${timestamp}` : null;
+        
+        // Handle button visibility
+        const copyImgBtn = document.getElementById('copy-image-btn');
+        const downImgBtn = document.getElementById('download-img-btn');
+        if (copyImgBtn) copyImgBtn.style.display = result.image_url ? 'inline-block' : 'none';
+        if (downImgBtn) downImgBtn.style.display = result.image_url ? 'inline-block' : 'none';
+
         container.innerHTML = `
             <div class="post-preview-container">
                 <div class="preview-image">
