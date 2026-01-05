@@ -99,6 +99,8 @@ class LinkedInBlogAgent:
         6. FACTUAL GROUNDING: Use ONLY the information provided in the input data. Do not hallucinate or invent facts.
         7. NO MARKETING FLUFF: Stay focused on data-driven insights and professional analysis.
         8. LENGTH CONSTRAINT: If the target length is "LinkedIn Post", ensure the ENTIRE content (including headline and sources) is strictly under 1400 characters.
+        9. SEO OPTIMIZATION: Naturally incorporate high-traffic, relevant keywords and phrases related to the TOPIC and BRANDING CONTEXT to improve search engine visibility (SEO). Ensure the content is structured for discoverability while maintaining a high level of professional readability.
+        10. NO SPECIAL SYMBOLS: Do not use symbols like asterisks (*), parentheses ( ), or special characters like copyright (©), trademark (™), or registered (®) throughout the content. Use only plain text and standard punctuation (periods, commas, etc.) as needed.
         """
 
         try:
@@ -146,6 +148,13 @@ class LinkedInBlogAgent:
             if "Sources" not in result['content']:
                 sources_list = "\n\nSources\n" + "\n".join([f"- {url}" for url in final_sources])
                 result['content'] += sources_list
+
+            # Post-processing: Remove forbidden symbols like *, (, ), and special trademark/copyright symbols
+            # as requested by the user to ensure plain text SEO-friendly content.
+            forbidden_symbols = ["*", "(", ")", "©", "™", "®"]
+            if 'content' in result:
+                for sym in forbidden_symbols:
+                    result['content'] = result['content'].replace(sym, "")
             
             result['success'] = True
             
