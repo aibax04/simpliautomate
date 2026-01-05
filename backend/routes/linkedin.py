@@ -16,13 +16,27 @@ LINKEDIN_AUTH_BASE_URL = "https://www.linkedin.com/oauth/v2/authorization"
 LINKEDIN_TOKEN_URL = "https://www.linkedin.com/oauth/v2/accessToken"
 LINKEDIN_USERINFO_URL = "https://api.linkedin.com/v2/userinfo"
 
-@router.get("/auth-url")
-async def get_auth_url(user: User = Depends(get_current_user)):
-    # Standardize redirect URI - LinkedIn is extremely strict.
-    redirect_uri = Config.LINKEDIN_REDIRECT_URI
+def get_dynamic_redirect_uri(request: Request):
+    """
+    Dynamically determines the redirect URI based on the request host.
+    This allows the same backend to work locally and in production.
+    """
+    host = request.headers.get("host", "")
     
-    # If the user has an old /callback URI in .env, we should warn or fix it.
-    # But it MUST match the LinkedIn Portal exactly.
+    # If we are on localhost, use the localhost callback
+    if "localhost" in host or "127.0.0.1" in host:
+        return "http://localhost:8000/api/linkedin/callback"
+    
+    # Default to production URL if not on localhost
+    # You can also use Config.LINKEDIN_REDIRECT_URI as the primary source
+    prod_uri = Config.LINKEDIN_REDIRECT_URI or "https://postflow.panscience.ai/api/linkedin/callback"
+    return prod_uri
+
+@router.get("/auth-url")
+async def get_auth_url(request: Request, user: User = Depends(get_current_user)):
+    # Standardize redirect URI - LinkedIn is extremely strict.
+    redirect_uri = get_dynamic_redirect_uri(request)
+    
     print(f"[DEBUG] Initiating LinkedIn OAuth with Redirect URI: {redirect_uri}")
     
     params = {
@@ -35,12 +49,14 @@ async def get_auth_url(user: User = Depends(get_current_user)):
     return {"url": url}
 
 @router.get("/callback")
-async def linkedin_callback(code: str):
+async def linkedin_callback(request: Request, code: str):
     """
     LinkedIn redirects here. We redirect to the frontend root with the code
     so the frontend can handle the connection while authenticated.
     """
     print(f"[DEBUG] LinkedIn Callback received with code: {code[:10]}...")
+    
+    # Use relative redirect to stay on the same domain (local or prod)
     return RedirectResponse(url=f"/?code={code}")
 
 @router.post("/connect")
@@ -50,13 +66,16 @@ async def connect_linkedin(request: Request, db: AsyncSession = Depends(get_db),
     if not code:
         raise HTTPException(status_code=400, detail="Code is required")
 
+    redirect_uri = get_dynamic_redirect_uri(request)
+    print(f"[DEBUG] Exchanging code for token with Redirect URI: {redirect_uri}")
+
     # Exchange code for token
     token_resp = requests.post(
         LINKEDIN_TOKEN_URL,
         data={
             "grant_type": "authorization_code",
             "code": code,
-            "redirect_uri": Config.LINKEDIN_REDIRECT_URI,
+            "redirect_uri": redirect_uri,
             "client_id": Config.LINKEDIN_CLIENT_ID,
             "client_secret": Config.LINKEDIN_CLIENT_SECRET,
         },

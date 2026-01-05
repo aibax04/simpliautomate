@@ -405,36 +405,8 @@ class SwipeApp {
             });
         }
 
-        const regenerateBtn = document.getElementById('regenerate-img-btn');
-        if (regenerateBtn) {
-            regenerateBtn.addEventListener('click', async () => {
-                if (!this.currentNews || !this.currentPrefs) {
-                    if (window.Toast) window.Toast.show("Original context lost. Please try swiping again.", "error");
-                    return;
-                }
-
-                // Close result modal and re-trigger generation
-                if (this.resultModal) this.resultModal.classList.add('hidden');
-
-                const tempId = 'temp_' + Date.now();
-                if (window.queuePanel) {
-                    window.queuePanel.addOptimisticJob(tempId, this.currentNews.headline);
-                }
-
-                if (window.Toast) window.Toast.show("Regenerating post with same settings...", "info");
-
-                try {
-                    const resp = await Api.enqueuePost(this.currentNews, this.currentPrefs);
-                    if (window.queuePanel) {
-                        window.queuePanel.updateOptimisticId(tempId, resp.job_id);
-                    }
-                } catch (e) {
-                    console.error(e);
-                    if (window.Toast) window.Toast.show("Failed to regenerate.", "error");
-                    if (window.queuePanel) window.queuePanel.removeJob(tempId);
-                }
-            });
-        }
+        // REMOVED OLD REGENERATE BUTTON LOGIC (Full post regeneration)
+        // This is replaced by the new Image-Only Regeneration below.
 
         const downloadBtn = document.getElementById('download-img-btn');
         if (downloadBtn) {
@@ -570,6 +542,80 @@ class SwipeApp {
                 }
             });
         }
+
+        // Image Regeneration Listeners
+        document.body.addEventListener('click', async (e) => {
+            if (e.target && (e.target.id === 'regen-image-btn' || e.target.closest('#regen-image-btn'))) {
+                await this.handleImageRegeneration();
+            }
+        });
+    }
+
+    async handleImageRegeneration() {
+        console.log("[DEBUG] Starting image regeneration for Job ID:", this.currentJobId);
+        if (!this.currentJobId) {
+            if (window.Toast) window.Toast.show("Job context lost. Cannot regenerate.", "error");
+            return;
+        }
+
+        const loader = document.getElementById('regen-loader');
+        const overlay = document.getElementById('image-overlay');
+        const regenBtn = document.getElementById('regen-image-btn');
+        
+        if (loader) loader.classList.remove('hidden');
+        if (overlay) overlay.classList.remove('hidden');
+        if (regenBtn) regenBtn.disabled = true;
+
+        try {
+            console.log("[DEBUG] Sending regeneration request for Post ID:", this.currentPostId);
+            const resp = await fetch('/api/regenerate-image', {
+                method: 'POST',
+                headers: Api.getHeaders(),
+                body: JSON.stringify({ 
+                    job_id: this.currentJobId,
+                    post_id: this.currentPostId
+                })
+            });
+
+            if (!resp.ok) {
+                const err = await resp.json();
+                throw new Error(err.detail || "Regeneration failed");
+            }
+
+            const data = await resp.json();
+            const newImageUrl = data.image_url;
+
+            // Automatically update DB with the new image
+            const updateResp = await fetch('/api/update-post-image', {
+                method: 'POST',
+                headers: Api.getHeaders(),
+                body: JSON.stringify({ 
+                    image_url: newImageUrl,
+                    post_id: this.currentPostId
+                })
+            });
+
+            if (!updateResp.ok) throw new Error("Failed to sync new image to database");
+
+            // Update UI
+            this.generatedPost.image_url = newImageUrl;
+            this.originalImageUrl = newImageUrl;
+            
+            const imgEl = document.querySelector('.generated-post-image');
+            if (imgEl) {
+                imgEl.src = newImageUrl + '?t=' + new Date().getTime();
+            }
+
+            if (window.Toast) window.Toast.show("Image redesigned and updated successfully!", "success");
+
+        } catch (e) {
+            console.error(e);
+            if (window.Toast) window.Toast.show("Failed to regenerate image: " + e.message, "error");
+        } finally {
+            if (loader) loader.classList.add('hidden');
+            if (overlay) overlay.classList.add('hidden');
+            if (regenBtn) regenBtn.disabled = false;
+        }
     }
 
     async finalizeGeneration(imgPrefs) {
@@ -654,16 +700,32 @@ class SwipeApp {
     openResult(job) {
         const result = job.result || job;
         this.generatedPost = result;
+        this.currentJobId = job.id || job.job_id || null;
+        this.currentPostId = result.post_id || null;
+        this.originalImageUrl = result.image_url;
+
         if (job.payload) {
             if (job.payload.news_item) this.currentNews = job.payload.news_item;
             if (job.payload.user_prefs) this.currentPrefs = job.payload.user_prefs;
         }
 
-        // Update modal title with news headline
+        // --- FEATURE 1: SAFE POST TITLE GENERATION ---
+        let displayTitle = "Your Curated Post";
+        if (this.currentNews && this.currentNews.headline && this.currentNews.headline !== "undefined") {
+            displayTitle = this.currentNews.headline;
+        } else if (result.caption_data && result.caption_data.hook) {
+            // Fallback to hook/first sentence
+            displayTitle = result.caption_data.hook.split('.')[0].substring(0, 60);
+        } else if (result.text) {
+            // Fallback to first line of text
+            displayTitle = result.text.split('\n')[0].substring(0, 60);
+        }
+
         const modalTitle = document.getElementById('result-modal-title');
         if (modalTitle) {
-            modalTitle.innerText = this.currentNews ? this.currentNews.headline : "Your Curated Post";
+            modalTitle.innerText = displayTitle;
         }
+        // ----------------------------------------------
 
         const rawCaption = result.caption_data ? result.caption_data.body : result.text;
         const hashtags = result.caption_data ? result.caption_data.hashtags : "";
@@ -686,6 +748,10 @@ class SwipeApp {
         container.innerHTML = `
             <div class="post-preview-container">
                 <div class="preview-image">
+                    <div id="image-overlay" class="image-loading-overlay hidden">
+                        <div class="mini-spinner"></div>
+                        <span>AI Architect is redesigning...</span>
+                    </div>
                     ${imageUrl ? `<img src="${imageUrl}" alt="Generated Infographic" class="generated-post-image">` : '<div class="preview-image-fallback">Visualization generated...<br>(check network/path)</div>'}
                 </div>
                 <div class="preview-content">
@@ -693,6 +759,12 @@ class SwipeApp {
                     ${hashtags ? `<div class="preview-hashtags">${hashtags}</div>` : ''}
                     
                     <div class="preview-footer" style="display: flex; justify-content: space-between; align-items: center; margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border);">
+                        <div style="display: flex; gap: 10px; align-items: center;">
+                            <button id="regen-image-btn" class="btn-secondary" style="font-size: 0.75rem; padding: 6px 12px; background: #f0f0f0; color: #666; border: 1px solid #ddd;">
+                                <span class="icon" style="margin-right: 4px;">🔄</span> Regenerate Image
+                            </button>
+                            <div id="regen-loader" class="mini-spinner hidden" style="width: 16px; height: 16px; border-width: 2px;"></div>
+                        </div>
                         ${result.is_custom ? '' : `
                         <div class="source-attribution">
                             <span style="font-size: 0.75rem; color: var(--text-secondary); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Source:</span>

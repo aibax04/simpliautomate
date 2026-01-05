@@ -4,10 +4,11 @@ from typing import Dict, Any, Optional, List
 from backend.queue.queue_manager import QueueManager
 from backend.agents.post_generation_agent import PostGenerationAgent
 from backend.agents.linkedin_blog_agent import LinkedInBlogAgent
+from backend.agents.image_agent import ImageAgent
 import asyncio
 from backend.db.database import AsyncSessionLocal, get_db
 from backend.db.models import GenerationQueue, GeneratedPost, NewsItem, User, Product
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from backend.auth.security import get_current_user
@@ -32,7 +33,7 @@ class JobResponse(BaseModel):
     status: str
     message: str
 
-async def _persist_post(news_item: Dict, result: Dict, user_prefs: Dict, user_id: int):
+async def _persist_post(news_item: Dict, result: Dict, user_prefs: Dict, user_id: int, job_id_memory: str = None):
     """Helper to persist generated post to database."""
     async with AsyncSessionLocal() as session:
         try:
@@ -61,6 +62,7 @@ async def _persist_post(news_item: Dict, result: Dict, user_prefs: Dict, user_id
                 palette=user_prefs.get("image_palette")
             )
             session.add(db_post)
+            await session.flush() # Get db_post.id
             
             # 3. Add to Queue History
             db_job = GenerationQueue(
@@ -68,12 +70,17 @@ async def _persist_post(news_item: Dict, result: Dict, user_prefs: Dict, user_id
                 news_id=db_news.id,
                 status="ready",
                 preferences_json=user_prefs,
-                result_json=result
+                result_json={**result, "post_id": db_post.id}
             )
             session.add(db_job)
             
             await session.commit()
-            print(f"[DB] Persisted post for user {user_id}: {news_item.get('headline')[:30]}...")
+            
+            # Also update the in-memory job if possible
+            if job_id_memory:
+                queue.update_job(job_id_memory, result={**result, "post_id": db_post.id})
+            
+            print(f"[DB] Persisted post {db_post.id} for user {user_id}: {news_item.get('headline')[:30]}...")
         except Exception as e:
             await session.rollback()
             print(f"[DB ERROR] Post persistence failed: {e}")
@@ -115,7 +122,7 @@ async def process_post_generation(job_id: str, news_item: Dict, user_prefs: Dict
         if result:
             queue.update_job(job_id, status="ready", result=result, progress=100)
             # Background persistence
-            asyncio.create_task(_persist_post(news_item, result, user_prefs, user_id))
+            asyncio.create_task(_persist_post(news_item, result, user_prefs, user_id, job_id_memory=job_id))
             print(f"[Job {job_id}] Completed.")
         else:
             queue.update_job(job_id, status="failed", error="Content generation returned empty/quality failure")
@@ -247,3 +254,81 @@ async def get_job_result(job_id: str):
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
     return job
+
+@router.post("/regenerate-image")
+async def regenerate_image(payload: Dict[str, Any], user: User = Depends(get_current_user)):
+    """
+    Regenerates ONLY the image for a given job/post.
+    """
+    job_id = payload.get("job_id")
+    post_id = payload.get("post_id")
+    
+    visual_plan = None
+    
+    # 1. Try to find in memory queue first
+    if job_id:
+        job = queue.get_job(job_id)
+        if job and "result" in job:
+            visual_plan = job["result"].get("visual_plan")
+    
+    # 2. Try to find in DB history
+    if not visual_plan:
+        async with AsyncSessionLocal() as session:
+            if post_id:
+                # Find the queue entry that generated this post
+                # We store post_id inside result_json
+                from sqlalchemy import text
+                stmt = select(GenerationQueue).where(
+                    GenerationQueue.user_id == user.id,
+                    text("result_json->>'post_id' = :pid").bindparams(pid=str(post_id))
+                ).limit(1)
+            else:
+                # Fallback to most recent job for this user
+                stmt = select(GenerationQueue).where(GenerationQueue.user_id == user.id).order_by(GenerationQueue.created_at.desc()).limit(1)
+            
+            res = await session.execute(stmt)
+            db_job = res.scalar_one_or_none()
+            if db_job and db_job.result_json:
+                visual_plan = db_job.result_json.get("visual_plan")
+
+    if not visual_plan:
+        raise HTTPException(status_code=404, detail="Original visual plan not found. Please generate a new post.")
+
+    image_agent = ImageAgent()
+    try:
+        new_image_url = await image_agent.generate_image(visual_plan)
+        return {"image_url": new_image_url}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/update-post-image")
+async def update_post_image(payload: Dict[str, Any], user: User = Depends(get_current_user)):
+    """
+    Updates the image_path for a post after user confirmation.
+    """
+    image_url = payload.get("image_url")
+    post_id = payload.get("post_id")
+    
+    if not image_url:
+        raise HTTPException(status_code=400, detail="image_url is required")
+
+    async with AsyncSessionLocal() as session:
+        try:
+            if post_id:
+                stmt = select(GeneratedPost).where(GeneratedPost.id == post_id, GeneratedPost.user_id == user.id)
+            else:
+                # Fallback to most recent
+                stmt = select(GeneratedPost).where(GeneratedPost.user_id == user.id).order_by(GeneratedPost.created_at.desc()).limit(1)
+            
+            res = await session.execute(stmt)
+            db_post = res.scalar_one_or_none()
+            
+            if db_post:
+                db_post.image_path = image_url
+                await session.commit()
+                return {"status": "success", "message": "Post image updated"}
+            else:
+                raise HTTPException(status_code=404, detail="Post not found to update")
+        except Exception as e:
+            await session.rollback()
+            raise HTTPException(status_code=500, detail=str(e))
