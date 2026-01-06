@@ -3,7 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from backend.db.database import get_db
 from backend.db.models import User
-from backend.auth.security import get_password_hash, verify_password, create_access_token
+from backend.auth.security import get_password_hash, verify_password, create_access_token, get_current_user
 import os
 from pydantic import BaseModel, EmailStr
 
@@ -17,7 +17,7 @@ if not os.getenv("SECRET_KEY_APP"):
 
 class UserCreate(BaseModel):
     username: str
-    email: EmailStr
+    email: str
     password: str
     secret_key: str
 
@@ -110,3 +110,7 @@ async def login(login_data: LoginRequest, db: AsyncSession = Depends(get_db)):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Database error: {str(e)}"
         )
+
+@router.get("/me")
+async def read_users_me(current_user: User = Depends(get_current_user)):
+    return {"id": current_user.id, "username": current_user.username, "email": current_user.email}

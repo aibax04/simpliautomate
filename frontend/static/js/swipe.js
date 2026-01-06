@@ -49,7 +49,7 @@ class SwipeApp {
         const generateDetailedBtn = document.getElementById('generate-detailed-prompt-btn');
         const backToInputBtn = document.getElementById('back-to-input-btn');
         const regenerateBtn = document.getElementById('regenerate-prompt-btn');
-        
+
         // Tab switching for custom input
         const customTabs = document.querySelectorAll('.custom-tab-btn');
         const customContents = document.querySelectorAll('.custom-tab-content');
@@ -83,10 +83,10 @@ class SwipeApp {
                 const rawPromptEl = document.getElementById('custom-raw-prompt');
                 const urlInputEl = document.getElementById('custom-url-input');
                 const fileInputEl = document.getElementById('custom-file-input');
-                
+
                 const rawPrompt = rawPromptEl ? rawPromptEl.value.trim() : "";
                 const url = urlInputEl ? urlInputEl.value.trim() : "";
-                
+
                 const formData = new FormData();
                 let hasInput = false;
 
@@ -109,17 +109,17 @@ class SwipeApp {
                 // Transition modals immediately
                 if (this.customModal) this.customModal.classList.add('hidden');
                 if (this.customReviewModal) this.customReviewModal.classList.remove('hidden');
-                
+
                 if (typeof Toast !== 'undefined') {
                     Toast.show("Strategic prompt is being crafted by AI...", "info");
                 }
 
                 const reviewContent = document.getElementById('custom-review-content');
                 const customGenStatus = document.getElementById('custom-gen-status');
-                
+
                 if (customGenStatus) customGenStatus.classList.remove('hidden');
                 if (reviewContent) reviewContent.classList.add('hidden');
-                
+
                 try {
                     console.log("[DEBUG] Fetching expanded prompt...");
                     const response = await fetch('/api/generate-detailed-prompt', {
@@ -127,19 +127,19 @@ class SwipeApp {
                         headers: Api.getAuthHeaders(),
                         body: formData
                     });
-                    
+
                     if (!response.ok) {
                         const errorData = await response.json().catch(() => ({ detail: "Unknown error" }));
                         throw new Error(errorData.detail || "Failed to generate detailed prompt");
                     }
-                    
+
                     const data = await response.json();
                     console.log("[DEBUG] Expanded prompt received successfully.");
                     const promptArea = document.getElementById('custom-detailed-prompt');
                     if (promptArea) {
                         promptArea.value = data.detailed_prompt;
                     }
-                    
+
                 } catch (e) {
                     console.error("Prompt expansion error:", e);
                     if (typeof Toast !== 'undefined') {
@@ -189,7 +189,7 @@ class SwipeApp {
         const urlInputEl = document.getElementById('custom-url-input');
         const fileInputEl = document.getElementById('custom-file-input');
         const promptArea = document.getElementById('custom-detailed-prompt');
-        
+
         if (rawPromptEl) rawPromptEl.value = '';
         if (urlInputEl) urlInputEl.value = '';
         if (fileInputEl) fileInputEl.value = '';
@@ -208,9 +208,11 @@ class SwipeApp {
             if (defaultStage) defaultStage.classList.remove('hidden');
         }
 
-        // Reset modals if needed
         if (this.customModal) this.customModal.classList.add('hidden');
         if (this.customReviewModal) this.customReviewModal.classList.add('hidden');
+
+        // CRITICAL: Reset the custom flag so news card swipes work correctly
+        this.isCustomPost = false;
     }
 
     showCustomPostModal() {
@@ -230,6 +232,8 @@ class SwipeApp {
             </div>
         `;
 
+        this.fetchUser();
+
         try {
             const news = await Api.fetchNews();
             this.allNews = news;
@@ -237,6 +241,18 @@ class SwipeApp {
         } catch (e) {
             this.stack.innerHTML = `<div class="empty-state-message"><p>Failed to fetch news. Please try again.</p><button onclick="window.app.init()" class="btn-secondary">Retry</button></div>`;
             console.error(e);
+        }
+    }
+
+    async fetchUser() {
+        try {
+            const user = await Api.fetchUserMe();
+            if (user) {
+                const nameLabel = document.getElementById('user-display-name');
+                if (nameLabel) nameLabel.innerText = user.username;
+            }
+        } catch (e) {
+            console.error("Failed to fetch user:", e);
         }
     }
 
@@ -344,7 +360,11 @@ class SwipeApp {
     handleRightSwipe(card, data) {
         card.style.transform = 'translateX(1000px) rotate(30deg)';
         card.style.opacity = '0';
+
+        // Ensure we are in News Post mode
+        this.isCustomPost = false;
         this.currentNews = data;
+
         this.showPrefs();
         this.popCard();
     }
@@ -385,13 +405,22 @@ class SwipeApp {
             });
         }
 
+        const searchInput = document.getElementById('news-search-input');
+        if (searchInput) {
+            searchInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    this.performSearch(searchInput.value.trim());
+                }
+            });
+        }
+
         const nextToImageBtn = document.getElementById('next-to-image-btn');
         if (nextToImageBtn) {
             nextToImageBtn.addEventListener('click', () => {
                 const toneSelect = document.getElementById('tone-select');
                 const audienceSelect = document.getElementById('audience-select');
                 const lengthSelect = document.getElementById('length-select');
-                
+
                 if (!toneSelect || !audienceSelect || !lengthSelect) return;
 
                 const tone = toneSelect.value;
@@ -424,7 +453,7 @@ class SwipeApp {
                 document.body.appendChild(link);
                 link.click();
                 document.body.removeChild(link);
-                
+
                 if (window.Toast) window.Toast.show("Starting image download...");
             });
         }
@@ -434,7 +463,7 @@ class SwipeApp {
             copyCaptionBtn.addEventListener('click', () => {
                 const captionEl = document.querySelector('.preview-caption');
                 const hashtagsEl = document.querySelector('.preview-hashtags');
-                
+
                 if (!captionEl) {
                     if (window.Toast) window.Toast.show("No caption found to copy.", "error");
                     return;
@@ -467,10 +496,10 @@ class SwipeApp {
                 try {
                     const response = await fetch(this.generatedPost.image_url);
                     const blob = await response.blob();
-                    
+
                     const item = new ClipboardItem({ [blob.type]: blob });
                     await navigator.clipboard.write([item]);
-                    
+
                     if (window.Toast) window.Toast.show("Image copied to clipboard!");
                 } catch (err) {
                     console.error('Image copy error:', err);
@@ -549,7 +578,7 @@ class SwipeApp {
         // This is the source of truth for all image action buttons
         document.body.addEventListener('click', async (e) => {
             const target = e.target;
-            
+
             // 1. Image Regeneration
             const isRegen = target.id === 'regen-image-btn' || target.closest('#regen-image-btn');
             if (isRegen) {
@@ -560,10 +589,10 @@ class SwipeApp {
             }
 
             // 2. Show Image Edit UI
-            const isEditTrigger = target.id === 'edit-image-btn' || 
-                                target.id === 'edit-image-btn-main' || 
-                                target.closest('#edit-image-btn') || 
-                                target.closest('#edit-image-btn-main');
+            const isEditTrigger = target.id === 'edit-image-btn' ||
+                target.id === 'edit-image-btn-main' ||
+                target.closest('#edit-image-btn') ||
+                target.closest('#edit-image-btn-main');
             if (isEditTrigger) {
                 e.preventDefault();
                 console.log("[DEBUG] Edit trigger clicked (global)");
@@ -608,14 +637,14 @@ class SwipeApp {
             container.classList.remove('hidden');
             container.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
-        
+
         // Hide trigger buttons to focus on edit UI
         const mainEditBtn = document.getElementById('edit-image-btn-main');
         if (mainEditBtn) mainEditBtn.classList.add('hidden');
-        
+
         const footerEditBtn = document.getElementById('edit-image-btn');
         if (footerEditBtn) footerEditBtn.classList.add('hidden');
-        
+
         const regenBtn = document.getElementById('regen-image-btn');
         if (regenBtn) regenBtn.classList.add('hidden');
     }
@@ -623,23 +652,23 @@ class SwipeApp {
     handleImageEditCancel() {
         const container = document.getElementById('image-edit-container');
         if (container) container.classList.add('hidden');
-        
+
         const mainEditBtn = document.getElementById('edit-image-btn-main');
         if (mainEditBtn) mainEditBtn.classList.remove('hidden');
-        
+
         const footerEditBtn = document.getElementById('edit-image-btn');
         if (footerEditBtn) footerEditBtn.classList.remove('hidden');
-        
+
         const regenBtn = document.getElementById('regen-image-btn');
         if (regenBtn) regenBtn.classList.remove('hidden');
-        
+
         const promptArea = document.getElementById('image-edit-prompt');
         if (promptArea) promptArea.value = '';
     }
 
     async handleImageEditSubmit() {
         console.log("[CRITICAL DEBUG] handleImageEditSubmit entered");
-        
+
         const promptArea = document.getElementById('image-edit-prompt');
         const submitBtn = document.getElementById('submit-edit-btn');
         const loader = document.getElementById('regen-loader');
@@ -663,13 +692,13 @@ class SwipeApp {
         }
 
         // --- CONTEXT VALIDATION ---
-        const finalPostId = this.currentPostId || 
-                           (this.generatedPost ? (this.generatedPost.post_id || this.generatedPost.id) : null);
-        
-        console.log("[DEBUG] handleImageEditSubmit context:", { 
-            jobId: this.currentJobId, 
+        const finalPostId = this.currentPostId ||
+            (this.generatedPost ? (this.generatedPost.post_id || this.generatedPost.id) : null);
+
+        console.log("[DEBUG] handleImageEditSubmit context:", {
+            jobId: this.currentJobId,
             postId: finalPostId,
-            hasPost: !!this.generatedPost 
+            hasPost: !!this.generatedPost
         });
 
         if (!finalPostId && !this.currentJobId) {
@@ -715,7 +744,7 @@ class SwipeApp {
                 this.generatedPost.image_url = newImageUrl;
             }
             this.originalImageUrl = newImageUrl;
-            
+
             const imgEl = document.querySelector('.generated-post-image');
             if (imgEl) {
                 const timestamp = new Date().getTime();
@@ -729,7 +758,7 @@ class SwipeApp {
             const successMsg = "Image updated successfully!";
             if (typeof Toast !== 'undefined') Toast.show(successMsg, "success");
             else if (window.Toast) window.Toast.show(successMsg, "success");
-            
+
         } catch (e) {
             console.error("[CRITICAL ERROR] Image Edit Failed:", e);
             const msg = e.message || "Something went wrong. Please try again.";
@@ -749,11 +778,11 @@ class SwipeApp {
     async handleImageRegeneration() {
         const finalPostId = this.currentPostId || (this.generatedPost ? this.generatedPost.post_id || this.generatedPost.id : null);
         console.log("[DEBUG] Starting image regeneration. Job ID:", this.currentJobId, "Post ID:", finalPostId);
-        
+
         const loader = document.getElementById('regen-loader');
         const overlay = document.getElementById('image-overlay');
         const regenBtn = document.getElementById('regen-image-btn');
-        
+
         if (loader) loader.classList.remove('hidden');
         if (overlay) overlay.classList.remove('hidden');
         if (regenBtn) regenBtn.disabled = true;
@@ -776,7 +805,7 @@ class SwipeApp {
             // Update UI
             this.generatedPost.image_url = newImageUrl;
             this.originalImageUrl = newImageUrl;
-            
+
             const imgEl = document.querySelector('.generated-post-image');
             if (imgEl) {
                 imgEl.src = newImageUrl + '?t=' + new Date().getTime();
@@ -810,7 +839,7 @@ class SwipeApp {
 
         const tempId = 'temp_' + Date.now();
         const headline = this.isCustomPost ? "Custom Post" : this.currentNews.headline;
-        
+
         if (window.queuePanel) {
             window.queuePanel.addOptimisticJob(tempId, headline);
         }
@@ -840,6 +869,29 @@ class SwipeApp {
             console.error(e);
             if (window.Toast) window.Toast.show("Failed to start agent found.", "error");
             if (window.queuePanel) window.queuePanel.removeJob(tempId);
+        }
+    }
+
+    async performSearch(query) {
+        if (!query) {
+            this.init();
+            return;
+        }
+
+        this.stack.innerHTML = `
+            <div class="loading-state">
+                <div class="spinner"></div>
+                <p>Searching for "${query}"...</p>
+            </div>
+        `;
+
+        try {
+            const news = await Api.fetchNews(query);
+            this.allNews = news;
+            this.filterNews('All');
+        } catch (e) {
+            this.stack.innerHTML = `<div class="empty-state-message"><p>Search failed. Please try again.</p><button onclick="window.app.performSearch('${query}')" class="btn-secondary">Retry</button></div>`;
+            console.error(e);
         }
     }
 
@@ -908,15 +960,15 @@ class SwipeApp {
         const rawCaption = result.caption_data ? result.caption_data.body : result.text;
         const hashtags = result.caption_data ? result.caption_data.hashtags : "";
         const hook = result.caption_data ? result.caption_data.hook : "";
-        
+
         // Include the original news headline in the content display for context
         const headlinePrefix = (this.currentNews && !this.generatedPost.is_custom) ? `NEWS UPDATE: ${this.currentNews.headline}\n\n` : "";
         const displayBody = hook ? `${headlinePrefix}<strong>${hook}</strong>\n\n${rawCaption}` : `${headlinePrefix}${rawCaption}`;
-        
+
         const container = document.getElementById('post-preview');
         const timestamp = new Date().getTime();
         const imageUrl = result.image_url ? `${result.image_url}?t=${timestamp}` : null;
-        
+
         // Handle button visibility
         const copyImgBtn = document.getElementById('copy-image-btn');
         const downImgBtn = document.getElementById('download-img-btn');
@@ -948,10 +1000,10 @@ class SwipeApp {
                         <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
                             <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
                                 <button id="regen-image-btn" class="btn-secondary" style="font-size: 0.75rem; padding: 6px 12px; background: #f0f0f0; color: #666; border: 1px solid #ddd;">
-                                    <span class="icon" style="margin-right: 4px;">🔄</span> Regenerate
+                                    Redo
                                 </button>
                                 <button id="edit-image-btn" class="btn-secondary" style="font-size: 0.75rem; padding: 6px 12px; background: #f0f0f0; color: #666; border: 1px solid #ddd;">
-                                    <span class="icon" style="margin-right: 4px;">🎨</span> Edit Image
+                                    Edit
                                 </button>
                                 <div id="regen-loader" class="mini-spinner hidden" style="width: 16px; height: 16px; border-width: 2px;"></div>
                             </div>

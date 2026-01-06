@@ -15,6 +15,7 @@ from backend.routes.products import router as products_router
 from backend.routes.scheduler import router as scheduler_router
 from backend.routes.media import setup_media_routes
 from backend.auth.security import decode_access_token, get_current_user, decrypt_token
+from backend.db.models import User
 from fastapi.security import OAuth2PasswordBearer
 import google.generativeai as genai
 import uvicorn
@@ -138,9 +139,13 @@ async def health_check():
     return {"status": "ok"}
 
 @app.get("/api/fetch-news")
-async def fetch_news(user: User = Depends(get_current_user)):
-    """Endpoint to fetch and curate live news cards"""
-    result = await graph.ainvoke({"news_items": [], "status": "init"})
+async def fetch_news(q: str = None, user: User = Depends(get_current_user)):
+    """Endpoint to fetch and curate live news cards, supports optional search query 'q'"""
+    state = {"news_items": [], "status": "init"}
+    if q:
+        state["search_query"] = q
+        
+    result = await graph.ainvoke(state)
     return result["news_items"]
 
 @app.get("/favicon.ico", include_in_schema=False)

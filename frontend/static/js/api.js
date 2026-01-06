@@ -41,15 +41,31 @@ const Api = {
         return data;
     },
 
-    async fetchNews() {
+    async fetchNews(query = null) {
         try {
-            const response = await fetch('/api/fetch-news', {
+            let url = '/api/fetch-news';
+            if (query) {
+                url += `?q=${encodeURIComponent(query)}`;
+            }
+            const response = await fetch(url, {
                 headers: this.getHeaders()
             });
             return await this.handleResponse(response);
         } catch (e) {
             console.error("API Error:", e);
             return [];
+        }
+    },
+
+    async fetchUserMe() {
+        try {
+            const response = await fetch('/api/auth/me', {
+                headers: this.getHeaders()
+            });
+            return await this.handleResponse(response);
+        } catch (e) {
+            console.error("Fetch Me Error:", e);
+            return null;
         }
     },
 
@@ -71,7 +87,7 @@ const Api = {
         try {
             const body = { news_item: newsItem, user_prefs: prefs };
             if (productId) body.product_id = productId;
-            
+
             const response = await fetch('/api/enqueue-post', {
                 method: 'POST',
                 headers: this.getHeaders(),
@@ -130,8 +146,8 @@ const Api = {
             const response = await fetch('/api/post-linkedin', {
                 method: 'POST',
                 headers: this.getHeaders(),
-                body: JSON.stringify({ 
-                    content, 
+                body: JSON.stringify({
+                    content,
                     image_url: imageUrl,
                     linkedin_account_id: accountId
                 })

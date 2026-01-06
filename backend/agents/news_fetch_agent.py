@@ -1,4 +1,5 @@
 import asyncio
+from typing import List, Dict
 import google.generativeai as genai
 import json
 import time
@@ -6,7 +7,7 @@ import aiohttp
 import sys
 from backend.config import Config
 from backend.agents.qa_agent import QualityAssuranceAgent
-from backend.tools.duckduckgo_search import search_duckduckgo
+from backend.tools.google_cse_search import search_google_cse
 
 class NewsFetchAgent:
     _cache = []
@@ -25,7 +26,7 @@ class NewsFetchAgent:
             # We are using Gemini basic model and feeding it DDG search context manually
             # to respect the user's "DuckDuckGo ONLY" constraint.
             self.model_basic = genai.GenerativeModel(self.model_name)
-            print(f"[INFO] News Intelligence Agent initialized with {self.model_name}. Grounding via DuckDuckGo.")
+            print(f"[INFO] News Intelligence Agent initialized with {self.model_name}. Grounding via Search Results.")
         except Exception as e:
             print(f"[ERROR] Could not initialize Gemini model: {e}")
 
@@ -42,11 +43,65 @@ class NewsFetchAgent:
         except:
             return False
 
-    async def fetch(self, force_refresh=False):
+    async def search_query(self, query: str) -> List[Dict]:
+        """Performs a specific search for the user and returns normalized news items."""
+        search_results = search_google_cse(query, max_results=10)
+        if not search_results:
+            return []
+            
+        context_str = ""
+        for res in search_results:
+            context_str += f"- Title: {res['title']}\n  Snippet: {res['snippet']}\n  URL: {res['link']}\n\n"
+
+        prompt = f"""
+        Analyze these search results for "{query}".
+        Extract 5 most relevant, high-quality, and authentic news articles or technical updates.
+        
+        SEARCH DATA:
+        {context_str}
+        
+        STRICT OUTPUT CONTRACT (JSON ONLY):
+        [
+            {{
+                "headline": "...",
+                "summary": "...",
+                "domain": "Search Result",
+                "source_name": "...",
+                "source_url": "...",
+                "relevance_score": 0.95
+            }}
+        ]
+        """
+        try:
+            response = await self.model_basic.generate_content_async(prompt)
+            text = response.text.replace('```json', '').replace('```', '').strip()
+            items = json.loads(text)
+            
+            # Verify and fix
+            tasks = [self.qa_agent.verify_and_fix(item) for item in items]
+            cleaned_items = await asyncio.gather(*tasks)
+            
+            # Link verification
+            verified_news = []
+            async with aiohttp.ClientSession() as session:
+                for item in cleaned_items:
+                    if item and item.get("source_url"):
+                        if await self.verify_link(session, item["source_url"]):
+                            verified_news.append(item)
+            return verified_news
+        except Exception as e:
+            print(f"[ERROR] Search query failed: {e}")
+            return []
+
+    async def fetch(self, query=None, force_refresh=False):
         """
         Fetches, analyzes, and returns domain-specific news with strict filtering.
-        Mandates REAL DuckDuckGo search results for all reference links.
+        Mandates REAL search results for all reference links.
         """
+        if query:
+            print(f"--- SEARCHING FOR: {query} ---")
+            results = await self.search_query(query)
+            return results
         current_time = time.time()
         
         # Return a random subset from cache if available and fresh enough
@@ -62,29 +117,29 @@ class NewsFetchAgent:
 
         async def fetch_batch(batch):
             async with NewsFetchAgent._search_semaphore:
-                print(f"   [Search] Querying DuckDuckGo for domains: {batch}")
+                print(f"   [Search] Querying search engines for domains: {batch}")
                 sys.stdout.flush()
                 
-                # Fetch DuckDuckGo context for the batch
+                # Fetch Search context for the batch
                 query = " recent news ".join(batch) + " news 2026"
-                search_results = search_duckduckgo(query, max_results=15)
+                search_results = search_google_cse(query, max_results=15)
                 
                 context_str = ""
                 for res in search_results:
                     context_str += f"- Title: {res['title']}\n  Summary: {res['snippet']}\n  URL: {res['link']}\n\n"
 
                 prompt = f"""
-                You are an elite News Intelligence Agent with real-time access to the following search data from DuckDuckGo.
+                You are an elite News Intelligence Agent with real-time access to the following search data.
                 
                 OBJECTIVE:
                 Curate 3-5 distinct, most recent, impactful, and authentic news articles from the last 24-48 hours for each of these domains:
                 {batch}
                 
-                SEARCH DATA (DUCKDUCKGO):
+                SEARCH DATA:
                 {context_str}
                 
                 CRITICAL AUTHENTICITY RULES:
-                1. You MUST use the provided DuckDuckGo search results above to find REAL articles.
+                1. You MUST use the provided search results above to find REAL articles.
                 2. Every item MUST have an actual, verified source_url that was provided in the context.
                 3. Do NOT use internal training data or hallucinate URLs.
                 4. Extract the URL exactly as provided in the search results.

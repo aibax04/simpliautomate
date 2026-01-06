@@ -3,7 +3,7 @@ from typing import Dict, List
 import json
 import logging
 import sys
-from backend.tools.duckduckgo_search import search_duckduckgo
+from backend.tools.google_cse_search import search_google_cse
 
 logger = logging.getLogger(__name__)
 
@@ -15,7 +15,7 @@ class LinkedInBlogAgent:
     async def generate_blog(self, topic: str, tone: str = "Professional", length: str = "Medium", product_info: Dict = None) -> Dict:
         """
         Orchestrates the blog generation workflow:
-        1. Fetch data from DuckDuckGo
+        1. Fetch data from Search Engines
         2. Validate sources
         3. Generate blog using Gemini 2.5
         4. Append sources
@@ -24,7 +24,7 @@ class LinkedInBlogAgent:
         sys.stdout.flush()
 
         # ... rest of the fetch logic ...
-        search_results = search_duckduckgo(topic, max_results=10)
+        search_results = search_google_cse(topic, max_results=10)
         
         # ... rest of validation logic ...
         unique_sources = []
@@ -40,7 +40,7 @@ class LinkedInBlogAgent:
             sys.stdout.flush()
             return {
                 "success": False,
-                "error": "Not enough reliable sources found. DuckDuckGo returned fewer than 3 unique results."
+                "error": "Not enough reliable sources found. Search returned fewer than 3 unique results."
             }
         
         print(f"[BLOG_AGENT] Found {len(unique_sources)} unique sources. Generating content...")
@@ -82,7 +82,7 @@ class LinkedInBlogAgent:
 
         {branding_context}
 
-        INPUT DATA FROM DUCKDUCKGO:
+        INPUT DATA FROM SEARCH:
         {source_data_str}
 
         STRICT EDITORIAL RULES:
@@ -139,7 +139,7 @@ class LinkedInBlogAgent:
                     "sources": [src['link'] for src in unique_sources]
                 }
             
-            # Ensure sources are exactly as provided from DDG
+            # Ensure sources are exactly as provided
             final_sources = [src['link'] for src in unique_sources]
             if 'sources' not in result or not result['sources']:
                 result['sources'] = final_sources

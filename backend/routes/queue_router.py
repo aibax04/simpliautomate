@@ -243,9 +243,52 @@ async def enqueue_blog(
 @router.get("/activity-stream")
 @router.get("/queue-status")
 async def get_activity_stream(user: User = Depends(get_current_user)):
-    """Returns the list of background jobs for the current user's activity queue."""
-    jobs = queue.get_all_jobs(user_id=user.id)
-    job_list = sorted(jobs.values(), key=lambda x: x["created_at"], reverse=True)
+    """Returns the combined list of active in-memory jobs and historical database jobs."""
+    # 1. Get active jobs from memory
+    active_jobs = queue.get_all_jobs(user_id=user.id)
+    
+    # 2. Get historical jobs from database with headlines
+    async with AsyncSessionLocal() as session:
+        stmt = select(GenerationQueue, NewsItem).outerjoin(
+            NewsItem, GenerationQueue.news_id == NewsItem.id
+        ).where(
+            GenerationQueue.user_id == user.id
+        ).order_by(
+            GenerationQueue.created_at.desc()
+        ).limit(20)
+        
+        res = await session.execute(stmt)
+        results = res.all()
+    
+    # 3. Convert DB jobs to the same format as memory jobs
+    formatted_db_jobs = []
+    for db_j, news in results:
+        # Check if already in memory to avoid duplicates
+        # (This is a bit loose but memory jobs use UUID strings)
+        
+        headline = news.headline if news else "Historical Post"
+        
+        formatted_db_jobs.append({
+            "id": f"db_{db_j.id}",
+            "job_id": f"db_{db_j.id}",
+            "status": db_j.status,
+            "created_at": db_j.created_at.isoformat() if db_j.created_at else None,
+            "payload": {
+                "headline": headline,
+            },
+            "result": db_j.result_json,
+            "progress": 100 if db_j.status == "ready" else 0,
+            "is_historical": True
+        })
+
+    # 4. Merge and sort
+    all_jobs = list(active_jobs.values()) + formatted_db_jobs
+    
+    # De-duplicate by some heuristic if needed, but usually memory ones are 'active' 
+    # and DB ones are 'ready/completed'.
+    
+    # Sort by created_at desc
+    job_list = sorted(all_jobs, key=lambda x: x.get("created_at") or "", reverse=True)
     return job_list
 
 @router.get("/job-result/{job_id}")
@@ -407,6 +450,27 @@ async def update_post_image(payload: Dict[str, Any], user: User = Depends(get_cu
                 db_post.image_path = image_url
                 if edit_prompt:
                     db_post.last_image_edit_prompt = edit_prompt
+                
+                # Also sync with GenerationQueue history
+                try:
+                    from sqlalchemy import text
+                    q_stmt = select(GenerationQueue).where(
+                        GenerationQueue.user_id == user.id,
+                        text("CAST(result_json->>'post_id' AS TEXT) = :pid").bindparams(pid=str(db_post.id))
+                    ).limit(1)
+                    q_res = await session.execute(q_stmt)
+                    db_job = q_res.scalar_one_or_none()
+                    
+                    if db_job:
+                        # Update result_json with new image_url and possibly updated visual_plan if needed
+                        # but image_url is the primary sync target
+                        new_result = dict(db_job.result_json)
+                        new_result["image_url"] = image_url
+                        db_job.result_json = new_result
+                        print(f"[DEBUG] Synced image update to GenerationQueue {db_job.id}")
+                except Exception as sync_e:
+                    print(f"[WARNING] Syncing to queue history failed: {sync_e}")
+
                 await session.commit()
                 print(f"[SUCCESS] Updated post {db_post.id} with new image.")
                 return {"status": "success", "message": "Post image updated successfully"}

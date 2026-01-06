@@ -43,8 +43,11 @@
         .auth-visual::before {
             content: '';
             position: absolute;
-            top: 0; left: 0; right: 0; bottom: 0;
-            background: 
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background:
                 radial-gradient(circle at 50% 50%, rgba(0, 82, 204, 0.15) 0%, transparent 70%);
             z-index: 1;
         }
@@ -52,7 +55,10 @@
         /* Cool Abstract Animation */
         .visual-elements {
             position: absolute;
-            top: 0; left: 0; right: 0; bottom: 0;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
             z-index: 2;
         }
 
@@ -65,12 +71,30 @@
             animation: float 15s infinite alternate ease-in-out;
         }
 
-        .orb-1 { width: 400px; height: 400px; top: 20%; left: 20%; animation-delay: 0s; }
-        .orb-2 { width: 300px; height: 300px; bottom: 20%; right: 20%; animation-delay: -5s; }
+        .orb-1 {
+            width: 400px;
+            height: 400px;
+            top: 20%;
+            left: 20%;
+            animation-delay: 0s;
+        }
+
+        .orb-2 {
+            width: 300px;
+            height: 300px;
+            bottom: 20%;
+            right: 20%;
+            animation-delay: -5s;
+        }
 
         @keyframes float {
-            0% { transform: translate(-20px, -20px) scale(1); }
-            100% { transform: translate(20px, 20px) scale(1.05); }
+            0% {
+                transform: translate(-20px, -20px) scale(1);
+            }
+
+            100% {
+                transform: translate(20px, 20px) scale(1.05);
+            }
         }
 
         .visual-content {
@@ -193,15 +217,23 @@
             width: 100%;
             max-width: 400px;
             position: relative;
-            min-height: 500px; /* Ensure container doesn't jump */
+            min-height: 500px;
+            /* Ensure container doesn't jump */
             display: flex;
             flex-direction: column;
             justify-content: center;
         }
 
         @keyframes authEntrance {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
 
         .auth-card {
@@ -337,6 +369,7 @@
             .auth-visual {
                 display: none;
             }
+
             .auth-form-container {
                 flex: 1;
                 padding: 24px;
@@ -354,11 +387,11 @@
                 <div class="floating-orb orb-2"></div>
                 <div class="floating-orb orb-3"></div>
             </div>
-            
+
             <div class="visual-content">
                 <h1>Simplifying news.</h1>
                 <p>Automated intelligence for the modern professional.</p>
-                
+
                 <div class="glass-card">
                     <div class="how-it-works">
                         <h3>How it works</h3>
@@ -468,7 +501,7 @@
 
             out.style.opacity = '0';
             out.style.transform = 'translateY(-10px)';
-            
+
             setTimeout(() => {
                 out.classList.add('hidden');
                 into.classList.remove('hidden');
@@ -537,10 +570,10 @@
             errorEl.style.display = 'none';
 
             const payload = {
-                username: document.getElementById('signup-username').value,
-                email: document.getElementById('signup-email').value,
+                username: document.getElementById('signup-username').value.trim(),
+                email: document.getElementById('signup-email').value.trim(),
                 password: document.getElementById('signup-password').value,
-                secret_key: document.getElementById('signup-secret').value
+                secret_key: document.getElementById('signup-secret').value.trim()
             };
 
             try {
@@ -556,7 +589,16 @@
                     localStorage.setItem('simplii_token', data.access_token);
                     window.location.href = '/';
                 } else {
-                    errorEl.innerText = data.detail || 'Registration failed.';
+                    let msg = 'Registration failed.';
+                    if (data.detail) {
+                        if (Array.isArray(data.detail)) {
+                            // Pydantic error array
+                            msg = data.detail.map(err => `${err.loc[err.loc.length - 1]}: ${err.msg}`).join('\n');
+                        } else {
+                            msg = data.detail;
+                        }
+                    }
+                    errorEl.innerText = msg;
                     errorEl.style.display = 'block';
                 }
             } catch (err) {

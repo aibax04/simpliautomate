@@ -1,4 +1,4 @@
-from typing import TypedDict, List, Annotated
+from typing import TypedDict, List, Annotated, Optional
 from langgraph.graph import StateGraph, END
 from backend.agents.news_fetch_agent import NewsFetchAgent
 from backend.agents.curation_agent import CurationAgent
@@ -9,11 +9,18 @@ class GraphState(TypedDict):
     selected_news: dict
     generated_content: str
     status: str
+    search_query: Optional[str]
+
 
 async def fetch_news_node(state: GraphState):
-    print("--- FETCHING LIVE NEWS ---")
+    query = state.get("search_query")
+    if query:
+        print(f"--- SEARCHING FOR: {query} ---")
+    else:
+        print("--- FETCHING LIVE NEWS ---")
+        
     fetcher = NewsFetchAgent()
-    items = await fetcher.fetch()
+    items = await fetcher.fetch(query=query)
     
     curator = CurationAgent()
     curated_items = curator.curate(items)

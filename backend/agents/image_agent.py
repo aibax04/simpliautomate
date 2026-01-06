@@ -143,9 +143,12 @@ class ImageAgent:
         )
         
         base_prompt = visual_plan.get('image_prompt', 'Professional news infographic')
+        # Add a unique seed identifier to ensure prompt uniqueness at the model level
+        unique_id = uuid.uuid4().hex[:8]
+        
         # Refine prompt for elite, custom-styled editorial masterpiece
         refined_prompt = (
-            f"{base_prompt}. {content_grounding} {spelling_rules} {alignment_rules} {typography_rules} {subtext_constraints} "
+            f"REF: {unique_id}. {base_prompt}. {content_grounding} {spelling_rules} {alignment_rules} {typography_rules} {subtext_constraints} "
             f"{style_rules} {palette_rules} {clarity_rules} "
             "Quality: Elite Studio-Grade, 4K resolution, razor-sharp vector edges, zero blur. "
             "Visual Depth: Rich multi-layered composition with subtle drop shadows, glowing highlights, and sophisticated texture hierarchy. "
@@ -177,7 +180,7 @@ class ImageAgent:
                     refined_prompt,
                     generation_config=genai.types.GenerationConfig(
                         candidate_count=1,
-                        temperature=0.0
+                        temperature=0.4 # Increased from 0.0 to allow for variation on regeneration
                     )
                 )
                 

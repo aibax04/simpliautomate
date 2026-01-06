@@ -39,24 +39,41 @@ class QueuePanel {
     }
 
     startPolling() {
-        setInterval(() => {
-            this.fetchJobs();
-        }, 3000);
+        if (this.pollingInterval) clearTimeout(this.pollingInterval);
+
+        const poll = async () => {
+            await this.fetchJobs();
+
+            // Adjust frequency: 2s if jobs are active, 10s if idle
+            const hasActiveJobs = this.jobs.some(j => !['ready', 'failed'].includes(j.status)) || this.optimisticJobs.length > 0;
+            const nextDelay = hasActiveJobs ? 2000 : 10000;
+
+            this.pollingInterval = setTimeout(poll, nextDelay);
+        };
+
+        poll();
     }
 
     async fetchJobs() {
         try {
             const serverJobs = await Api.getQueueStatus();
+
+            // Update internal state
             this.jobs = serverJobs;
 
-            // Remove optimistic jobs that are now present in server response
-            this.optimisticJobs = this.optimisticJobs.filter(opt =>
-                !this.jobs.find(server => server.job_id === opt.id || server.id === opt.id)
-            );
+            // Remove optimistic jobs that are now confirmed by server (matched by headline or ID)
+            this.optimisticJobs = this.optimisticJobs.filter(opt => {
+                const found = serverJobs.find(s =>
+                    s.job_id === opt.id ||
+                    s.id === opt.id ||
+                    (s.payload?.headline === opt.payload?.headline && opt.status === 'processing')
+                );
+                return !found;
+            });
 
             this.refreshUI();
         } catch (e) {
-            console.error("Polling error", e);
+            console.error("Queue fetch error", e);
         }
     }
 
@@ -98,108 +115,192 @@ class QueuePanel {
     }
 
     render(jobs) {
-        // Simple ID-based matching to prevent flickering
-        const currentIds = Array.from(this.list.children).map(child => child.getAttribute('data-job-id'));
-        const newIds = jobs.map(job => (job.id || job.job_id).toString());
+        if (!this.list) return;
 
-        // Check if the order or content is actually different
-        const isSameOrder = currentIds.length === newIds.length && currentIds.every((id, idx) => id === newIds[idx]);
-        
-        // If same order, check if any status or progress changed
-        if (isSameOrder) {
-            let hasChanges = false;
-            jobs.forEach((job, idx) => {
-                const item = this.list.children[idx];
-                const oldStatus = item.getAttribute('data-status');
-                const oldProgress = item.getAttribute('data-progress');
-                if (oldStatus !== job.status || oldProgress !== (job.progress || 0).toString()) {
-                    hasChanges = true;
-                }
-            });
-            if (!hasChanges) return;
+        // --- CHANGE DETECTION ---
+        // Create a signature of the current state to avoid unnecessary DOM churn
+        const jobsSignature = JSON.stringify(jobs.map(j => ({
+            id: j.id || j.job_id,
+            status: j.status,
+            progress: j.progress
+        })));
+
+        if (this.lastJobsSignature === jobsSignature) {
+            return; // Nothing meaningful changed, skip rendering
+        }
+        this.lastJobsSignature = jobsSignature;
+        // ------------------------
+
+        // Efficient Incremental Update
+        const existingItems = new Map();
+        const currentIdList = [];
+        Array.from(this.list.children).forEach(child => {
+            const id = child.getAttribute('data-job-id');
+            if (id) {
+                existingItems.set(id, child);
+                currentIdList.push(id);
+            }
+        });
+
+        const newIdList = jobs.map(job => (job.id || job.job_id).toString());
+        const orderChanged = JSON.stringify(currentIdList) !== JSON.stringify(newIdList);
+
+        // Clear if absolutely empty
+        if (jobs.length === 0) {
+            this.list.innerHTML = '<div class="empty-state">No activity yet.</div>';
+            return;
+        } else if (this.list.querySelector('.empty-state')) {
+            this.list.innerHTML = '';
         }
 
-        // Apply smooth transition if changing content
-        this.list.style.opacity = '0.7';
+        const fragment = orderChanged ? document.createDocumentFragment() : null;
 
-        setTimeout(() => {
-            this.list.innerHTML = '';
-            if (jobs.length === 0) {
-                this.list.innerHTML = '<div class="empty-state">No activity yet.</div>';
+        jobs.forEach((job, index) => {
+            const jobId = (job.id || job.job_id).toString();
+            const existingElement = existingItems.get(jobId);
+
+            if (existingElement) {
+                // Update if status or progress changed
+                const oldStatus = existingElement.getAttribute('data-status');
+                const oldProgress = existingElement.getAttribute('data-progress');
+                const newStatus = job.status || 'queued';
+                const newProgress = (job.progress || 0).toString();
+
+                if (oldStatus !== newStatus || oldProgress !== newProgress) {
+                    this.updateJobElement(existingElement, job);
+                }
+
+                if (orderChanged) {
+                    fragment.appendChild(existingElement);
+                }
+                existingItems.delete(jobId);
             } else {
-                jobs.forEach(job => {
-                    const item = this.createJobElement(job);
-                    this.list.appendChild(item);
-                });
+                // Create new
+                const newElement = this.createJobElement(job);
+                newElement.style.opacity = '0';
+                newElement.style.transform = 'translateY(10px)';
+
+                if (orderChanged) {
+                    fragment.appendChild(newElement);
+                } else {
+                    this.list.insertBefore(newElement, this.list.children[index]);
+                }
+
+                // Animate entrance
+                setTimeout(() => {
+                    newElement.style.opacity = '1';
+                    newElement.style.transform = 'translateY(0)';
+                }, 10);
             }
-            this.list.style.opacity = '1';
-        }, 50);
+        });
+
+        if (orderChanged) {
+            // Remove elements that are no longer in the list
+            existingItems.forEach(el => {
+                el.style.opacity = '0';
+                el.style.transform = 'scale(0.95)';
+                setTimeout(() => el.remove(), 300);
+            });
+            this.list.appendChild(fragment);
+        } else {
+            // Surgical removal of deleted items
+            existingItems.forEach(el => el.remove());
+        }
+    }
+
+    updateJobElement(element, job) {
+        const status = job.status || 'queued';
+        const isGenerating = (status.includes('generating') || status === 'processing' || status === 'fetching_sources');
+        const statusClass = isGenerating ? 'generating active' : status;
+
+        element.setAttribute('data-status', status);
+        element.setAttribute('data-progress', job.progress || 0);
+        element.className = `queue-item ${statusClass}`;
+
+        // Refresh the inner content for status/progress
+        this.setJobInnerHtml(element, job);
     }
 
     createJobElement(job) {
         const item = document.createElement('div');
         const jobId = job.id || job.job_id;
         item.setAttribute('data-job-id', jobId);
-        item.setAttribute('data-status', job.status);
-        item.setAttribute('data-progress', job.progress || 0);
-        
-        // Add specific class for animation/status styling
+
         const status = job.status || 'queued';
-        const isGenerating = (status.includes('generating') || status === 'processing');
+        const isGenerating = (status.includes('generating') || status === 'processing' || status === 'fetching_sources');
         const statusClass = isGenerating ? 'generating active' : status;
 
         item.className = `queue-item ${statusClass}`;
+        item.setAttribute('data-status', status);
+        item.setAttribute('data-progress', job.progress || 0);
         item.onclick = () => this.handleJobClick(job);
 
-        // Friendly Status Mapping
+        this.setJobInnerHtml(item, job);
+        return item;
+    }
+
+    setJobInnerHtml(item, job) {
+        const status = job.status || 'queued';
+        const isGenerating = (status.includes('generating') || status === 'processing' || status === 'fetching_sources');
+
+        // Professional Status Mapping
         const statusMap = {
             'queued': 'Queued',
-            'processing': 'Initializing...',
-            'generating_caption': 'Drafting Caption...',
-            'generating_visual_plan': 'Designing Visuals...',
-            'generating_image': 'Rendering Image...',
-            'fetching_sources': 'Sourcing Facts...',
-            'generating_content': 'Writing Blog...',
-            'ready': 'Ready for Review',
-            'failed': 'Process Failed'
+            'processing': 'Initializing',
+            'generating_caption': 'Drafting',
+            'generating_visual_plan': 'Designing',
+            'generating_image': 'Rendering',
+            'fetching_sources': 'Sourcing',
+            'generating_content': 'Writing',
+            'quality_check_caption': 'Proofreading',
+            'quality_check_visual': 'Polishing',
+            'ready': 'Ready',
+            'failed': 'Failed'
         };
 
-        let statusLabel = statusMap[status] || status.replace(/_/g, ' ');
+        const statusLabel = statusMap[status] || status.replace(/_/g, ' ');
 
-        // Icons
-        let icon = '';
-        if (status === 'ready') icon = '<span style="color:var(--success); font-weight:bold;">✓</span>';
-        else if (status === 'failed') icon = '<span style="color:var(--error); font-weight:bold;">!</span>';
-        else if (isGenerating) icon = '<div class="mini-spinner"></div>';
+        // Type Detection
+        let typeLabel = job.is_historical ? "Past Post" : "News Post";
+        if (job.type === 'blog_generation') {
+            typeLabel = "LinkedIn Blog";
+        } else if (job.payload?.news_item?.custom_prompt || job.type === 'custom_post') {
+            typeLabel = "Custom Post";
+        }
 
-        let progress = job.progress || 0;
-        // Mock progress for optimistic
-        if (status === 'processing' && !job.progress) progress = 5;
+        // Headline Cleanup
+        let headline = job.payload?.headline || job.headline || 'Untitled Post';
+        if (headline === "undefined" || !headline || headline === "Historical Post") {
+            // Try to extract from result if available
+            if (job.result?.headline) headline = job.result.headline;
+            else if (job.result?.text) headline = job.result.text.substring(0, 30) + "...";
+            else headline = "LinkedIn Content";
+        }
 
-        // Handle headline from payload or direct properties (depends on backend)
-        const headline = job.payload?.headline || job.headline || 'Untitled Source';
-        const category = job.payload?.news_item?.domain || job.payload?.topic || '';
+        const date = job.created_at ? new Date(job.created_at) : new Date();
+        const timeStr = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
         item.innerHTML = `
-            <div class="job-header">
-                <span class="job-title">${headline}</span>
-                <span class="job-icon">${icon}</span>
-            </div>
-            
-            <div class="job-meta">
-                <div style="display:flex; gap:6px; align-items:center;">
-                    <span class="status-badge">${statusLabel}</span>
-                    ${category ? `<span style="font-size:0.6rem; color:var(--primary); font-weight:600; text-transform:uppercase; opacity:0.7;">• ${category}</span>` : ''}
+            <div class="job-row-main">
+                <div class="job-col-info">
+                    <span class="job-title-primary">${headline}</span>
+                    <div class="job-sub-row">
+                        <span class="job-type-tag">${typeLabel}</span>
+                        <span class="job-time-muted">${timeStr}</span>
+                    </div>
                 </div>
-                ${progress > 0 && progress < 100 ? `<span style="font-size:0.7rem; color:var(--text-secondary); opacity:0.8;">${progress}%</span>` : ''}
+                <div class="job-col-status">
+                    <div class="status-badge-container">
+                        ${isGenerating ? '<div class="mini-spinner" style="width:10px; height:10px; border-width:2px; margin-right:6px;"></div>' : ''}
+                        <span class="status-badge">${statusLabel}</span>
+                    </div>
+                </div>
             </div>
-
-            ${progress < 100 && status !== 'ready' && status !== 'failed' ? `
-            <div class="progress-rail">
-                <div class="progress-fill" style="width: ${progress}%"></div>
+            ${isGenerating && job.progress > 0 ? `
+            <div class="progress-container-mini">
+                <div class="progress-bar-mini" style="width: ${job.progress}%"></div>
             </div>` : ''}
         `;
-        return item;
     }
 
     async handleJobClick(job) {
