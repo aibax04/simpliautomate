@@ -595,6 +595,7 @@ class SwipeApp {
         if (staticSubmitBtn) {
             staticSubmitBtn.addEventListener('click', async (e) => {
                 e.preventDefault();
+                e.stopPropagation(); // Prevent bubbling to body listener
                 console.log("[DEBUG] Direct Apply Edits clicked");
                 await this.handleImageEditSubmit();
             });
@@ -644,6 +645,9 @@ class SwipeApp {
         const loader = document.getElementById('regen-loader');
         const overlay = document.getElementById('image-overlay');
 
+        // Prevent double-submission
+        if (submitBtn && submitBtn.disabled) return;
+
         if (!promptArea) {
             console.error("[CRITICAL] promptArea not found");
             return;
@@ -681,8 +685,11 @@ class SwipeApp {
             if (loader) loader.classList.remove('hidden');
             if (overlay) overlay.classList.remove('hidden');
             if (submitBtn) {
+                // Only capture original text if it's not already "Applying..."
+                if (submitBtn.innerText !== "Applying...") {
+                    this.originalSubmitText = submitBtn.innerText;
+                }
                 submitBtn.disabled = true;
-                this.originalSubmitText = submitBtn.innerText;
                 submitBtn.innerText = "Applying...";
             }
 
