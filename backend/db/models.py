@@ -93,6 +93,8 @@ class GeneratedPost(Base):
     style = Column(String)
     palette = Column(String)
     posted_to_linkedin = Column(Boolean, default=False)
+    last_image_edit_prompt = Column(String, nullable=True)
+    image_updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
 class SavedPost(Base):

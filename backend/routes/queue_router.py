@@ -255,6 +255,59 @@ async def get_job_result(job_id: str):
         raise HTTPException(status_code=404, detail="Job not found")
     return job
 
+async def _get_visual_plan(user_id: int, job_id: Optional[str] = None, post_id: Optional[int] = None) -> Optional[dict]:
+    """Helper to retrieve visual plan from memory or database."""
+    visual_plan = None
+    print(f"[DEBUG] _get_visual_plan - Job ID: {job_id}, Post ID: {post_id}")
+    
+    # 1. Try to find in memory queue first
+    if job_id:
+        job = queue.get_job(job_id)
+        if job and "result" in job:
+            visual_plan = job["result"].get("visual_plan")
+            if visual_plan:
+                print(f"[DEBUG] Found visual plan in memory queue.")
+    
+    # 2. Try to find in DB history
+    if not visual_plan:
+        async with AsyncSessionLocal() as session:
+            try:
+                if post_id:
+                    print(f"[DEBUG] Searching DB for post_id: {post_id}")
+                    # Using text contains for extreme robustness
+                    from sqlalchemy import text
+                    stmt = select(GenerationQueue).where(
+                        GenerationQueue.user_id == user_id,
+                        text("CAST(result_json->>'post_id' AS TEXT) = :pid").bindparams(pid=str(post_id))
+                    ).limit(1)
+                    
+                    res = await session.execute(stmt)
+                    db_job = res.scalar_one_or_none()
+                    if db_job and db_job.result_json:
+                        visual_plan = db_job.result_json.get("visual_plan")
+                        if visual_plan:
+                            print(f"[DEBUG] Found visual plan in DB by post_id: {post_id}")
+                
+                if not visual_plan:
+                    print(f"[DEBUG] Falling back to most recent job for user {user_id}")
+                    stmt = select(GenerationQueue).where(
+                        GenerationQueue.user_id == user_id,
+                        GenerationQueue.status == 'ready'
+                    ).order_by(GenerationQueue.created_at.desc()).limit(1)
+                    res = await session.execute(stmt)
+                    db_job = res.scalar_one_or_none()
+                    if db_job and db_job.result_json:
+                        visual_plan = db_job.result_json.get("visual_plan")
+                        if visual_plan:
+                            print(f"[DEBUG] Found visual plan in DB by fallback (most recent ready job).")
+            except Exception as e:
+                print(f"[ERROR] DB lookup for visual plan failed: {e}")
+    
+    if not visual_plan:
+        print(f"[WARNING] No visual plan found for user {user_id} (Job: {job_id}, Post: {post_id})")
+    
+    return visual_plan
+
 @router.post("/regenerate-image")
 async def regenerate_image(payload: Dict[str, Any], user: User = Depends(get_current_user)):
     """
@@ -263,33 +316,13 @@ async def regenerate_image(payload: Dict[str, Any], user: User = Depends(get_cur
     job_id = payload.get("job_id")
     post_id = payload.get("post_id")
     
-    visual_plan = None
-    
-    # 1. Try to find in memory queue first
-    if job_id:
-        job = queue.get_job(job_id)
-        if job and "result" in job:
-            visual_plan = job["result"].get("visual_plan")
-    
-    # 2. Try to find in DB history
-    if not visual_plan:
-        async with AsyncSessionLocal() as session:
-            if post_id:
-                # Find the queue entry that generated this post
-                # We store post_id inside result_json
-                from sqlalchemy import text
-                stmt = select(GenerationQueue).where(
-                    GenerationQueue.user_id == user.id,
-                    text("result_json->>'post_id' = :pid").bindparams(pid=str(post_id))
-                ).limit(1)
-            else:
-                # Fallback to most recent job for this user
-                stmt = select(GenerationQueue).where(GenerationQueue.user_id == user.id).order_by(GenerationQueue.created_at.desc()).limit(1)
+    if post_id:
+        try:
+            post_id = int(post_id)
+        except (ValueError, TypeError):
+            pass
             
-            res = await session.execute(stmt)
-            db_job = res.scalar_one_or_none()
-            if db_job and db_job.result_json:
-                visual_plan = db_job.result_json.get("visual_plan")
+    visual_plan = await _get_visual_plan(user.id, job_id, post_id)
 
     if not visual_plan:
         raise HTTPException(status_code=404, detail="Original visual plan not found. Please generate a new post.")
@@ -299,16 +332,63 @@ async def regenerate_image(payload: Dict[str, Any], user: User = Depends(get_cur
         new_image_url = await image_agent.generate_image(visual_plan)
         return {"image_url": new_image_url}
     except Exception as e:
+        print(f"[ERROR] Image regeneration failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/edit-image")
+async def edit_image(payload: Dict[str, Any], user: User = Depends(get_current_user)):
+    """
+    Manually edits the image based on user prompt.
+    """
+    job_id = payload.get("job_id")
+    post_id = payload.get("post_id")
+    edit_prompt = payload.get("edit_prompt")
+    
+    print(f"[DEBUG] edit_image endpoint called - Job: {job_id}, Post: {post_id}")
+    
+    if post_id:
+        try:
+            post_id = int(post_id)
+        except (ValueError, TypeError):
+            pass
+
+    if not edit_prompt:
+        print("[ERROR] edit_prompt is missing in payload")
+        raise HTTPException(status_code=400, detail="edit_prompt is required")
+    
+    visual_plan = await _get_visual_plan(user.id, job_id, post_id)
+
+    if not visual_plan:
+        print(f"[ERROR] No visual plan found for Job: {job_id}, Post: {post_id}")
+        raise HTTPException(status_code=404, detail="Original visual plan not found. Please generate a new post.")
+
+    image_agent = ImageAgent()
+    try:
+        print(f"[DEBUG] Calling image_agent.edit_image with prompt: {edit_prompt[:50]}...")
+        new_image_url = await image_agent.edit_image(visual_plan, edit_prompt)
+        print(f"[SUCCESS] New image generated: {new_image_url}")
+        return {"image_url": new_image_url}
+    except Exception as e:
+        print(f"[ERROR] Image editing failed: {e}")
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/update-post-image")
 async def update_post_image(payload: Dict[str, Any], user: User = Depends(get_current_user)):
     """
-    Updates the image_path for a post after user confirmation.
+    Updates the image_path and optional edit prompt for a post after user confirmation.
     """
     image_url = payload.get("image_url")
     post_id = payload.get("post_id")
+    edit_prompt = payload.get("edit_prompt")
     
+    if post_id:
+        try:
+            post_id = int(post_id)
+        except (ValueError, TypeError):
+            pass
+
     if not image_url:
         raise HTTPException(status_code=400, detail="image_url is required")
 
@@ -325,10 +405,15 @@ async def update_post_image(payload: Dict[str, Any], user: User = Depends(get_cu
             
             if db_post:
                 db_post.image_path = image_url
+                if edit_prompt:
+                    db_post.last_image_edit_prompt = edit_prompt
                 await session.commit()
-                return {"status": "success", "message": "Post image updated"}
+                print(f"[SUCCESS] Updated post {db_post.id} with new image.")
+                return {"status": "success", "message": "Post image updated successfully"}
             else:
+                print(f"[ERROR] Post {post_id} not found for user {user.id}")
                 raise HTTPException(status_code=404, detail="Post not found to update")
         except Exception as e:
             await session.rollback()
+            print(f"[ERROR] update-post-image failed: {e}")
             raise HTTPException(status_code=500, detail=str(e))

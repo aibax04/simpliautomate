@@ -417,6 +417,16 @@
                 <h2 id="result-modal-title">Your Curated Post</h2>
                 <div id="post-preview" class="post-preview"></div>
                 
+                <!-- Manual Image Edit UI (Moved to static HTML for reliability) -->
+                <div id="image-edit-container" class="hidden" style="margin-top: 15px; padding: 15px; background: #f8fafc; border: 1px solid var(--border); border-radius: 16px;">
+                    <label style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 8px; color: var(--text-secondary);">Describe the changes you want in the image:</label>
+                    <textarea id="image-edit-prompt" placeholder="e.g. Change the background to dark blue, make the text larger..." style="width: 100%; min-height: 80px; padding: 12px; border: 1px solid var(--border); border-radius: 12px; font-size: 0.9rem; margin-bottom: 12px; resize: vertical; font-family: inherit;"></textarea>
+                    <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                        <button id="cancel-edit-btn" class="btn-secondary" style="padding: 8px 16px; font-size: 0.85rem;">Cancel</button>
+                        <button id="submit-edit-btn" class="btn-primary" style="padding: 8px 20px; font-size: 0.85rem;">Apply Edits</button>
+                    </div>
+                </div>
+                
                 <div class="form-group" style="margin: 15px 0;">
                     <label style="font-size: 13px; color: var(--text-secondary);">Post as:</label>
                     <select id="post-account-selector" class="linkedin-account-selector" style="width: 100%; margin-top: 5px;"></select>
@@ -435,6 +445,7 @@
 
                 <div class="modal-actions">
                     <button id="edit-btn" class="btn-secondary">Back</button>
+                    <button id="edit-image-btn-main" class="btn-secondary" style="background: #f0f7ff; border: 1px solid #cce3ff;"><span class="icon">🎨</span> Edit Image</button>
                     <button id="copy-caption-btn" class="btn-secondary">Copy Caption</button>
                     <button id="copy-image-btn" class="btn-secondary">Copy Image</button>
                     <button id="download-img-btn" class="btn-secondary">Download</button>
@@ -559,14 +570,14 @@
         </div>
     </div>
 
-    <script src="static/js/api.js"></script>
+    <script src="static/js/api.js?v=1.1"></script>
     <script src="static/js/linkedin_accounts.js"></script>
     <script src="static/js/products.js"></script>
     <script src="static/js/scheduler.js"></script>
     <script src="static/js/queue_panel.js"></script>
     <script src="static/js/image_options_modal.js"></script>
     <script src="static/js/blog_generator.js"></script>
-    <script src="static/js/swipe.js"></script>
+    <script src="static/js/swipe.js?v=1.1"></script>
     <script src="static/js/upload_modal.js"></script>
 </body>
 

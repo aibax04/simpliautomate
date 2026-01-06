@@ -23,7 +23,22 @@ const Api = {
             window.location.href = '/login.html';
             throw new Error('Unauthorized');
         }
-        return await response.json();
+
+        let data;
+        const contentType = response.headers.get("content-type");
+        if (contentType && contentType.indexOf("application/json") !== -1) {
+            data = await response.json();
+        } else {
+            const text = await response.text();
+            data = { detail: text || "Server returned an error without details" };
+        }
+
+        if (!response.ok) {
+            // Log for debugging
+            console.error("[API ERROR]", { status: response.status, data });
+            throw new Error(data.detail || data.message || `Request failed (${response.status})`);
+        }
+        return data;
     },
 
     async fetchNews() {
@@ -240,8 +255,40 @@ const Api = {
             console.error("Blog Enqueue Error:", e);
             throw e;
         }
+    },
+
+    async regenerateImage(jobId, postId) {
+        const response = await fetch('/api/regenerate-image', {
+            method: 'POST',
+            headers: this.getHeaders(),
+            body: JSON.stringify({ job_id: jobId, post_id: postId })
+        });
+        return await this.handleResponse(response);
+    },
+
+    async updatePostImage(imageUrl, postId, editPrompt = null) {
+        const body = { image_url: imageUrl, post_id: postId };
+        if (editPrompt) body.edit_prompt = editPrompt;
+        const response = await fetch('/api/update-post-image', {
+            method: 'POST',
+            headers: this.getHeaders(),
+            body: JSON.stringify(body)
+        });
+        return await this.handleResponse(response);
+    },
+
+    async editImageByPrompt(jobId, postId, editPrompt) {
+        const response = await fetch('/api/edit-image', {
+            method: 'POST',
+            headers: this.getHeaders(),
+            body: JSON.stringify({ job_id: jobId, post_id: postId, edit_prompt: editPrompt })
+        });
+        return await this.handleResponse(response);
     }
 };
+
+// Explicitly export to window for global access
+window.Api = Api;
 
 const Toast = {
     container: null,
@@ -280,3 +327,6 @@ const Toast = {
         }, 3000);
     }
 };
+
+// Explicitly export to window
+window.Toast = Toast;

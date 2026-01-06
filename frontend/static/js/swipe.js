@@ -543,21 +543,206 @@ class SwipeApp {
             });
         }
 
-        // Image Regeneration Listeners
+        // Keep global listener for dynamically injected AND static buttons (fallback)
+        // This is the source of truth for all image action buttons
+        // Keep global listener for dynamically injected AND static buttons (fallback)
+        // This is the source of truth for all image action buttons
         document.body.addEventListener('click', async (e) => {
-            if (e.target && (e.target.id === 'regen-image-btn' || e.target.closest('#regen-image-btn'))) {
+            const target = e.target;
+            
+            // 1. Image Regeneration
+            const isRegen = target.id === 'regen-image-btn' || target.closest('#regen-image-btn');
+            if (isRegen) {
+                e.preventDefault();
+                console.log("[DEBUG] Regen button clicked (global)");
                 await this.handleImageRegeneration();
+                return;
+            }
+
+            // 2. Show Image Edit UI
+            const isEditTrigger = target.id === 'edit-image-btn' || 
+                                target.id === 'edit-image-btn-main' || 
+                                target.closest('#edit-image-btn') || 
+                                target.closest('#edit-image-btn-main');
+            if (isEditTrigger) {
+                e.preventDefault();
+                console.log("[DEBUG] Edit trigger clicked (global)");
+                this.handleImageEditShow();
+                return;
+            }
+
+            // 3. Submit Image Edits
+            const isSubmitEdit = target.id === 'submit-edit-btn' || target.closest('#submit-edit-btn');
+            if (isSubmitEdit) {
+                e.preventDefault();
+                console.log("[DEBUG] Submit Edit clicked (global)");
+                await this.handleImageEditSubmit();
+                return;
+            }
+
+            // 4. Cancel Image Edits
+            const isCancelEdit = target.id === 'cancel-edit-btn' || target.closest('#cancel-edit-btn');
+            if (isCancelEdit) {
+                e.preventDefault();
+                console.log("[DEBUG] Cancel Edit clicked (global)");
+                this.handleImageEditCancel();
+                return;
             }
         });
+
+        // Add direct listeners for static buttons as a robust backup
+        const staticSubmitBtn = document.getElementById('submit-edit-btn');
+        if (staticSubmitBtn) {
+            staticSubmitBtn.addEventListener('click', async (e) => {
+                e.preventDefault();
+                console.log("[DEBUG] Direct Apply Edits clicked");
+                await this.handleImageEditSubmit();
+            });
+        }
     }
 
-    async handleImageRegeneration() {
-        console.log("[DEBUG] Starting image regeneration for Job ID:", this.currentJobId);
-        if (!this.currentJobId) {
-            if (window.Toast) window.Toast.show("Job context lost. Cannot regenerate.", "error");
+    handleImageEditShow() {
+        const container = document.getElementById('image-edit-container');
+        if (container) {
+            container.classList.remove('hidden');
+            container.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+        
+        // Hide trigger buttons to focus on edit UI
+        const mainEditBtn = document.getElementById('edit-image-btn-main');
+        if (mainEditBtn) mainEditBtn.classList.add('hidden');
+        
+        const footerEditBtn = document.getElementById('edit-image-btn');
+        if (footerEditBtn) footerEditBtn.classList.add('hidden');
+        
+        const regenBtn = document.getElementById('regen-image-btn');
+        if (regenBtn) regenBtn.classList.add('hidden');
+    }
+
+    handleImageEditCancel() {
+        const container = document.getElementById('image-edit-container');
+        if (container) container.classList.add('hidden');
+        
+        const mainEditBtn = document.getElementById('edit-image-btn-main');
+        if (mainEditBtn) mainEditBtn.classList.remove('hidden');
+        
+        const footerEditBtn = document.getElementById('edit-image-btn');
+        if (footerEditBtn) footerEditBtn.classList.remove('hidden');
+        
+        const regenBtn = document.getElementById('regen-image-btn');
+        if (regenBtn) regenBtn.classList.remove('hidden');
+        
+        const promptArea = document.getElementById('image-edit-prompt');
+        if (promptArea) promptArea.value = '';
+    }
+
+    async handleImageEditSubmit() {
+        console.log("[CRITICAL DEBUG] handleImageEditSubmit entered");
+        
+        const promptArea = document.getElementById('image-edit-prompt');
+        const submitBtn = document.getElementById('submit-edit-btn');
+        const loader = document.getElementById('regen-loader');
+        const overlay = document.getElementById('image-overlay');
+
+        if (!promptArea) {
+            console.error("[CRITICAL] promptArea not found");
             return;
         }
 
+        const editPrompt = promptArea.value.trim();
+        if (!editPrompt) {
+            const msg = "Please describe the changes you want.";
+            if (typeof Toast !== 'undefined') Toast.show(msg, "error");
+            else if (window.Toast) window.Toast.show(msg, "error");
+            else alert(msg);
+            return;
+        }
+
+        // --- CONTEXT VALIDATION ---
+        const finalPostId = this.currentPostId || 
+                           (this.generatedPost ? (this.generatedPost.post_id || this.generatedPost.id) : null);
+        
+        console.log("[DEBUG] handleImageEditSubmit context:", { 
+            jobId: this.currentJobId, 
+            postId: finalPostId,
+            hasPost: !!this.generatedPost 
+        });
+
+        if (!finalPostId && !this.currentJobId) {
+            const errorMsg = "Technical Error: Post context lost. Please re-open from queue.";
+            if (typeof Toast !== 'undefined') Toast.show(errorMsg, "error");
+            else if (window.Toast) window.Toast.show(errorMsg, "error");
+            else alert(errorMsg);
+            return;
+        }
+
+        try {
+            // Show loading state
+            if (loader) loader.classList.remove('hidden');
+            if (overlay) overlay.classList.remove('hidden');
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                this.originalSubmitText = submitBtn.innerText;
+                submitBtn.innerText = "Applying...";
+            }
+
+            const infoMsg = "AI Architect is applying your manual edits...";
+            if (typeof Toast !== 'undefined') Toast.show(infoMsg, "info");
+            else if (window.Toast) window.Toast.show(infoMsg, "info");
+
+            console.log("[DEBUG] Calling window.Api.editImageByPrompt...");
+            const data = await window.Api.editImageByPrompt(this.currentJobId, finalPostId, editPrompt);
+            console.log("[DEBUG] window.Api.editImageByPrompt response received");
+
+            const newImageUrl = data.image_url;
+            if (!newImageUrl) {
+                throw new Error("AI successfully processed but returned no image URL.");
+            }
+
+            // Automatically update DB
+            console.log("[DEBUG] Persisting edited image to DB...");
+            await window.Api.updatePostImage(newImageUrl, finalPostId, editPrompt);
+
+            // Update local state and UI
+            if (this.generatedPost && typeof this.generatedPost === 'object') {
+                this.generatedPost.image_url = newImageUrl;
+            }
+            this.originalImageUrl = newImageUrl;
+            
+            const imgEl = document.querySelector('.generated-post-image');
+            if (imgEl) {
+                const timestamp = new Date().getTime();
+                imgEl.src = `${newImageUrl}?t=${timestamp}`;
+                console.log("[DEBUG] UI Image updated:", imgEl.src);
+            }
+
+            // Hide edit container and restore main buttons
+            this.handleImageEditCancel();
+
+            const successMsg = "Image updated successfully!";
+            if (typeof Toast !== 'undefined') Toast.show(successMsg, "success");
+            else if (window.Toast) window.Toast.show(successMsg, "success");
+            
+        } catch (e) {
+            console.error("[CRITICAL ERROR] Image Edit Failed:", e);
+            const msg = e.message || "Something went wrong. Please try again.";
+            if (typeof Toast !== 'undefined') Toast.show("Failed: " + msg, "error");
+            else if (window.Toast) window.Toast.show("Failed: " + msg, "error");
+            else alert("Failed: " + msg);
+        } finally {
+            if (loader) loader.classList.add('hidden');
+            if (overlay) overlay.classList.add('hidden');
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.innerText = this.originalSubmitText || "Apply Edits";
+            }
+        }
+    }
+
+    async handleImageRegeneration() {
+        const finalPostId = this.currentPostId || (this.generatedPost ? this.generatedPost.post_id || this.generatedPost.id : null);
+        console.log("[DEBUG] Starting image regeneration. Job ID:", this.currentJobId, "Post ID:", finalPostId);
+        
         const loader = document.getElementById('regen-loader');
         const overlay = document.getElementById('image-overlay');
         const regenBtn = document.getElementById('regen-image-btn');
@@ -566,36 +751,20 @@ class SwipeApp {
         if (overlay) overlay.classList.remove('hidden');
         if (regenBtn) regenBtn.disabled = true;
 
+        if (window.Toast) window.Toast.show("Redesigning image based on original plan...", "info");
+
         try {
-            console.log("[DEBUG] Sending regeneration request for Post ID:", this.currentPostId);
-            const resp = await fetch('/api/regenerate-image', {
-                method: 'POST',
-                headers: Api.getHeaders(),
-                body: JSON.stringify({ 
-                    job_id: this.currentJobId,
-                    post_id: this.currentPostId
-                })
-            });
-
-            if (!resp.ok) {
-                const err = await resp.json();
-                throw new Error(err.detail || "Regeneration failed");
-            }
-
-            const data = await resp.json();
+            console.log("[DEBUG] Calling window.Api.regenerateImage...");
+            const data = await window.Api.regenerateImage(this.currentJobId, finalPostId);
             const newImageUrl = data.image_url;
 
-            // Automatically update DB with the new image
-            const updateResp = await fetch('/api/update-post-image', {
-                method: 'POST',
-                headers: Api.getHeaders(),
-                body: JSON.stringify({ 
-                    image_url: newImageUrl,
-                    post_id: this.currentPostId
-                })
-            });
+            if (!newImageUrl) throw new Error("AI failed to redesign image. Please try again.");
 
-            if (!updateResp.ok) throw new Error("Failed to sync new image to database");
+            // Automatically update DB
+            console.log("[DEBUG] Calling window.Api.updatePostImage...");
+            const updateResp = await window.Api.updatePostImage(newImageUrl, finalPostId);
+
+            if (!updateResp) throw new Error("Failed to sync new image to database");
 
             // Update UI
             this.generatedPost.image_url = newImageUrl;
@@ -609,7 +778,7 @@ class SwipeApp {
             if (window.Toast) window.Toast.show("Image redesigned and updated successfully!", "success");
 
         } catch (e) {
-            console.error(e);
+            console.error("Regeneration Error:", e);
             if (window.Toast) window.Toast.show("Failed to regenerate image: " + e.message, "error");
         } finally {
             if (loader) loader.classList.add('hidden');
@@ -704,6 +873,8 @@ class SwipeApp {
         this.currentPostId = result.post_id || null;
         this.originalImageUrl = result.image_url;
 
+        console.log("[DEBUG] Opening result. Job ID:", this.currentJobId, "Post ID:", this.currentPostId);
+
         if (job.payload) {
             if (job.payload.news_item) this.currentNews = job.payload.news_item;
             if (job.payload.user_prefs) this.currentPrefs = job.payload.user_prefs;
@@ -742,8 +913,16 @@ class SwipeApp {
         // Handle button visibility
         const copyImgBtn = document.getElementById('copy-image-btn');
         const downImgBtn = document.getElementById('download-img-btn');
+        const editImgBtnMain = document.getElementById('edit-image-btn-main');
+
         if (copyImgBtn) copyImgBtn.style.display = result.image_url ? 'inline-block' : 'none';
         if (downImgBtn) downImgBtn.style.display = result.image_url ? 'inline-block' : 'none';
+        if (editImgBtnMain) editImgBtnMain.style.display = result.image_url ? 'inline-block' : 'none';
+
+        // Reset edit containers to hidden when opening a new result
+        const editContainer = document.getElementById('image-edit-container');
+        if (editContainer) editContainer.classList.add('hidden');
+        if (editImgBtnMain) editImgBtnMain.classList.remove('hidden');
 
         container.innerHTML = `
             <div class="post-preview-container">
@@ -758,22 +937,28 @@ class SwipeApp {
                     <div class="preview-caption" contenteditable="true" spellcheck="false" style="outline:none; border:1px dashed transparent; padding:4px;">${displayBody}</div>
                     ${hashtags ? `<div class="preview-hashtags">${hashtags}</div>` : ''}
                     
-                    <div class="preview-footer" style="display: flex; justify-content: space-between; align-items: center; margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border);">
-                        <div style="display: flex; gap: 10px; align-items: center;">
-                            <button id="regen-image-btn" class="btn-secondary" style="font-size: 0.75rem; padding: 6px 12px; background: #f0f0f0; color: #666; border: 1px solid #ddd;">
-                                <span class="icon" style="margin-right: 4px;">🔄</span> Regenerate Image
-                            </button>
-                            <div id="regen-loader" class="mini-spinner hidden" style="width: 16px; height: 16px; border-width: 2px;"></div>
+                    <div class="preview-footer" style="display: flex; flex-direction: column; gap: 12px; margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border);">
+                        <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                            <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+                                <button id="regen-image-btn" class="btn-secondary" style="font-size: 0.75rem; padding: 6px 12px; background: #f0f0f0; color: #666; border: 1px solid #ddd;">
+                                    <span class="icon" style="margin-right: 4px;">🔄</span> Regenerate
+                                </button>
+                                <button id="edit-image-btn" class="btn-secondary" style="font-size: 0.75rem; padding: 6px 12px; background: #f0f0f0; color: #666; border: 1px solid #ddd;">
+                                    <span class="icon" style="margin-right: 4px;">🎨</span> Edit Image
+                                </button>
+                                <div id="regen-loader" class="mini-spinner hidden" style="width: 16px; height: 16px; border-width: 2px;"></div>
+                            </div>
+                            ${result.is_custom ? '' : `
+                            <div class="source-attribution">
+                                <span style="font-size: 0.75rem; color: var(--text-secondary); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Source:</span>
+                                <a href="${this.currentNews ? this.currentNews.source_url : '#'}" target="_blank" style="font-size: 0.85rem; color: var(--primary); text-decoration: none; font-weight: 500; margin-left: 4px;">
+                                    ${this.currentNews ? this.currentNews.source_name : 'Original Article'}
+                                </a>
+                            </div>
+                            `}
                         </div>
-                        ${result.is_custom ? '' : `
-                        <div class="source-attribution">
-                            <span style="font-size: 0.75rem; color: var(--text-secondary); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Source:</span>
-                            <a href="${this.currentNews ? this.currentNews.source_url : '#'}" target="_blank" style="font-size: 0.85rem; color: var(--primary); text-decoration: none; font-weight: 500; margin-left: 4px;">
-                                ${this.currentNews ? this.currentNews.source_name : 'Original Article'}
-                            </a>
-                        </div>
-                        `}
-                        <div style="font-size:0.75rem; color:#999; margin-left: auto;">(Click text to edit)</div>
+
+                        <div style="font-size:0.75rem; color:#999; text-align: right;">(Click text to edit)</div>
                     </div>
                 </div>
             </div>

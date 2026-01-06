@@ -1,3 +1,8 @@
+/* Utility Classes */
+.hidden {
+    display: none !important;
+}
+
 :root {
     --bg: #F8F9FA;
     /* Clean, off-white background */

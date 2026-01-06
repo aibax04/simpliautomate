@@ -67,6 +67,23 @@ class ImageAgent:
             print(f"[QA ERROR] Failed to verify image: {e}")
             return True # Fallback to true to not break the workflow on API error
 
+    async def edit_image(self, visual_plan: dict, edit_prompt: str) -> str:
+        """
+        Manually edits an image based on a user prompt while preserving the original context.
+        """
+        original_prompt = visual_plan.get('image_prompt', 'Professional news infographic')
+        
+        # Construct the edit-aware prompt as per requirements
+        instruction = " Apply the following changes without altering the subject, meaning, or text accuracy: "
+        new_prompt = f"{original_prompt}{instruction}{edit_prompt}"
+        
+        # Create a copy of visual plan to not modify the original in-place if it's cached/reused
+        modified_plan = visual_plan.copy()
+        modified_plan['image_prompt'] = new_prompt
+        
+        # Reuse existing robust generation pipeline
+        return await self.generate_image(modified_plan)
+
     async def generate_image(self, visual_plan: dict) -> str:
         """
         Generates an infographic image using the specified Gemini model.

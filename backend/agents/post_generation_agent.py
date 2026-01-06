@@ -79,8 +79,8 @@ class PostGenerationAgent:
 
             image_url = await self.image_agent.generate_image(visual_plan)
             
-            # Use main_text or headline for OCR verification
-            verification_text = visual_plan.get('main_text') or news_item.get('headline')
+            # Use main headline from hierarchy for OCR verification
+            verification_text = visual_plan.get('headline_hierarchy', {}).get('main') or news_item.get('headline')
             image_verified = await self.image_agent.verify_image(image_url, verification_text)
             
             if image_verified:
