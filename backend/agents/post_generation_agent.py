@@ -20,20 +20,24 @@ class PostGenerationAgent:
         5. Image Generation (Pixel)
         6. Assembly
         """
+        # CRITICAL FIX: Create a shallow copy to prevent contaminating the shared in-memory news cache
+        # if this 'news_item' was passed by reference from the global state.
+        news_item = news_item.copy() if news_item else {}
+
         is_custom_flag = False
         # If it's a custom prompt (not a news item), wrap it as a news item
         if "custom_prompt" in news_item:
             is_custom_flag = True
             print(f"--- GENERATING CUSTOM POST FOR PROMPT: {news_item.get('custom_prompt')[:50]}... ---")
             # Create a mock news item for the agents to process
-            news_item = {
+            news_item.update({
                 "headline": "Custom Creation",
                 "summary": news_item.get("custom_prompt"),
                 "domain": "General/Custom",
                 "source_name": "Custom User Request",
                 "source_url": "",
                 "is_custom": True
-            }
+            })
         else:
             print(f"--- GENERATING POST FOR: {news_item.get('headline')} ---")
         

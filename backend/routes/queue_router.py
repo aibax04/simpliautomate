@@ -38,14 +38,23 @@ async def _persist_post(news_item: Dict, result: Dict, user_prefs: Dict, user_id
     async with AsyncSessionLocal() as session:
         try:
             # 1. Find the NewsItem in DB (or create if missing)
-            stmt = select(NewsItem).where(NewsItem.headline == news_item.get("headline"))
+            # 1. Find the NewsItem in DB (or create if missing)
+            headline = news_item.get("headline")
+            # Fallback for custom posts
+            if not headline:
+                if news_item.get("custom_prompt"):
+                    headline = f"Custom: {news_item.get('custom_prompt')[:50]}"
+                else:
+                    headline = "Untitled Post"
+
+            stmt = select(NewsItem).where(NewsItem.headline == headline)
             res = await session.execute(stmt)
             db_news = res.scalar_one_or_none()
             
             if not db_news:
                 db_news = NewsItem(
-                    headline=news_item.get("headline"),
-                    summary=news_item.get("summary"),
+                    headline=headline,
+                    summary=news_item.get("summary") or news_item.get("custom_prompt") or "No summary",
                     category=news_item.get("domain", "General"),
                     source_url=news_item.get("source_url", "")
                 )
@@ -80,7 +89,7 @@ async def _persist_post(news_item: Dict, result: Dict, user_prefs: Dict, user_id
             if job_id_memory:
                 queue.update_job(job_id_memory, result={**result, "post_id": db_post.id})
             
-            print(f"[DB] Persisted post {db_post.id} for user {user_id}: {news_item.get('headline')[:30]}...")
+            print(f"[DB] Persisted post {db_post.id} for user {user_id}: {headline[:30]}...")
         except Exception as e:
             await session.rollback()
             print(f"[DB ERROR] Post persistence failed: {e}")
@@ -191,7 +200,7 @@ async def enqueue_post(
 
     job_id = queue.create_job("post_generation", {
         "headline": display_headline,
-        "source": "Custom" if request.custom_prompt else request.news_item.get("source", "Unknown"),
+        "source": "Custom" if request.custom_prompt is not None else request.news_item.get("source", "Unknown"),
         "news_item": news_payload,
         "user_prefs": request.user_prefs
     }, user_id=user.id)
@@ -247,6 +256,13 @@ async def get_activity_stream(user: User = Depends(get_current_user)):
     # 1. Get active jobs from memory
     active_jobs = queue.get_all_jobs(user_id=user.id)
     
+    # Create a set of headlines from active 'ready' jobs to prevent duplication
+    active_ready_headlines = {
+        j.get("payload", {}).get("headline") or j.get("headline") 
+        for j in active_jobs.values() 
+        if j.get("status") == "ready"
+    }
+    
     # 2. Get historical jobs from database with headlines
     async with AsyncSessionLocal() as session:
         stmt = select(GenerationQueue, NewsItem).outerjoin(
@@ -263,10 +279,13 @@ async def get_activity_stream(user: User = Depends(get_current_user)):
     # 3. Convert DB jobs to the same format as memory jobs
     formatted_db_jobs = []
     for db_j, news in results:
-        # Check if already in memory to avoid duplicates
-        # (This is a bit loose but memory jobs use UUID strings)
-        
         headline = news.headline if news else "Historical Post"
+        category = news.category if news else "General"
+        
+        # DEDUPLICATION: If this job is already showing as 'ready' in memory, skip the DB version
+        # This prevents the "News Post" vs "Past Post" double-listing
+        if headline in active_ready_headlines:
+            continue
         
         formatted_db_jobs.append({
             "id": f"db_{db_j.id}",
@@ -275,6 +294,7 @@ async def get_activity_stream(user: User = Depends(get_current_user)):
             "created_at": db_j.created_at.isoformat() if db_j.created_at else None,
             "payload": {
                 "headline": headline,
+                "category": category, # Injected for frontend usage
             },
             "result": db_j.result_json,
             "progress": 100 if db_j.status == "ready" else 0,

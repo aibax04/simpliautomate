@@ -71,6 +71,7 @@ async def post_scheduler():
                 
                 for post, user, account in due_posts:
                     print(f"[SCHEDULER] Publishing post {post.id} for user {user.username}...")
+                    print(f"[SCHEDULER DEBUG] Image URL from DB: {post.image_url}")
                     
                     access_token = decrypt_token(account.access_token)
                     person_urn = account.linkedin_person_urn

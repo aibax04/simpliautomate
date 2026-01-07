@@ -271,8 +271,18 @@ class QueuePanel {
 
         const statusLabel = statusMap[status] || status.replace(/_/g, ' ');
 
-        // Type Detection
-        let typeLabel = job.is_historical ? "Past Post" : "News Post";
+        // Type Detection & Keyword Extraction
+        let typeLabel = "News Post";
+        if (job.is_historical) {
+            // Try to fetch a relevant keyword/domain
+            if (job.payload?.category) typeLabel = job.payload.category;
+            else if (job.result?.domain) typeLabel = job.result.domain;
+            else if (job.result?.news_item?.domain) typeLabel = job.result.news_item.domain;
+            else if (job.result?.category) typeLabel = job.result.category;
+            else if (job.payload?.news_item?.domain) typeLabel = job.payload.news_item.domain;
+            else typeLabel = "Past Post";
+        }
+
         if (job.type === 'blog_generation') {
             typeLabel = "LinkedIn Blog";
         } else if (job.payload?.news_item?.custom_prompt || job.type === 'custom_post') {

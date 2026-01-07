@@ -251,12 +251,18 @@ class SwipeApp {
 
     async init() {
         // Show loading state immediately
-        this.stack.innerHTML = `
+        const loadingHtml = `
             <div class="loading-state">
                 <div class="spinner"></div>
                 <p>Fetching latest news...</p>
             </div>
         `;
+
+        if (this.viewMode === 'list') {
+            this.listView.innerHTML = loadingHtml;
+        } else {
+            this.stack.innerHTML = loadingHtml;
+        }
 
         this.fetchUser();
 
@@ -265,7 +271,12 @@ class SwipeApp {
             this.allNews = news;
             this.filterNews(this.currentFilter);
         } catch (e) {
-            this.stack.innerHTML = `<div class="empty-state-message"><p>Failed to fetch news. Please try again.</p><button onclick="window.app.init()" class="btn-secondary">Retry</button></div>`;
+            const errorHtml = `<div class="empty-state-message"><p>Failed to fetch news. Please try again.</p><button onclick="window.app.init()" class="btn-secondary">Retry</button></div>`;
+            if (this.viewMode === 'list') {
+                this.listView.innerHTML = errorHtml;
+            } else {
+                this.stack.innerHTML = errorHtml;
+            }
             console.error(e);
         }
     }
@@ -859,10 +870,13 @@ class SwipeApp {
 
     async finalizeGeneration(imgPrefs) {
         const gBtn = document.getElementById('finalize-generate-btn');
+        if (!gBtn) return;
+
         gBtn.disabled = true;
         gBtn.innerText = "Queueing...";
 
-        const productId = document.getElementById('product-select').value;
+        const productSelect = document.getElementById('product-select');
+        const productId = productSelect ? productSelect.value : null;
 
         const fullPrefs = {
             ...this.currentPrefs,
@@ -872,16 +886,14 @@ class SwipeApp {
         this.currentPrefs = fullPrefs;
 
         const tempId = 'temp_' + Date.now();
-        const headline = this.isCustomPost ? "Custom Post" : this.currentNews.headline;
+        // Safe headline access
+        const headline = this.isCustomPost ? "Custom Post" : (this.currentNews?.headline || "Untitled Post");
 
         if (window.queuePanel) {
             window.queuePanel.addOptimisticJob(tempId, headline);
         }
 
         if (window.Toast) window.Toast.show("Agent started working on your post...", "info");
-
-        // setTimeout removed to prevent user confusion and double-clicking
-        // The button state is now managed by the completion flow
 
         try {
             let resp;
@@ -904,9 +916,16 @@ class SwipeApp {
                 }
             }
             if (window.Toast) window.Toast.show("Job confirmed by agent core.", "success");
+
+            // Close modal and reset button to allow next post
+            document.getElementById('finalize-modal').classList.add('hidden');
+            gBtn.disabled = false;
+            gBtn.innerText = "Queue Job";
         } catch (e) {
             console.error(e);
-            if (window.Toast) window.Toast.show("Failed to start agent found.", "error");
+            if (window.Toast) window.Toast.show("Failed to start agent process.", "error");
+            gBtn.disabled = false;
+            gBtn.innerText = "Queue Job"; // Restore original text
             if (window.queuePanel) window.queuePanel.removeJob(tempId);
         }
     }
@@ -1145,6 +1164,16 @@ class SwipeApp {
                 </div>
             `;
         });
+
+        // Append Refresh/Load More Button
+        html += `
+            <div style="text-align: center; padding: 30px; margin-top: 20px; border-top: 1px solid var(--border);">
+                <button onclick="window.app.init()" class="btn-primary" style="display: inline-flex; align-items: center; gap: 8px; padding: 12px 24px;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"></path><path d="M16 21h5v-5"></path></svg>
+                    Find More News
+                </button>
+            </div>
+        `;
 
         this.listView.innerHTML = html;
     }

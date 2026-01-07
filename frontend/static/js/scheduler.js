@@ -11,10 +11,10 @@ const PostScheduler = {
         if (savedEmail) {
             const mgmtInput = document.getElementById('test-email-input');
             if (mgmtInput) mgmtInput.value = savedEmail;
-            
+
             const postEmailInput = document.getElementById('post-notification-email');
             if (postEmailInput) postEmailInput.value = savedEmail;
-            
+
             const blogEmailInput = document.getElementById('blog-notification-email');
             if (blogEmailInput) blogEmailInput.value = savedEmail;
         }
@@ -98,14 +98,30 @@ const PostScheduler = {
         const scheduledAt = document.getElementById(timeInputId).value;
         const emailEl = document.getElementById(emailInputId);
         const notificationEmail = emailEl ? emailEl.value.trim() : localStorage.getItem('simplii_notification_email');
-        
+
         const contentEl = document.getElementById(contentId);
         const content = contentEl.innerText || contentEl.textContent;
-        
+
         // Find image if exists (for regular posts)
         let imageUrl = null;
-        const imgEl = document.querySelector(`#${contentId} img`);
-        if (imgEl) imageUrl = imgEl.src;
+
+        // Priority 1: Use app state for standard posts (most robust, gets relative path)
+        if (contentId === 'post-preview' && window.app && window.app.generatedPost && window.app.generatedPost.image_url) {
+            imageUrl = window.app.generatedPost.image_url;
+            console.log("[Scheduler] Using app state image:", imageUrl);
+        } else {
+            // Priority 2: DOM Scraping (fallback)
+            const imgEl = document.querySelector(`#${contentId} img`);
+            if (imgEl) imageUrl = imgEl.src;
+
+            // Priority 3: Special case for Blog (image is sibling, not child)
+            if (contentId === 'blog-result-content' && !imageUrl) {
+                const blogImg = document.getElementById('blog-result-image');
+                if (blogImg && blogImg.src && blogImg.src !== window.location.href) {
+                    imageUrl = blogImg.src;
+                }
+            }
+        }
 
         if (!accountId) {
             Toast.show("Please select a LinkedIn account", "error");
@@ -137,16 +153,16 @@ const PostScheduler = {
                 notification_email: notificationEmail
             });
             Toast.show("Post scheduled successfully!", "success");
-            
+
             // Save email for next time
             localStorage.setItem('simplii_notification_email', notificationEmail);
-            
+
             // Close the modal
             const resultModal = document.getElementById('result-modal');
             const blogResultModal = document.getElementById('blog-result-modal');
             if (resultModal) resultModal.classList.add('hidden');
             if (blogResultModal) blogResultModal.classList.add('hidden');
-            
+
             // Reset fields
             document.getElementById(timeInputId).value = "";
             if (emailEl) emailEl.value = notificationEmail;
