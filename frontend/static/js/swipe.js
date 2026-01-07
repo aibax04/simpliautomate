@@ -918,14 +918,16 @@ class SwipeApp {
             if (window.Toast) window.Toast.show("Job confirmed by agent core.", "success");
 
             // Close modal and reset button to allow next post
-            document.getElementById('finalize-modal').classList.add('hidden');
+            document.getElementById('image-options-modal').classList.add('hidden');
             gBtn.disabled = false;
             gBtn.innerText = "Queue Job";
         } catch (e) {
-            console.error(e);
-            if (window.Toast) window.Toast.show("Failed to start agent process.", "error");
+            console.error("Queueing error (likely transient):", e);
+            // removing error toast as per user request to avoid false alarms
+            // if (window.Toast) window.Toast.show("Failed to start agent process.", "error");
+
             gBtn.disabled = false;
-            gBtn.innerText = "Queue Job"; // Restore original text
+            gBtn.innerText = "Queue Job";
             if (window.queuePanel) window.queuePanel.removeJob(tempId);
         }
     }
@@ -1147,7 +1149,7 @@ class SwipeApp {
                 chipsHtml += `
                     <div class="news-chip" onclick="window.app.selectNewsFromList('${tempId}')" style="cursor: pointer;">
                         <span class="news-chip-text" title="${item.headline}">${item.headline}</span>
-                        <span class="news-chip-source">${item.source_name}</span>
+                        <a href="${item.source_url}" target="_blank" onclick="event.stopPropagation()" class="news-chip-source" style="color: var(--primary); text-decoration: none; cursor: pointer;">Read Full Article</a>
                     </div>
                 `;
             });
