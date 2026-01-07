@@ -87,8 +87,18 @@ class LinkedInAgent:
         Uploads image to LinkedIn in 2 steps: Register -> Upload
         """
         import os
+        from urllib.parse import urlparse
         
-        # 0. Resolve path using absolute project root logic
+        # 0. Clean path (remove query params like ?t=123)
+        if "?" in image_path:
+            image_path = image_path.split("?")[0]
+            
+        # Handle Full URLs (http://localhost:8000/generated_images/...)
+        if image_path.startswith("http:") or image_path.startswith("https:"):
+            parsed = urlparse(image_path)
+            image_path = parsed.path
+        
+        # Resolve path using absolute project root logic
         # This file is in backend/agents/linkedin_agent.py
         current_dir = os.path.dirname(os.path.abspath(__file__)) # agents/
         project_root = os.path.dirname(os.path.dirname(current_dir)) # simplii/
@@ -100,7 +110,7 @@ class LinkedInAgent:
             real_path = image_path
             
         if not os.path.exists(real_path):
-            print(f"[ERROR] LinkedIn Post: Image not found at {real_path}")
+            print(f"[ERROR] LinkedIn Post: Image not found at {real_path} (Original: {image_path})")
             return None
 
         # 1. Register

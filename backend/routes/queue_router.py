@@ -481,3 +481,63 @@ async def update_post_image(payload: Dict[str, Any], user: User = Depends(get_cu
             await session.rollback()
             print(f"[ERROR] update-post-image failed: {e}")
             raise HTTPException(status_code=500, detail=str(e))
+
+@router.delete("/queue/{job_id}")
+async def delete_job(job_id: str, user: User = Depends(get_current_user)):
+    """
+    Deletes a job from the queue (memory or DB).
+    """
+    post_id_to_delete = None
+    
+    # 1. Check memory first
+    memory_job = queue.get_job(job_id)
+    if memory_job:
+        # If it has a result with post_id, we should also try to delete the DB history for it
+        if memory_job.get("result") and isinstance(memory_job["result"], dict):
+            post_id_to_delete = memory_job["result"].get("post_id")
+        
+        # Delete from memory
+        queue.delete_job(job_id)
+        print(f"[Queue] Deleted memory job {job_id}")
+
+    # 2. Determine DB ID to delete
+    db_job_id = None
+    if job_id.startswith("db_"):
+        try:
+            db_job_id = int(job_id.split("_")[1])
+        except:
+            pass
+            
+    # 3. Perform DB deletion logic
+    if db_job_id or post_id_to_delete:
+        async with AsyncSessionLocal() as session:
+            try:
+                stmt = None
+                if db_job_id:
+                    # Direct deletion by GenerationQueue ID
+                    stmt = select(GenerationQueue).where(GenerationQueue.id == db_job_id, GenerationQueue.user_id == user.id)
+                elif post_id_to_delete:
+                    # Deletion by linked Post ID (found in result_json)
+                    from sqlalchemy import text
+                    stmt = select(GenerationQueue).where(
+                        GenerationQueue.user_id == user.id,
+                        text("CAST(result_json->>'post_id' AS TEXT) = :pid").bindparams(pid=str(post_id_to_delete))
+                    )
+                
+                if stmt is not None:
+                    res = await session.execute(stmt)
+                    # Use unique() if needed, or scalars
+                    # db_job = res.scalar_one_or_none() 
+                    # multiple matches theoretically possible for post_id if bugs, but scalar is fine
+                    db_jobs = res.scalars().all()
+                    
+                    for db_job in db_jobs:
+                        await session.delete(db_job)
+                        print(f"[DB] Deleted GenerationQueue record {db_job.id}")
+                    
+                    await session.commit()
+            except Exception as e:
+                await session.rollback()
+                print(f"[ERROR] Failed to delete job from DB: {e}")
+    
+    return {"status": "success", "message": "Job deleted"}

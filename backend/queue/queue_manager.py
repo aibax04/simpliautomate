@@ -47,3 +47,7 @@ class QueueManager:
             if progress is not None:
                 self.jobs[job_id]["progress"] = progress
             self.jobs[job_id]["updated_at"] = datetime.now().isoformat()
+
+    def delete_job(self, job_id: str):
+        if job_id in self.jobs:
+            del self.jobs[job_id]

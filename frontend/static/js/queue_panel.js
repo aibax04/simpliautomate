@@ -81,6 +81,14 @@ class QueuePanel {
         // Merge lists: Optimistic first
         const displayList = [...this.optimisticJobs, ...this.jobs];
 
+        // Check for auto-open (if app is watching a job)
+        if (typeof window.app !== 'undefined' && window.app.checkWatch) {
+            displayList.forEach(job => window.app.checkWatch(job));
+        } else {
+            // Optional: Log once if app is missing to avoid spam, or just ignore
+            // console.warn("QueuePanel: window.app not ready yet for auto-open check");
+        }
+
         this.render(displayList);
 
         // Update System Status
@@ -233,7 +241,9 @@ class QueuePanel {
         item.className = `queue-item ${statusClass}`;
         item.setAttribute('data-status', status);
         item.setAttribute('data-progress', job.progress || 0);
-        item.onclick = () => this.handleJobClick(job);
+
+        // Pass event to handle click carefully
+        item.onclick = (e) => this.handleJobClick(job, e);
 
         this.setJobInnerHtml(item, job);
         return item;
@@ -242,6 +252,7 @@ class QueuePanel {
     setJobInnerHtml(item, job) {
         const status = job.status || 'queued';
         const isGenerating = (status.includes('generating') || status === 'processing' || status === 'fetching_sources');
+        const jobId = job.id || job.job_id;
 
         // Professional Status Mapping
         const statusMap = {
@@ -271,14 +282,14 @@ class QueuePanel {
         // Headline Cleanup
         let headline = job.payload?.headline || job.headline || 'Untitled Post';
         if (headline === "undefined" || !headline || headline === "Historical Post") {
-            // Try to extract from result if available
             if (job.result?.headline) headline = job.result.headline;
             else if (job.result?.text) headline = job.result.text.substring(0, 30) + "...";
             else headline = "LinkedIn Content";
         }
 
-        const date = job.created_at ? new Date(job.created_at) : new Date();
-        const timeStr = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        const dateObj = job.created_at ? new Date(job.created_at) : new Date();
+        const timeStr = dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        const dateStr = dateObj.toLocaleDateString([], { month: 'short', day: 'numeric' });
 
         item.innerHTML = `
             <div class="job-row-main">
@@ -286,7 +297,7 @@ class QueuePanel {
                     <span class="job-title-primary">${headline}</span>
                     <div class="job-sub-row">
                         <span class="job-type-tag">${typeLabel}</span>
-                        <span class="job-time-muted">${timeStr}</span>
+                        <span class="job-time-muted">${dateStr}, ${timeStr}</span>
                     </div>
                 </div>
                 <div class="job-col-status">
@@ -294,6 +305,11 @@ class QueuePanel {
                         ${isGenerating ? '<div class="mini-spinner" style="width:10px; height:10px; border-width:2px; margin-right:6px;"></div>' : ''}
                         <span class="status-badge">${statusLabel}</span>
                     </div>
+                </div>
+                <div class="job-col-actions" style="margin-left: 8px;">
+                    <button class="btn-icon delete-job-btn" onclick="window.queuePanel.handleDelete('${jobId}', event)" title="Delete" style="opacity: 0.6; padding: 4px;">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                    </button>
                 </div>
             </div>
             ${isGenerating && job.progress > 0 ? `
@@ -303,7 +319,26 @@ class QueuePanel {
         `;
     }
 
-    async handleJobClick(job) {
+    handleDelete(jobId, e) {
+        if (e) e.stopPropagation();
+        if (!confirm("Are you sure you want to remove this item?")) return;
+
+        // Optimistic Remove
+        const strId = String(jobId);
+        this.jobs = this.jobs.filter(j => String(j.id || j.job_id) !== strId);
+        this.optimisticJobs = this.optimisticJobs.filter(j => String(j.id) !== strId);
+        this.refreshUI();
+
+        // API
+        Api.deleteJob(jobId).then(() => {
+            console.log("Job deleted:", jobId);
+        });
+    }
+
+    async handleJobClick(job, e) {
+        // Prevent click if clicking delete button (redundant check if stopPropagation works, but good for safety)
+        if (e && e.target.closest('.delete-job-btn')) return;
+
         if (job.status === 'ready' && job.result) {
             if (job.type === 'blog_generation') {
                 if (window.showBlogResult) {

@@ -119,7 +119,7 @@ const Api = {
 
     async getQueueStatus() {
         try {
-            const response = await fetch('/api/queue-status', {
+            const response = await fetch(`/api/queue-status?t=${new Date().getTime()}`, {
                 headers: this.getHeaders()
             });
             return await this.handleResponse(response);
@@ -137,6 +137,19 @@ const Api = {
             return await this.handleResponse(response);
         } catch (e) {
             console.error("Job Result Error:", e);
+            return null;
+        }
+    },
+
+    async deleteJob(jobId) {
+        try {
+            const response = await fetch(`/api/queue/${jobId}`, {
+                method: 'DELETE',
+                headers: this.getHeaders()
+            });
+            return await this.handleResponse(response);
+        } catch (e) {
+            console.error("Delete Job Error:", e);
             return null;
         }
     },

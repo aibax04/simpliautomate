@@ -93,17 +93,16 @@
         <div class="main-wrapper">
             <header id="main-header">
                 <div class="header-left">
-                    <span class="app-name">News Intelligence Dashboard</span>
-                </div>
-
-                <div class="header-center">
-                    <div id="system-status" class="status-pill idle">
-                        <span class="status-dot"></span>
-                        <span id="system-status-text">System Ready</span>
-                    </div>
                     <div class="search-bar-container">
                         <input type="text" id="news-search-input" placeholder="Search specific topics...">
                     </div>
+                </div>
+
+                <div class="header-center">
+                    <select id="view-mode-selector" class="header-select">
+                        <option value="swipe" selected>Swipe View</option>
+                        <option value="list">Row / Column View</option>
+                    </select>
                 </div>
 
                 <div class="header-right">
@@ -119,6 +118,10 @@
                             <div class="spinner"></div>
                             <p>Fetching latest news...</p>
                         </div>
+                    </div>
+
+                    <div id="list-view-container" class="hidden">
+                        <!-- List view content injected here -->
                     </div>
 
                     <div id="controls">

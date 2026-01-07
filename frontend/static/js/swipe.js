@@ -14,7 +14,13 @@ class SwipeApp {
         this.customPrompt = "";
 
         this.allNews = [];
+        this.allNews = [];
         this.currentFilter = 'All';
+        this.viewMode = 'swipe'; // 'swipe' or 'list'
+        this.viewSelect = document.getElementById('view-mode-selector');
+        this.listView = document.getElementById('list-view-container');
+        this.controls = document.getElementById('controls');
+        this.swipeContainer = document.getElementById('swipe-container');
 
         this.imageOptionsModal = new ImageOptionsModal((imgPrefs) => {
             this.finalizeGeneration(imgPrefs);
@@ -24,6 +30,26 @@ class SwipeApp {
         this.bindGlobalEvents();
         this.bindCustomEvents();
         this.bindModalCloseEvents();
+    }
+
+    setWatchingJob(jobId) {
+        this.watchingJobId = jobId;
+    }
+
+    checkWatch(job) {
+        // Safe string comparison for IDs
+        const watchId = String(this.watchingJobId);
+        const jobId = String(job.id || job.job_id);
+
+        if (this.watchingJobId && jobId === watchId) {
+            console.log(`[SwipeApp] Watch hit for job ${watchId}. Status: ${job.status}`);
+            if (job.status === 'ready') {
+                this.watchingJobId = null; // Stop watching
+                console.log("[SwipeApp] Job ready, auto-opening...");
+                this.openResult(job);
+                if (window.Toast) window.Toast.show("Your post is ready!", "success");
+            }
+        }
     }
 
     bindModalCloseEvents() {
@@ -279,7 +305,9 @@ class SwipeApp {
         filtered.forEach((item, index) => {
             this.createCard(item, index);
         });
-        this.renderStack();
+        if (this.viewMode === 'list') {
+            this.renderListView();
+        }
     }
 
     createCard(data, index) {
@@ -391,6 +419,12 @@ class SwipeApp {
     }
 
     bindGlobalEvents() {
+        if (this.viewSelect) {
+            this.viewSelect.addEventListener('change', (e) => {
+                this.switchView(e.target.value);
+            });
+        }
+
         const closeModal = document.getElementById('close-modal');
         if (closeModal) {
             closeModal.addEventListener('click', () => {
@@ -846,10 +880,8 @@ class SwipeApp {
 
         if (window.Toast) window.Toast.show("Agent started working on your post...", "info");
 
-        setTimeout(() => {
-            gBtn.disabled = false;
-            gBtn.innerText = "Generate Content";
-        }, 500);
+        // setTimeout removed to prevent user confusion and double-clicking
+        // The button state is now managed by the completion flow
 
         try {
             let resp;
@@ -863,6 +895,13 @@ class SwipeApp {
 
             if (window.queuePanel) {
                 window.queuePanel.updateOptimisticId(tempId, resp.job_id);
+                // Force immediate sync
+                window.queuePanel.fetchJobs();
+
+                // Auto-open logic
+                if (this.setWatchingJob) {
+                    this.setWatchingJob(resp.job_id);
+                }
             }
             if (window.Toast) window.Toast.show("Job confirmed by agent core.", "success");
         } catch (e) {
@@ -993,21 +1032,21 @@ class SwipeApp {
                     ${imageUrl ? `<img src="${imageUrl}" alt="Generated Infographic" class="generated-post-image">` : '<div class="preview-image-fallback">Visualization generated...<br>(check network/path)</div>'}
                 </div>
                 <div class="preview-content">
-                    <div class="preview-caption" contenteditable="true" spellcheck="false" style="outline:none; border:1px dashed transparent; padding:4px;">${displayBody}</div>
-                    ${hashtags ? `<div class="preview-hashtags">${hashtags}</div>` : ''}
-                    
-                    <div class="preview-footer" style="display: flex; flex-direction: column; gap: 12px; margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border);">
-                        <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
-                            <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
-                                <button id="regen-image-btn" class="btn-secondary" style="font-size: 0.75rem; padding: 6px 12px; background: #f0f0f0; color: #666; border: 1px solid #ddd;">
-                                    Redo
-                                </button>
-                                <button id="edit-image-btn" class="btn-secondary" style="font-size: 0.75rem; padding: 6px 12px; background: #f0f0f0; color: #666; border: 1px solid #ddd;">
-                                    Edit
-                                </button>
-                                <div id="regen-loader" class="mini-spinner hidden" style="width: 16px; height: 16px; border-width: 2px;"></div>
-                            </div>
-                            ${result.is_custom ? '' : `
+                    <div class="preview-caption" contenteditable="true" spellcheck="false" style="outline:none; border:1px dashed transparent; padding:4px;">${displayBody}</div></div>
+        ${hashtags ? `<div class="preview-hashtags">${hashtags}</div>` : ''}
+
+<div class="preview-footer" style="display: flex; flex-direction: column; gap: 12px; margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border);">
+    <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+        <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+            <button id="regen-image-btn" class="btn-secondary" style="font-size: 0.75rem; padding: 6px 12px; background: #f0f0f0; color: #666; border: 1px solid #ddd;">
+                Redo
+            </button>
+            <button id="edit-image-btn" class="btn-secondary" style="font-size: 0.75rem; padding: 6px 12px; background: #f0f0f0; color: #666; border: 1px solid #ddd;">
+                Edit
+            </button>
+            <div id="regen-loader" class="mini-spinner hidden" style="width: 16px; height: 16px; border-width: 2px;"></div>
+        </div>
+        ${result.is_custom ? '' : `
                             <div class="source-attribution">
                                 <span style="font-size: 0.75rem; color: var(--text-secondary); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Source:</span>
                                 <a href="${this.currentNews ? this.currentNews.source_url : '#'}" target="_blank" style="font-size: 0.85rem; color: var(--primary); text-decoration: none; font-weight: 500; margin-left: 4px;">
@@ -1015,14 +1054,109 @@ class SwipeApp {
                                 </a>
                             </div>
                             `}
-                        </div>
+    </div>
 
-                        <div style="font-size:0.75rem; color:#999; text-align: right;">(Click text to edit)</div>
+    <div style="font-size:0.75rem; color:#999; text-align: right;">(Click text to edit)</div>
+</div>
+                </div >
+            </div >
+    `;
+        this.resultModal.classList.remove('hidden');
+    }
+    switchView(mode) {
+        this.viewMode = mode;
+
+        if (mode === 'list') {
+            document.getElementById('card-stack').classList.add('hidden');
+            document.getElementById('controls').classList.add('hidden');
+            this.listView.classList.remove('hidden');
+            this.swipeContainer.classList.add('list-mode');
+            this.renderListView();
+        } else {
+            document.getElementById('card-stack').classList.remove('hidden');
+            document.getElementById('controls').classList.remove('hidden');
+            this.listView.classList.add('hidden');
+            this.swipeContainer.classList.remove('list-mode');
+            // Ensure stack is rendered correctly
+            this.renderStack();
+        }
+    }
+
+    renderListView() {
+        if (!this.allNews || this.allNews.length === 0) {
+            this.listView.innerHTML = '<div class="empty-state-message" style="text-align:center; padding:40px; color:#64748B;">No news available.</div>';
+            return;
+        }
+
+        // Group by Domain (Topic)
+        const groups = {};
+        const filtered = this.currentFilter === 'All'
+            ? this.allNews
+            : this.allNews.filter(n => n.domain && n.domain.toLowerCase().includes(this.currentFilter.toLowerCase()));
+
+        filtered.forEach(item => {
+            const topic = item.domain || 'General';
+            if (!groups[topic]) groups[topic] = [];
+            groups[topic].push(item);
+        });
+
+        let html = '';
+
+        // Sort topics alphabetically
+        const topics = Object.keys(groups).sort();
+
+        if (topics.length === 0) {
+            let emptyHtml = `<div class="empty-state-message" style="text-align:center; padding:40px; color:#64748B;">No ${this.currentFilter} news found.`;
+            if (this.currentFilter !== 'All') {
+                emptyHtml += `<br><br><button onclick="window.app.filterNews('All')" class="btn-secondary" style="padding: 8px 16px; margin-top: 12px; cursor: pointer;">Show All</button>`;
+            }
+            emptyHtml += `</div>`;
+            this.listView.innerHTML = emptyHtml;
+            return;
+        }
+
+        topics.forEach(topic => {
+            const items = groups[topic];
+            let chipsHtml = '';
+
+            items.forEach((item, index) => {
+                // Let's create a temporary ID to reference in onclick
+                const tempId = `news_item_${topic.replace(/\s+/g, '_')}_${index}`;
+                window.app.newsCache = window.app.newsCache || {};
+                window.app.newsCache[tempId] = item;
+
+                chipsHtml += `
+                    <div class="news-chip" onclick="window.app.selectNewsFromList('${tempId}')" style="cursor: pointer;">
+                        <span class="news-chip-text" title="${item.headline}">${item.headline}</span>
+                        <span class="news-chip-source">${item.source_name}</span>
+                    </div>
+                `;
+            });
+
+            html += `
+                <div class="topic-row">
+                    <div class="topic-label">
+                        <span class="topic-name">${topic}</span>
+                        <span class="topic-count">${items.length} article${items.length !== 1 ? 's' : ''}</span>
+                    </div>
+                    <div class="topic-content">
+                        ${chipsHtml}
                     </div>
                 </div>
-            </div>
-        `;
-        this.resultModal.classList.remove('hidden');
+            `;
+        });
+
+        this.listView.innerHTML = html;
+    }
+
+    selectNewsFromList(cacheId) {
+        const item = this.newsCache[cacheId];
+        if (!item) return;
+
+        // Open Preference Modal directly, treating it like a Right Swipe
+        this.currentNews = item;
+        this.isCustomPost = false;
+        this.showPrefs();
     }
 }
 
