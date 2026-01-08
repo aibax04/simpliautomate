@@ -1109,24 +1109,11 @@ class SwipeApp {
             return;
         }
 
-        // Group by Domain (Topic)
-        const groups = {};
         const filtered = this.currentFilter === 'All'
             ? this.allNews
             : this.allNews.filter(n => n.domain && n.domain.toLowerCase().includes(this.currentFilter.toLowerCase()));
 
-        filtered.forEach(item => {
-            const topic = item.domain || 'General';
-            if (!groups[topic]) groups[topic] = [];
-            groups[topic].push(item);
-        });
-
-        let html = '';
-
-        // Sort topics alphabetically
-        const topics = Object.keys(groups).sort();
-
-        if (topics.length === 0) {
+        if (filtered.length === 0) {
             let emptyHtml = `<div class="empty-state-message" style="text-align:center; padding:40px; color:#64748B;">No ${this.currentFilter} news found.`;
             if (this.currentFilter !== 'All') {
                 emptyHtml += `<br><br><button onclick="window.app.filterNews('All')" class="btn-secondary" style="padding: 8px 16px; margin-top: 12px; cursor: pointer;">Show All</button>`;
@@ -1136,39 +1123,81 @@ class SwipeApp {
             return;
         }
 
-        topics.forEach(topic => {
-            const items = groups[topic];
-            let chipsHtml = '';
+        let cardsHtml = '';
 
-            items.forEach((item, index) => {
-                // Let's create a temporary ID to reference in onclick
-                const tempId = `news_item_${topic.replace(/\s+/g, '_')}_${index}`;
-                window.app.newsCache = window.app.newsCache || {};
-                window.app.newsCache[tempId] = item;
+        filtered.forEach((item, index) => {
+            // Create temporary ID for selection
+            const tempId = `news_item_${index}`;
+            window.app.newsCache = window.app.newsCache || {};
+            window.app.newsCache[tempId] = item;
 
-                chipsHtml += `
-                    <div class="news-chip" onclick="window.app.selectNewsFromList('${tempId}')" style="cursor: pointer;">
-                        <span class="news-chip-text" title="${item.headline}">${item.headline}</span>
-                        <a href="${item.source_url}" target="_blank" onclick="event.stopPropagation()" class="news-chip-source" style="color: var(--primary); text-decoration: none; cursor: pointer;">Read Full Article</a>
+            // Extract keyword from domain (comprehensive mapping)
+            const keywordMap = {
+                'HealthTech': 'Healthcare',
+                'FinTech': 'Finance',
+                'LLMOps': 'AI',
+                'Industrial IoT': 'IoT',
+                'Urban Tech': 'Urban',
+                'LegalTech': 'Legal',
+                'HR Tech': 'HR',
+                'Generative NLP': 'AI',
+                'Industrial AI': 'AI',
+                'Secure AI': 'Security',
+                'Consumer AI': 'AI',
+                'EdTech': 'Education',
+                'AI in Marketing': 'Marketing',
+                'CivicTech': 'Civic'
+            };
+
+            const topic = item.domain || 'General';
+            let keyword = keywordMap[topic] || topic;
+
+            // Fallback mappings for partial matches
+            if (!keywordMap[topic]) {
+                if (topic.includes('Health')) keyword = 'Healthcare';
+                else if (topic.includes('Fin')) keyword = 'Finance';
+                else if (topic.includes('Legal')) keyword = 'Legal';
+                else if (topic.includes('HR')) keyword = 'HR';
+                else if (topic.includes('AI') || topic.includes('LLM') || topic.includes('NLP')) keyword = 'AI';
+                else if (topic.includes('Tech')) keyword = 'Technology';
+                else if (topic.includes('IoT')) keyword = 'IoT';
+                else if (topic.includes('Marketing')) keyword = 'Marketing';
+                else if (topic.includes('Secure')) keyword = 'Security';
+                else if (topic.includes('Consumer')) keyword = 'Consumer';
+                else if (topic.includes('Industrial')) keyword = 'Industry';
+                else if (topic.includes('Urban')) keyword = 'Urban';
+                else if (topic.includes('Civic')) keyword = 'Civic';
+                else if (topic.includes('Ed')) keyword = 'Education';
+                else keyword = 'Technology'; // Default fallback
+            }
+
+            // Clean description (remove undefined, limit length)
+            let description = item.summary || '';
+            if (description === 'undefined' || !description) {
+                description = item.source_name ? `From ${item.source_name}` : 'Latest industry update';
+            }
+            description = description.length > 120 ? description.substring(0, 120) + '...' : description;
+
+            cardsHtml += `
+                <div class="news-card" onclick="window.app.selectNewsFromList('${tempId}')">
+                    <div class="news-card-top">
+                        <div class="news-card-headline">${item.headline}</div>
+                        <div class="news-card-description">${description}</div>
                     </div>
-                `;
-            });
-
-            html += `
-                <div class="topic-row">
-                    <div class="topic-label">
-                        <span class="topic-name">${topic}</span>
-                        <span class="topic-count">${items.length} article${items.length !== 1 ? 's' : ''}</span>
-                    </div>
-                    <div class="topic-content">
-                        ${chipsHtml}
+                    <div class="news-card-bottom">
+                        <span class="news-card-keyword">${keyword}</span>
+                        <span class="news-card-read-link" onclick="event.stopPropagation(); window.open('${item.source_url}', '_blank')">Read full article</span>
                     </div>
                 </div>
             `;
         });
 
-        // Append Refresh/Load More Button
-        html += `
+        // Create clean two-column grid
+        let html = `
+            <div class="news-grid-container">
+                ${cardsHtml}
+            </div>
+
             <div style="text-align: center; padding: 30px; margin-top: 20px; border-top: 1px solid var(--border);">
                 <button onclick="window.app.init()" class="btn-primary" style="display: inline-flex; align-items: center; gap: 8px; padding: 12px 24px;">
                     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"></path><path d="M16 21h5v-5"></path></svg>

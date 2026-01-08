@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    body {
+      width: 300px;
+      padding: 16px;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #0f172a;
+      color: #f8fafc;
+      margin: 0;
+    }
+    .header {
+      font-size: 1.2rem;
+      font-weight: bold;
+      margin-bottom: 16px;
+      color: #38bdf8;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .article-info {
+      background: #1e293b;
+      padding: 12px;
+      border-radius: 8px;
+      margin-bottom: 16px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    .title {
+      font-weight: 600;
+      font-size: 0.95rem;
+      margin-bottom: 8px;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    .domain {
+      font-size: 0.8rem;
+      color: rgba(255, 255, 255, 0.6);
+    }
+    .btn {
+      width: 100%;
+      padding: 12px;
+      background: #38bdf8;
+      color: #0f172a;
+      border: none;
+      border-radius: 6px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .btn:hover {
+      background: #7dd3fc;
+    }
+    .btn:disabled {
+      background: #475569;
+      cursor: not-allowed;
+    }
+    #status {
+      margin-top: 12px;
+      font-size: 0.85rem;
+      text-align: center;
+    }
+    .login-prompt {
+      display: none;
+      text-align: center;
+      padding: 20px 0;
+    }
+    .login-prompt a {
+      color: #38bdf8;
+      text-decoration: none;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    Simplii
+  </div>
+  
+  <div id="auth-view">
+    <div class="article-info">
+      <div id="article-title" class="title">Loading...</div>
+      <div id="article-domain" class="domain">Loading...</div>
+    </div>
+    <button id="import-btn" class="btn">Send to Simplii</button>
+    <div id="status"></div>
+  </div>
+
+  <div id="login-view" class="login-prompt">
+    <p>Please log in to Simplii first.</p>
+    <a href="http://localhost:8000/login.html" target="_blank">Login to Simplii</a>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
