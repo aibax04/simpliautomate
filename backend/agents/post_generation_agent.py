@@ -94,9 +94,15 @@ class PostGenerationAgent:
 
         # 4. Assembly
         final_content = f"{caption_data.get('full_caption')}"
-        
+
+        # Store original data in visual plan for regeneration purposes
+        visual_plan['original_news_item'] = news_item.copy() if news_item else {}
+        visual_plan['user_prefs'] = user_prefs.copy() if user_prefs else {}
+        visual_plan['domain'] = news_item.get('domain', 'General') if news_item else 'General'
+        visual_plan['is_custom'] = is_custom_flag
+
         if on_progress: await on_progress("ready", 100)
-        
+
         return {
             "text": final_content,
             "preview_text": caption_data.get('hook'),

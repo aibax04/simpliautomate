@@ -406,9 +406,9 @@ async def edit_image(payload: Dict[str, Any], user: User = Depends(get_current_u
     job_id = payload.get("job_id")
     post_id = payload.get("post_id")
     edit_prompt = payload.get("edit_prompt")
-    
+
     print(f"[DEBUG] edit_image endpoint called - Job: {job_id}, Post: {post_id}")
-    
+
     if post_id:
         try:
             post_id = int(post_id)
@@ -418,7 +418,7 @@ async def edit_image(payload: Dict[str, Any], user: User = Depends(get_current_u
     if not edit_prompt:
         print("[ERROR] edit_prompt is missing in payload")
         raise HTTPException(status_code=400, detail="edit_prompt is required")
-    
+
     visual_plan = await _get_visual_plan(user.id, job_id, post_id)
 
     if not visual_plan:
@@ -436,6 +436,77 @@ async def edit_image(payload: Dict[str, Any], user: User = Depends(get_current_u
         import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/regenerate-caption")
+async def regenerate_caption(payload: Dict[str, Any], user: User = Depends(get_current_user)):
+    """
+    Regenerates only the caption (text) for an existing post, keeping the same image.
+    """
+    job_id = payload.get("job_id")
+    post_id = payload.get("post_id")
+
+    print(f"[DEBUG] regenerate_caption called - Job: {job_id}, Post: {post_id}")
+
+    if post_id:
+        try:
+            post_id = int(post_id)
+        except (ValueError, TypeError):
+            pass
+
+    # Get the original news item and user preferences
+    visual_plan = await _get_visual_plan(user.id, job_id, post_id)
+
+    if not visual_plan:
+        raise HTTPException(status_code=404, detail="Original visual plan not found. Please generate a new post.")
+
+    # Extract original data from visual plan
+    news_item = visual_plan.get('original_news_item', {})
+    user_prefs = visual_plan.get('user_prefs', {})
+
+    if not news_item:
+        # Try to reconstruct from visual plan
+        news_item = {
+            'headline': visual_plan.get('headline_hierarchy', {}).get('main', 'Generated Content'),
+            'summary': visual_plan.get('headline_hierarchy', {}).get('main', ''),
+            'domain': visual_plan.get('domain', 'General'),
+            'source_name': 'Caption Regeneration',
+            'source_url': '',
+            'is_custom': visual_plan.get('is_custom', False)
+        }
+
+    try:
+        from backend.agents.caption_agent import CaptionStrategyAgent
+        from backend.agents.qa_agent import QualityAssuranceAgent
+
+        # Generate new caption
+        caption_agent = CaptionStrategyAgent()
+        new_caption_data = await caption_agent.generate_caption(news_item, user_prefs)
+
+        # Quality check the new caption
+        qa_agent = QualityAssuranceAgent()
+        verified_caption = await qa_agent.verify_and_fix(new_caption_data)
+
+        if not verified_caption:
+            raise Exception("Generated caption failed quality check")
+
+        # Format the response
+        new_caption = verified_caption.get('full_caption', '')
+        new_preview = verified_caption.get('hook', '')
+        new_hashtags = verified_caption.get('hashtags', '')
+
+        print(f"[SUCCESS] Caption regenerated successfully")
+        return {
+            "caption": new_caption,
+            "preview_text": new_preview,
+            "hashtags": new_hashtags,
+            "caption_data": verified_caption
+        }
+
+    except Exception as e:
+        print(f"[ERROR] Caption regeneration failed: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Caption regeneration failed: {str(e)}")
 
 @router.post("/update-post-image")
 async def update_post_image(payload: Dict[str, Any], user: User = Depends(get_current_user)):

@@ -633,6 +633,16 @@ class SwipeApp {
                 return;
             }
 
+            // 1.5. Caption Regeneration
+            const isCaptionRegen = target.id === 'regen-caption-btn' || target.closest('#regen-caption-btn');
+            if (isCaptionRegen) {
+                e.preventDefault();
+                console.log("[DEBUG] Caption regen button clicked (global)", target);
+                alert("Caption regeneration clicked!"); // Temporary alert for testing
+                await this.handleCaptionRegeneration();
+                return;
+            }
+
             // 2. Show Image Edit UI
             const isEditTrigger = target.id === 'edit-image-btn' ||
                 target.id === 'edit-image-btn-main' ||
@@ -868,6 +878,74 @@ class SwipeApp {
         }
     }
 
+    async handleCaptionRegeneration() {
+        const finalPostId = this.currentPostId || (this.generatedPost ? this.generatedPost.post_id || this.generatedPost.id : null);
+        console.log("[DEBUG] Starting caption regeneration. Job ID:", this.currentJobId, "Post ID:", finalPostId);
+
+        const captionBtn = document.getElementById('regen-caption-btn');
+
+        if (captionBtn) {
+            captionBtn.disabled = true;
+            captionBtn.innerHTML = '<div class="mini-spinner" style="width: 12px; height: 12px; border-width: 1px;"></div>';
+        }
+
+        if (window.Toast) window.Toast.show("Regenerating caption...", "info");
+
+        try {
+            console.log("[DEBUG] Calling window.Api.regenerateCaption...");
+            const data = await window.Api.regenerateCaption(this.currentJobId, finalPostId);
+
+            if (!data) throw new Error("Caption regeneration returned empty response");
+
+            // Update the caption in the UI
+            const captionEl = document.querySelector('.preview-caption');
+            if (captionEl) {
+                captionEl.textContent = data.caption || data.preview_text || "Caption generated...";
+            }
+
+            // Update hashtags if present
+            if (data.hashtags) {
+                let hashtagsEl = document.querySelector('.preview-hashtags');
+                if (!hashtagsEl) {
+                    // Create hashtags element if it doesn't exist
+                    const previewContent = document.querySelector('.preview-content');
+                    if (previewContent) {
+                        hashtagsEl = document.createElement('div');
+                        hashtagsEl.className = 'preview-hashtags';
+                        previewContent.appendChild(hashtagsEl);
+                    }
+                }
+                if (hashtagsEl) {
+                    hashtagsEl.innerHTML = data.hashtags;
+                }
+            }
+
+            // Update the generated post data
+            if (this.generatedPost) {
+                this.generatedPost.text = data.caption;
+                this.generatedPost.preview_text = data.preview_text;
+                this.generatedPost.hashtags = data.hashtags;
+                this.generatedPost.caption_data = data.caption_data;
+            }
+
+            if (window.Toast) window.Toast.show("Caption regenerated successfully!", "success");
+
+        } catch (e) {
+            console.error("Caption Regeneration Error:", e);
+            if (window.Toast) window.Toast.show("Failed to regenerate caption: " + e.message, "error");
+        } finally {
+            if (captionBtn) {
+                captionBtn.disabled = false;
+                captionBtn.innerHTML = `
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                    </svg>
+                `;
+            }
+        }
+    }
+
     async finalizeGeneration(imgPrefs) {
         const gBtn = document.getElementById('finalize-generate-btn');
         if (!gBtn) return;
@@ -1043,6 +1121,8 @@ class SwipeApp {
         if (editContainer) editContainer.classList.add('hidden');
         if (editImgBtnMain) editImgBtnMain.classList.remove('hidden');
 
+        console.log("[DEBUG] Rendering post result with imageUrl:", imageUrl);
+
         container.innerHTML = `
             <div class="post-preview-container">
                 <div class="preview-image">
@@ -1050,7 +1130,18 @@ class SwipeApp {
                         <div class="mini-spinner"></div>
                         <span>AI Architect is redesigning...</span>
                     </div>
-                    ${imageUrl ? `<img src="${imageUrl}" alt="Generated Infographic" class="generated-post-image">` : '<div class="preview-image-fallback">Visualization generated...<br>(check network/path)</div>'}
+                    ${imageUrl ? `
+                        <div class="image-container" style="position: relative; border: 2px solid red;">
+                            <img src="${imageUrl}" alt="Generated Infographic" class="generated-post-image">
+                            <button id="regen-caption-btn" class="caption-regen-icon" title="Regenerate Caption Only" style="position: absolute; top: 8px; right: 8px; z-index: 10; background: yellow; color: black; border: 2px solid black;">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                                </svg>
+                                <span style="font-size: 10px; margin-left: 4px; font-weight: bold;">CAPTION</span>
+                            </button>
+                        </div>
+                    ` : '<div class="preview-image-fallback">Visualization generated...<br>(check network/path)</div>'}
                 </div>
                 <div class="preview-content">
                     <div class="preview-caption" contenteditable="true" spellcheck="false" style="outline:none; border:1px dashed transparent; padding:4px;">${displayBody}</div></div>

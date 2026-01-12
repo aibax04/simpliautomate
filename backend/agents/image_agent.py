@@ -10,7 +10,7 @@ class ImageAgent:
     def __init__(self):
         # Using valid Gemini model for image generation as requested
         self.model_name = 'models/gemini-2.0-flash' # Using flash for OCR/QA
-        self.image_model_name = 'models/gemini-3-pro-image'
+        self.image_model_name = 'models/gemini-2.5-flash-image'
         try:
             self.model = genai.GenerativeModel(self.model_name)
             self.image_model = genai.GenerativeModel(self.image_model_name)
@@ -20,7 +20,7 @@ class ImageAgent:
         except Exception as e:
             print(f"[ERROR] Failed to initialize models: {e}")
             self.model = genai.GenerativeModel('models/gemini-2.0-flash')
-            self.image_model = genai.GenerativeModel('models/gemini-3-pro-image')
+            self.image_model = genai.GenerativeModel('models/gemini-2.5-flash-image')
 
     async def extract_and_verify_text_elements(self, visual_plan: dict) -> list:
         """
@@ -213,13 +213,13 @@ class ImageAgent:
         else:
             print(f"   [PRE-CHECK] Verified {len(verified_text_elements)} text elements for image")
 
-        # Mandatory quality rules as per strict senior engineer requirements
+        # Mandatory quality rules as per strict senior engineer requirements - GRAPHICS FIRST APPROACH
         spelling_rules = (
-            "CRITICAL SPELLING REQUIREMENTS: All text must be 100% grammatically correct and free of spelling errors. "
-            "Spell-check EVERY SINGLE WORD in headings, sub-headings, and body text. "
+            "CRITICAL TEXT REQUIREMENTS: If any text appears, it must be 100% grammatically correct and free of spelling errors. "
+            "Spell-check EVERY SINGLE WORD that appears anywhere in the image. "
             "Common misspellings to avoid: teh→the, recieve→receive, definately→definitely, seperate→separate, occassion→occasion, recomend→recommend. "
-            "Do not invent words, use abbreviations, or create new terminology. Use only standard professional English. "
-            "Text must be concise (under 8 words per line) and use simple, common words that are easy to read in images."
+            "PRIORITY: Minimize text usage. Replace text with charts, diagrams, icons, and visual elements whenever possible. "
+            "If text is necessary, keep it extremely concise (max 3 words per element) and use only simple, common words."
         )
         alignment_rules = (
             "LAYOUT: Headings must be center-aligned. Body text must be left-aligned. "
@@ -236,11 +236,12 @@ class ImageAgent:
             "Adequate padding around ALL text blocks. No text touching edges or overlapping."
         )
         subtext_constraints = (
-            "SUB-TEXT RULES - STRICT COMPLIANCE REQUIRED: Sub-headings and small text must use ONLY SIMPLE, COMMON English words. "
-            "APPROVED WORDS ONLY: Use words like 'Growth', 'Impact', 'Future', 'Trends', 'Innovation', 'Analysis', 'Progress', 'Results', 'Success', 'Change'. "
-            "FORBIDDEN: Long sentences, technical jargon, compound words, hyphens, complex verbs. "
-            "MAXIMUM: No small text line may exceed 8 words. No line over 4 words for optimal readability. "
-            "STYLE: Prefer simple nouns over verbs in labels. Keep everything extremely readable."
+            "GRAPHICS OVER TEXT - MAXIMUM RESTRICTION: Minimize all text usage. Replace text with visual elements whenever possible. "
+            "If text is absolutely necessary, use ONLY single words or very short phrases (max 2-3 words). "
+            "APPROVED SINGLE WORDS: Growth, Impact, Future, Trends, Innovation, Progress, Results, Success, Change, Data, Flow, Path, Goal. "
+            "FORBIDDEN: Sentences, phrases over 3 words, technical jargon, compound words, hyphens. "
+            "PRIORITY: Use charts, diagrams, flowcharts, icons, arrows, and visual metaphors instead of text labels. "
+            "STYLE: Visual communication through graphics, not text. Keep any text extremely minimal and readable."
         )
         
         # FEATURE 5: STRICT ADHERENCE TO STYLE AND PALETTE
@@ -274,17 +275,17 @@ class ImageAgent:
         # Add a unique seed identifier to ensure prompt uniqueness at the model level
         unique_id = uuid.uuid4().hex[:8]
         
-        # Refine prompt for elite, custom-styled editorial masterpiece
+        # Refine prompt for graphics-first visual design
         refined_prompt = (
             f"REF: {unique_id}. {base_prompt}. {content_grounding} {spelling_rules} {alignment_rules} {typography_rules} {subtext_constraints} "
             f"{style_rules} {palette_rules} {clarity_rules} "
-            "TEXT ACCURACY FIRST: Prioritize perfect spelling and readability over visual effects. "
+            "GRAPHICS FIRST, TEXT LAST: Prioritize charts, diagrams, flowcharts, and visual elements over text. Replace text-heavy areas with graphical representations. "
             "Quality: Elite Studio-Grade, 4K resolution, razor-sharp vector edges, zero blur. "
-            "Visual Depth: Rich multi-layered composition with subtle drop shadows, glowing highlights, and sophisticated texture hierarchy. "
-            "Information Density: High-fidelity layout featuring complex data visualizations and clearly defined insight cards. "
-            "Aesthetic: Premium journalism, crisp, credible, and polished. "
-            "CRITICAL TEXT REQUIREMENTS: All text must be perfectly spelled, clearly readable, properly aligned, and use only approved vocabulary. "
-            "Strictly FORBID: Generic AI glow, overcrowded clutter, surreal artifacts, ANY spelling errors, text overlap, low contrast text, or unreadable fonts."
+            "Visual Communication: Use charts, diagrams, icons, arrows, and spatial relationships to convey information instead of text. "
+            "Minimal Text Design: If any text appears, it must be perfectly spelled, clearly readable, and extremely concise (max 3 words). "
+            "Aesthetic: Clean, professional graphics-focused design with minimal text overlay. "
+            "CRITICAL REQUIREMENTS: Replace text with visual metaphors. Use graphical elements for data representation. Ensure perfect spelling in any text present. "
+            "Strictly FORBID: Text walls, paragraph text, ANY spelling errors, text overlap, generic AI artifacts, or cluttered layouts."
         )
         
         # Absolute path normalization

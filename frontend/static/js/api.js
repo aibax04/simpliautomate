@@ -295,6 +295,15 @@ const Api = {
         return await this.handleResponse(response);
     },
 
+    async regenerateCaption(jobId, postId) {
+        const response = await fetch('/api/regenerate-caption', {
+            method: 'POST',
+            headers: this.getHeaders(),
+            body: JSON.stringify({ job_id: jobId, post_id: postId })
+        });
+        return await this.handleResponse(response);
+    },
+
     async updatePostImage(imageUrl, postId, editPrompt = null) {
         const body = { image_url: imageUrl, post_id: postId };
         if (editPrompt) body.edit_prompt = editPrompt;

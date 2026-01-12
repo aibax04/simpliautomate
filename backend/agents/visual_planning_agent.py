@@ -48,15 +48,17 @@ class VisualPlanningAgent:
             """
             visual_type = "custom_creative_piece"
         else:
-            persona = "Elite Data Journalist and Visual Editor at a top-tier newsroom (NYT, Bloomberg)"
-            objective = f"Design an elite editorial infographic for this news update: '{headline}'."
+            persona = "Elite Data Visualization Designer and Information Architect"
+            objective = f"Design a clean, graphical visualization for this news: '{headline}'."
             guidelines = f"""
-            1. Information Density: Rich layout with multiple visual layers.
-            2. Supporting Elements: A primary data visualization and at least two 'Insight Cards' using the provided strategic insights.
-            3. Editorial Hierarchy: Clear visual flow from Headline -> Summary -> Deep Dive.
+            1. GRAPHICS-FIRST APPROACH: Prioritize charts, diagrams, and visual metaphors over text.
+            2. MINIMAL TEXT: Use only essential single words or short phrases (max 3 words per text element).
+            3. VISUAL ELEMENTS: Include flowcharts, bar charts, pie charts, timelines, icons, or conceptual diagrams.
+            4. INFORMATION ARCHITECTURE: Structure information visually through shapes, colors, and spatial relationships.
+            5. NO WALLS OF TEXT: Replace text-heavy sections with corresponding visual representations.
             {branding_note}
             """
-            visual_type = "studio_grade_infographic"
+            visual_type = "minimal_visual_infographic"
 
         prompt = f"""
         Act as an {persona}.
@@ -67,12 +69,14 @@ class VisualPlanningAgent:
         MANDATORY STYLE: {image_style}
         MANDATORY COLOR PALETTE: {image_palette}
         
-        STRATEGIC INSIGHTS TO INCLUDE: {strategic_insights}
-        
-        STRICT RULES:
-        1. Linguistic Excellence: All text must be 100% free of spelling errors.
-        2. Alignment: Headings center-aligned, body text left-aligned.
-        3. Constraints: No small text line may exceed 8 words. Use simple, common English only.
+        STRATEGIC INSIGHTS TO VISUALIZE: {strategic_insights}
+
+        STRICT RULES FOR GRAPHICS-FIRST DESIGN:
+        1. TEXT MINIMIZATION: Use ONLY single words or very short phrases (max 3 words). Replace text with visual elements.
+        2. GRAPHICAL REPRESENTATION: Convert concepts into charts, diagrams, flowcharts, icons, or visual metaphors.
+        3. VISUAL HIERARCHY: Use size, color, and position to show importance instead of text labels.
+        4. SPELLING PERFECTION: Every letter in every word must be spelled correctly.
+        5. NO WALLS OF TEXT: Replace any text-heavy areas with corresponding graphical representations.
         
         OUTPUT FORMAT (JSON):
         {{
@@ -84,10 +88,11 @@ class VisualPlanningAgent:
                 "sub": "{'' if is_custom else 'Contextual sub-headline'}"
             }},
             "visual_layers": [
-                {{"type": "primary_subject", "description": "The core visual representation of the prompt"}},
-                {{"type": "insight_overlays", "description": "How the strategic insights are visually integrated"}}
+                {{"type": "primary_chart_diagram", "description": "Main visual element: flowchart, bar chart, pie chart, timeline, or conceptual diagram representing the core idea"}},
+                {{"type": "supporting_graphics", "description": "Additional visual elements: icons, arrows, connecting elements, or secondary diagrams that support the main graphic"}},
+                {{"type": "data_visualization", "description": "Any metrics or data points represented visually through graphs, progress bars, or comparative visuals"}}
             ],
-            "image_prompt": "An elite-tier 4K 4:5 vertical masterpiece. SUBJECT: {summary if is_custom else headline}. STYLE: {image_style}. PALETTE: {image_palette}. {f'Ensure it strictly represents {summary} without generic news framing.' if is_custom else 'High-fidelity editorial infographic layout.'} Razor-sharp edges, perfect alignment, zero spelling errors. {f'Subtly include {product_info.get('name')} branding elements.' if product_info else ''}"
+            "image_prompt": "A clean, graphics-focused 4K 4:5 vertical design. MINIMAL TEXT, MAXIMUM VISUALS. SUBJECT: {summary if is_custom else headline}. STYLE: {image_style}. PALETTE: {image_palette}. PRIORITIZE: Charts, diagrams, flowcharts, icons, and visual metaphors over text explanations. Replace any text-heavy areas with corresponding graphical representations. Use visual hierarchy through size, color, and position. {f'Ensure it strictly represents {summary} as a visual concept.' if is_custom else 'Graphics-first information design with minimal text labels.'} Perfect alignment, zero spelling errors in any text present. {f'Subtly include {product_info.get('name')} branding elements.' if product_info else ''}"
         }}
         Return ONLY valid JSON.
         """

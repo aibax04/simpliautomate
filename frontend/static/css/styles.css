@@ -1018,6 +1018,46 @@ img.generated-post-image {
     display: block;
 }
 
+.image-container {
+    position: relative;
+    display: inline-block;
+    width: 100%;
+}
+
+.caption-regen-icon {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    background: rgba(255, 255, 255, 0.9);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 6px;
+    cursor: pointer;
+    opacity: 1; /* Temporarily visible for testing */
+    transition: opacity 0.2s ease, background-color 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+}
+
+.image-container:hover .caption-regen-icon {
+    opacity: 1;
+}
+
+.caption-regen-icon:hover {
+    background: rgba(255, 255, 255, 1);
+    border-color: var(--primary);
+}
+
+.caption-regen-icon svg {
+    color: var(--text-secondary);
+}
+
+.caption-regen-icon:hover svg {
+    color: var(--primary);
+}
+
 .preview-image-fallback {
     color: var(--text-secondary);
     font-size: 0.9rem;
