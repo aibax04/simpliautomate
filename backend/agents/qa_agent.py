@@ -18,12 +18,12 @@ class QualityAssuranceAgent:
         """
         prompt = f"""
         You are a Professional Editorial Lead and Senior Content Quality Specialist.
-        
+
         YOUR TASK:
         Perform a strict, comprehensive language quality audit and correction on the provided content.
-        
+
         STRICT LANGUAGE QUALITY GATE RULES:
-        1. **Spelling**: All spellings must be 100% correct. Zero tolerance for typos.
+        1. **Spelling**: All spellings must be 100% correct. Zero tolerance for typos. Check every single word.
         2. **Grammar & Structure**: Grammar must be flawless. Ensure clean, professional, and natural sentence structures.
         3. **Clarity & Flow**: Improve clarity and flow. Ensure the English is natural, fluent, and highly professional.
         4. **Tone & Style**: Remove awkward phrasing, repetition, and any informal tone. The content MUST be publication-ready.
@@ -31,10 +31,11 @@ class QualityAssuranceAgent:
         6. **URL Integrity**: NEVER modify anything inside a "source_url" field. Even if it looks like it has a typo, LEAVE IT AS IS. URLs must remain exactly as they are in the source.
         7. **Technical Accuracy**: Do NOT simplify or alter technical terms incorrectly. Maintain their professional context.
         8. **Human-Like Quality**: The content should feel like it was written by a top-tier industry journalist.
+        9. **IMAGE TEXT FOCUS**: For visual plans and image-related text, ensure text is concise (under 8 words per line), uses simple words, and will be clearly readable in images.
 
         CONTENT TO AUDIT & CORRECT:
         {json.dumps(content_bundle, indent=2)}
-        
+
         FAIL-SAFE:
         If you CANNOT guarantee 100% perfect linguistic quality and professional flow for any reason, return ONLY the string "QUALITY_CHECK_FAILED".
         Otherwise, return the corrected JSON.

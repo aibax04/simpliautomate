@@ -195,10 +195,56 @@ async def health_check():
 @app.get("/api/fetch-news")
 async def fetch_news(q: str = None, user: User = Depends(get_current_user)):
     """Endpoint to fetch and curate live news cards, supports optional search query 'q'"""
+
+    # If no search query, check database for today's news first
+    if not q:
+        try:
+            from backend.db.database import AsyncSessionLocal
+            from backend.db.models import NewsItem
+            from datetime import datetime, date
+            from sqlalchemy import select, desc
+
+            async with AsyncSessionLocal() as session:
+                # Get today's news from database with source information
+                from backend.db.models import Source
+                today = date.today()
+                stmt = select(NewsItem, Source).join(
+                    Source, NewsItem.source_id == Source.id
+                ).where(
+                    NewsItem.created_at >= today
+                ).order_by(desc(NewsItem.created_at)).limit(20)
+
+                result = await session.execute(stmt)
+                db_results = result.all()
+
+                if db_results and len(db_results) >= 5:
+                    # Convert database news to frontend format
+                    news_items = []
+                    for news_item, source in db_results:
+                        news_items.append({
+                            "headline": news_item.headline,
+                            "summary": news_item.summary,
+                            "domain": news_item.category,
+                            "source_name": source.name if source else "Daily News",
+                            "source_url": news_item.source_url,
+                            "relevance_score": 0.9,
+                            "id": f"db_{news_item.id}",
+                            "timestamp": news_item.created_at.isoformat() if news_item.created_at else None
+                        })
+
+                    print(f"[NEWS] Served {len(news_items)} news items from database")
+                    return news_items
+                else:
+                    print("[NEWS] No recent database news found, falling back to live fetch")
+
+        except Exception as e:
+            print(f"[NEWS] Database check failed: {e}, falling back to live fetch")
+
+    # Fallback to live fetching (original behavior)
     state = {"news_items": [], "status": "init"}
     if q:
         state["search_query"] = q
-        
+
     result = await graph.ainvoke(state)
     return result["news_items"]
 

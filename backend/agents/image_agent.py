@@ -22,6 +22,104 @@ class ImageAgent:
             self.model = genai.GenerativeModel('models/gemini-2.0-flash')
             self.image_model = genai.GenerativeModel('models/gemini-3-pro-image')
 
+    async def extract_and_verify_text_elements(self, visual_plan: dict) -> list:
+        """
+        Extract all text elements that will appear in the image and verify them.
+        Returns a list of verified text elements safe for image generation.
+        """
+        text_elements = []
+
+        # Extract headline
+        main_headline = visual_plan.get('headline_hierarchy', {}).get('main', '')
+        sub_headline = visual_plan.get('headline_hierarchy', {}).get('sub', '')
+
+        if main_headline:
+            text_elements.append(main_headline)
+        if sub_headline:
+            text_elements.append(sub_headline)
+
+        # Extract text from visual layers
+        for layer in visual_plan.get('visual_layers', []):
+            description = layer.get('description', '')
+            # Look for text-related descriptions
+            if any(keyword in description.lower() for keyword in ['text', 'label', 'caption', 'title']):
+                # Extract actual text content from description
+                text_content = self._extract_text_from_description(description)
+                if text_content:
+                    text_elements.append(text_content)
+
+        # Verify each text element
+        verified_elements = []
+        for text in text_elements:
+            verified_text = await self._verify_text_for_image(text)
+            if verified_text:
+                verified_elements.append(verified_text)
+
+        return verified_elements
+
+    def _extract_text_from_description(self, description: str) -> str:
+        """Extract actual text content from layer descriptions."""
+        # Look for quoted text or common patterns
+        import re
+
+        # Find text in quotes
+        quoted_text = re.findall(r'["\']([^"\']+)["\']', description)
+        if quoted_text:
+            return quoted_text[0]
+
+        # Look for common text patterns
+        text_indicators = ['show', 'display', 'text:', 'label:', 'title:']
+        for indicator in text_indicators:
+            if indicator in description.lower():
+                # Extract text after indicator
+                parts = description.lower().split(indicator, 1)
+                if len(parts) > 1:
+                    text_part = parts[1].strip()
+                    # Clean up the text
+                    text_part = re.sub(r'[^\w\s]', '', text_part).strip()
+                    if text_part and len(text_part.split()) <= 8:  # Keep it short for images
+                        return text_part
+
+        return None
+
+    async def _verify_text_for_image(self, text: str) -> str:
+        """Verify text is suitable and correctly spelled for image inclusion."""
+        if not text or len(text.strip()) == 0:
+            return None
+
+        # Basic length check (keep images readable)
+        if len(text.split()) > 8:
+            return None
+
+        prompt = f"""
+        Verify if this text is suitable for image inclusion:
+
+        Text: "{text}"
+
+        Requirements:
+        1. Perfect spelling (check every letter)
+        2. Professional language
+        3. Under 8 words
+        4. No complex punctuation
+        5. Clear and readable
+
+        If suitable, return the text exactly as-is.
+        If not suitable, return "UNSUITABLE".
+        """
+
+        try:
+            response = await self.model.generate_content_async(prompt)
+            result = response.text.strip()
+
+            if result == "UNSUITABLE" or "unsuitable" in result.lower():
+                return None
+
+            return text if result == text else None
+
+        except Exception as e:
+            print(f"[TEXT VERIFY ERROR] {e}")
+            return None
+
     async def verify_image(self, image_path: str, expected_text: str) -> bool:
         """
         Uses Gemini Multimodal to inspect the image for spelling and alignment.
@@ -42,17 +140,34 @@ class ImageAgent:
             img = PIL.Image.open(full_path)
             
             prompt = f"""
-            Inspect this generated social media infographic.
-            
+            Inspect this generated social media infographic with EXTREME attention to text accuracy.
+
             REQUIRED TEXT TO BE PRESENT: "{expected_text}"
-            
-            CHECKLIST FOR OCR & VISUAL QUALITY:
-            1. SPELLING: Is every word from the required text spelled correctly in the image? Check for typos, character swaps, or missing letters.
-            2. ALIGNMENT: Is the text centered or correctly aligned? Is any text overlapping, crowded, or cut off at the edges?
-            3. READABILITY: Is the contrast high enough to read the text?
-            
-            If there are ANY spelling errors or bad alignment issues, respond ONLY with "FAIL: [brief description]".
-            If it is perfect and free of spelling/alignment issues, respond ONLY with "PASS".
+
+            COMPREHENSIVE CHECKLIST FOR TEXT & VISUAL QUALITY:
+
+            SPELLING VERIFICATION (CRITICAL):
+            1. Check EVERY SINGLE WORD in the required text
+            2. Look for: typos, missing letters, extra letters, swapped letters
+            3. Verify punctuation is correct and present
+            4. Check for common misspellings (teh→the, recieve→receive, etc.)
+
+            TEXT CONSISTENCY:
+            5. Is the text exactly as specified (no paraphrasing or changes)?
+            6. Are all words properly capitalized?
+            7. Is the text complete (no truncation or cutting off)?
+
+            VISUAL QUALITY:
+            8. Is text clearly readable with good contrast?
+            9. Is text properly aligned and not overlapping?
+            10. Is font size adequate for readability?
+            11. Is there sufficient spacing around text?
+
+            OCR ACCURACY TEST:
+            12. Extract the actual text from the image and compare character-by-character
+
+            If there are ANY spelling errors, text inconsistencies, or readability issues, respond ONLY with "FAIL: [specific issue description]".
+            If the image is PERFECT with 100% accurate text and excellent readability, respond ONLY with "PASS".
             """
             
             # Call Gemini Vision (using the flash model which is excellent at OCR)
@@ -89,12 +204,22 @@ class ImageAgent:
         Generates an infographic image using the specified Gemini model.
         Saves locally and returns the URL path.
         """
+        # PRE-GENERATION TEXT VERIFICATION: Extract and verify all text elements
+        print("   [PRE-CHECK] Verifying text elements for image generation...")
+        verified_text_elements = await self.extract_and_verify_text_elements(visual_plan)
+
+        if not verified_text_elements:
+            print("   [PRE-CHECK] Warning: No verified text elements found")
+        else:
+            print(f"   [PRE-CHECK] Verified {len(verified_text_elements)} text elements for image")
+
         # Mandatory quality rules as per strict senior engineer requirements
         spelling_rules = (
-            "CRITICAL: All text must be grammatically correct and free of spelling errors. "
-            "Spell-check all sub-headings and body text twice before finalizing. "
-            "If unsure about spelling, rephrase using simpler words. "
-            "Do not invent words or abbreviations. Use standard professional English only."
+            "CRITICAL SPELLING REQUIREMENTS: All text must be 100% grammatically correct and free of spelling errors. "
+            "Spell-check EVERY SINGLE WORD in headings, sub-headings, and body text. "
+            "Common misspellings to avoid: teh→the, recieve→receive, definately→definitely, seperate→separate, occassion→occasion, recomend→recommend. "
+            "Do not invent words, use abbreviations, or create new terminology. Use only standard professional English. "
+            "Text must be concise (under 8 words per line) and use simple, common words that are easy to read in images."
         )
         alignment_rules = (
             "LAYOUT: Headings must be center-aligned. Body text must be left-aligned. "
@@ -102,17 +227,20 @@ class ImageAgent:
             "No diagonal or curved text. Clear separation between sections."
         )
         typography_rules = (
-            "TYPOGRAPHY: Use one sans-serif font family only. Clear hierarchy: "
-            "1) Primary heading: can be expressive. "
-            "2) Sub-headings: must be concise and spell-checked. "
-            "3) Small text / labels: must be minimal, dictionary-valid words only. "
-            "High contrast text on background. Adequate padding around text blocks."
+            "TYPOGRAPHY REQUIREMENTS: Use one sans-serif font family only (Arial, Helvetica, or Calibri). "
+            "Clear hierarchy with proper contrast: "
+            "1) Primary heading: can be expressive but must be readable. "
+            "2) Sub-headings: must be concise (under 8 words), spell-checked, and clearly legible. "
+            "3) Small text/labels: must use only minimal, dictionary-valid words with no jargon. "
+            "ENSURE HIGH CONTRAST: Black/dark text on light backgrounds, white/light text on dark backgrounds. "
+            "Adequate padding around ALL text blocks. No text touching edges or overlapping."
         )
         subtext_constraints = (
-            "SUB-TEXT RULES: Sub-headings and small text must use SIMPLE, COMMON English words only. "
-            "Avoid long sentences in small text. Avoid technical jargon in small text. "
-            "No small text line may exceed 8 words. No compound or hyphenated words in small text. "
-            "Prefer nouns over verbs in labels."
+            "SUB-TEXT RULES - STRICT COMPLIANCE REQUIRED: Sub-headings and small text must use ONLY SIMPLE, COMMON English words. "
+            "APPROVED WORDS ONLY: Use words like 'Growth', 'Impact', 'Future', 'Trends', 'Innovation', 'Analysis', 'Progress', 'Results', 'Success', 'Change'. "
+            "FORBIDDEN: Long sentences, technical jargon, compound words, hyphens, complex verbs. "
+            "MAXIMUM: No small text line may exceed 8 words. No line over 4 words for optimal readability. "
+            "STYLE: Prefer simple nouns over verbs in labels. Keep everything extremely readable."
         )
         
         # FEATURE 5: STRICT ADHERENCE TO STYLE AND PALETTE
@@ -150,11 +278,13 @@ class ImageAgent:
         refined_prompt = (
             f"REF: {unique_id}. {base_prompt}. {content_grounding} {spelling_rules} {alignment_rules} {typography_rules} {subtext_constraints} "
             f"{style_rules} {palette_rules} {clarity_rules} "
+            "TEXT ACCURACY FIRST: Prioritize perfect spelling and readability over visual effects. "
             "Quality: Elite Studio-Grade, 4K resolution, razor-sharp vector edges, zero blur. "
             "Visual Depth: Rich multi-layered composition with subtle drop shadows, glowing highlights, and sophisticated texture hierarchy. "
             "Information Density: High-fidelity layout featuring complex data visualizations and clearly defined insight cards. "
             "Aesthetic: Premium journalism, crisp, credible, and polished. "
-            "Strictly FORBID: Generic AI glow, overcrowded clutter, surreal artifacts, or any spelling errors."
+            "CRITICAL TEXT REQUIREMENTS: All text must be perfectly spelled, clearly readable, properly aligned, and use only approved vocabulary. "
+            "Strictly FORBID: Generic AI glow, overcrowded clutter, surreal artifacts, ANY spelling errors, text overlap, low contrast text, or unreadable fonts."
         )
         
         # Absolute path normalization
