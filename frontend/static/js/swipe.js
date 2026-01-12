@@ -1131,22 +1131,13 @@ class SwipeApp {
             window.app.newsCache = window.app.newsCache || {};
             window.app.newsCache[tempId] = item;
 
-            // Extract keyword from domain (comprehensive mapping)
+            // Extract keyword from domain (focused mapping for top 5 ventures)
             const keywordMap = {
                 'HealthTech': 'Healthcare',
-                'FinTech': 'Finance',
-                'LLMOps': 'AI',
-                'Industrial IoT': 'IoT',
-                'Urban Tech': 'Urban',
-                'LegalTech': 'Legal',
-                'HR Tech': 'HR',
-                'Generative NLP': 'AI',
-                'Industrial AI': 'AI',
-                'Secure AI': 'Security',
-                'Consumer AI': 'AI',
-                'EdTech': 'Education',
-                'AI in Marketing': 'Marketing',
-                'CivicTech': 'Civic'
+                'Legal': 'Legal',
+                'Judiciary AI': 'Judiciary',
+                'LLM Models': 'AI',
+                'Media AI': 'Media'
             };
 
             const topic = item.domain || 'General';

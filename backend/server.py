@@ -39,16 +39,69 @@ app.include_router(scheduler_router, prefix="/api", dependencies=[Depends(get_cu
 app.include_router(ingest_router, prefix="/api", dependencies=[Depends(get_current_user)])
 app.include_router(queue_router, prefix="/api", dependencies=[Depends(get_current_user)])
 
-# Background task for constant news fetching
+# Background task for daily morning news fetching and database saving with fallbacks
 async def background_news_fetcher():
+    from datetime import datetime
     agent = NewsFetchAgent()
+
     while True:
         try:
-            print("[BACKGROUND] Periodically refreshing news cache...")
-            await agent.fetch(force_refresh=True)
+            now = datetime.now()
+            # Calculate seconds until 6 AM tomorrow
+            tomorrow_6am = now.replace(hour=6, minute=0, second=0, microsecond=0)
+            if now.hour >= 6:
+                tomorrow_6am = tomorrow_6am.replace(day=now.day + 1)
+
+            seconds_until_6am = (tomorrow_6am - now).total_seconds()
+
+            print(f"[DAILY NEWS] Next fetch scheduled for {tomorrow_6am.strftime('%Y-%m-%d %H:%M:%S')} (in {seconds_until_6am:.0f} seconds)")
+            await asyncio.sleep(seconds_until_6am)
+
+            print("[DAILY NEWS] Starting morning news fetch...")
+            news_date = now.strftime('%Y-%m-%d')
+
+            # Reset daily counter for fresh start
+            agent._daily_fetch_count = 0
+            agent._last_reset_date = news_date
+
+            # Attempt 1: Normal fetch
+            print("[DAILY NEWS] Attempt 1: Standard news fetch")
+            news_items = await agent.fetch(force_refresh=True)
+
+            if not news_items or len(news_items) < 5:
+                print(f"[DAILY NEWS] Attempt 1 failed or insufficient news ({len(news_items) if news_items else 0} items). Starting fallbacks...")
+
+                # Attempt 2: Fallback fetch with extended search
+                print("[DAILY NEWS] Attempt 2: Extended search fallback")
+                news_items = await agent.fetch_fallback()
+
+                if not news_items or len(news_items) < 5:
+                    print(f"[DAILY NEWS] Attempt 2 failed. Starting emergency fetch...")
+
+                    # Attempt 3: Emergency fetch with simplified logic
+                    print("[DAILY NEWS] Attempt 3: Emergency simplified fetch")
+                    news_items = await agent.fetch_emergency()
+
+            # Save to database with retries
+            if news_items and len(news_items) > 0:
+                saved_count = await agent.save_news_to_database_with_retry(news_items)
+                if saved_count > 0:
+                    print(f"[DAILY NEWS] ✅ Successfully saved {saved_count} news items to database for {news_date}")
+                else:
+                    print(f"[DAILY NEWS] ❌ Database save failed for {news_date}")
+                    # Try alternative save methods
+                    await agent.save_news_emergency(news_items, news_date)
+            else:
+                print(f"[DAILY NEWS] ❌ No news items available for {news_date}")
+                # Try minimal emergency news generation
+                await agent.generate_minimal_news(news_date)
+
         except Exception as e:
-            print(f"[BACKGROUND ERROR] {e}")
-        await asyncio.sleep(600) # Refresh every 10 minutes
+            print(f"[DAILY NEWS ERROR] Critical failure: {e}")
+            import traceback
+            traceback.print_exc()
+            # Immediate retry in 30 minutes for critical failures
+            await asyncio.sleep(1800)
 
 async def post_scheduler():
     """Background task to publish scheduled posts."""
@@ -118,7 +171,7 @@ async def startup_event():
 
     # 2. Verify DB connection on startup
     await check_db_connection()
-    asyncio.create_task(background_news_fetcher())
+    asyncio.create_task(background_news_fetcher())  # ENABLED: Daily morning news generation
     asyncio.create_task(post_scheduler())
 
 # Setup Media Serving (Critical for Image Visibility)

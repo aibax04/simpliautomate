@@ -16,12 +16,10 @@ class Config:
     SECRET_KEY = os.getenv("SECRET_KEY", "prod-secret-change-this-in-render-env")
     DATABASE_URL = os.getenv("DATABASE_URL")
     
-    # Expanded Categories for variety and domain-specific news
+    # Focused Categories for top 5 ventures only
     CATEGORIES = [
-        "HealthTech", "FinTech", "LLMOps", "Industrial IoT", 
-        "Urban Tech", "LegalTech", "HR Tech", "Generative NLP", 
-        "Industrial AI", "Secure AI", "Consumer AI", "EdTech", 
-        "AI in Marketing", "CivicTech"
+        "HealthTech", "Legal", "Judiciary AI",
+        "LLM Models", "Media AI"
     ]
 
     # Email SMTP Settings

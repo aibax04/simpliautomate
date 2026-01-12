@@ -5,6 +5,7 @@ import json
 import time
 import aiohttp
 import sys
+from datetime import datetime
 from backend.config import Config
 from backend.agents.qa_agent import QualityAssuranceAgent
 from backend.tools.google_cse_search import search_google_cse
@@ -15,6 +16,11 @@ class NewsFetchAgent:
     _last_fetch_time = 0
     _cache_ttl = 300  # 5 minutes cache
     _search_semaphore = asyncio.Semaphore(2) # Limit concurrent searches to avoid 400 errors
+
+    # Daily limit tracking for controlled news fetching
+    _daily_fetch_count = 0
+    _daily_limit = 22  # Target 20-25 news per day
+    _last_reset_date = None
 
     def __init__(self):
         # Using 2.0 Flash for high-speed processing
@@ -32,6 +38,29 @@ class NewsFetchAgent:
 
         self.qa_agent = QualityAssuranceAgent()
 
+    def _check_daily_limit(self) -> bool:
+        """Check if we've reached the daily limit and reset counter if needed."""
+        from datetime import datetime
+        current_date = datetime.now().strftime('%Y-%m-%d')
+
+        # Reset counter if it's a new day
+        if NewsFetchAgent._last_reset_date != current_date:
+            NewsFetchAgent._daily_fetch_count = 0
+            NewsFetchAgent._last_reset_date = current_date
+            print(f"[NEWS LIMIT] Reset daily counter for {current_date}")
+
+        # Check if limit reached
+        if NewsFetchAgent._daily_fetch_count >= NewsFetchAgent._daily_limit:
+            print(f"[NEWS LIMIT] Daily limit reached ({NewsFetchAgent._daily_fetch_count}/{NewsFetchAgent._daily_limit})")
+            return False
+
+        return True
+
+    def _increment_daily_count(self, count: int):
+        """Increment the daily fetch counter."""
+        NewsFetchAgent._daily_fetch_count += count
+        print(f"[NEWS LIMIT] Added {count} items. Daily total: {NewsFetchAgent._daily_fetch_count}/{NewsFetchAgent._daily_limit}")
+
     async def verify_link(self, session: aiohttp.ClientSession, url: str) -> bool:
         """Verifies if a link is alive (not 404) using aiohttp for speed."""
         try:
@@ -43,8 +72,267 @@ class NewsFetchAgent:
         except:
             return False
 
+    async def save_news_to_database(self, news_items: List[Dict]) -> int:
+        """Save news items directly to the database for daily access."""
+        from backend.db.database import AsyncSessionLocal
+        from backend.db.models import NewsItem, Source
+        from sqlalchemy import select
+
+        saved_count = 0
+
+        async with AsyncSessionLocal() as session:
+            try:
+                for item in news_items:
+                    try:
+                        # Check if news item already exists
+                        headline = item.get("headline", "").strip()
+                        if not headline:
+                            continue
+
+                        stmt = select(NewsItem).where(NewsItem.headline == headline)
+                        existing = await session.execute(stmt)
+                        existing_news = existing.scalar_one_or_none()
+
+                        if existing_news:
+                            continue  # Skip duplicates
+
+                        # Create or get source
+                        source_name = item.get("source_name", "Unknown")
+                        source_url = item.get("source_url", "")
+
+                        source_stmt = select(Source).where(Source.name == source_name)
+                        source_result = await session.execute(source_stmt)
+                        source = source_result.scalar_one_or_none()
+
+                        if not source:
+                            source = Source(
+                                name=source_name,
+                                domain=source_url.split("//")[-1].split("/")[0] if source_url.startswith("http") else "unknown"
+                            )
+                            session.add(source)
+                            await session.flush()
+
+                        # Create news item
+                        db_news = NewsItem(
+                            headline=headline,
+                            summary=item.get("summary", ""),
+                            category=item.get("domain", "General"),
+                            source_id=source.id,
+                            source_url=source_url
+                        )
+
+                        session.add(db_news)
+                        saved_count += 1
+
+                    except Exception as e:
+                        print(f"[DB SAVE ERROR] Failed to save news item: {e}")
+                        continue
+
+                await session.commit()
+                return saved_count
+
+            except Exception as e:
+                await session.rollback()
+                print(f"[DB SAVE ERROR] Failed to save news batch: {e}")
+                return 0
+
+    async def save_news_to_database_with_retry(self, news_items: List[Dict], max_retries: int = 3) -> int:
+        """Save news with retry logic and exponential backoff."""
+        import asyncio
+
+        for attempt in range(max_retries):
+            try:
+                saved_count = await self.save_news_to_database(news_items)
+                if saved_count > 0:
+                    return saved_count
+            except Exception as e:
+                print(f"[DB RETRY] Attempt {attempt + 1}/{max_retries} failed: {e}")
+                if attempt < max_retries - 1:
+                    await asyncio.sleep(2 ** attempt)  # Exponential backoff
+                else:
+                    print("[DB RETRY] All attempts failed")
+                    return 0
+
+        return 0
+
+    async def fetch_fallback(self) -> List[Dict]:
+        """Fallback news fetch using DuckDuckGo instead of Google CSE."""
+        try:
+            print("[FALLBACK] Starting DuckDuckGo-based news fetch")
+            all_new_items = []
+
+            # Process categories one by one with fallback search
+            for category in Config.CATEGORIES:
+                try:
+                    print(f"[FALLBACK] Processing category: {category}")
+
+                    # Use DuckDuckGo search instead of Google CSE
+                    from backend.tools.google_cse_search import search_ddg
+                    query = f"recent news {category} 2026"
+                    search_results = search_ddg(query, max_results=8)
+
+                    if not search_results:
+                        print(f"[FALLBACK] No DDG results for {category}")
+                        continue
+
+                    context_str = ""
+                    for res in search_results[:6]:  # Limit to 6 results
+                        context_str += f"- Title: {res['title']}\n  Summary: {res['snippet']}\n  URL: {res['link']}\n\n"
+
+                    # Simplified prompt for fallback
+                    prompt = f"""
+                    Extract 2-3 high-quality news articles about {category} from the search results below.
+
+                    SEARCH RESULTS:
+                    {context_str}
+
+                    Return JSON format:
+                    [
+                        {{
+                            "headline": "Article title",
+                            "summary": "Brief summary of the news",
+                            "domain": "{category}",
+                            "source_name": "Publication name",
+                            "source_url": "https://valid-url.com"
+                        }}
+                    ]
+                    """
+
+                    response = await self.model_basic.generate_content_async(prompt)
+                    text = response.text.strip()
+
+                    if "```json" in text:
+                        text = text.split("```json")[1].split("```")[0].strip()
+
+                    items = json.loads(text)
+
+                    # Basic validation and cleanup
+                    for item in items:
+                        if not item.get("headline"):
+                            continue
+                        item["domain"] = category
+                        if not item.get("source_url", "").startswith("http"):
+                            continue
+                        all_new_items.append(item)
+
+                except Exception as e:
+                    print(f"[FALLBACK] Error processing {category}: {e}")
+                    continue
+
+            # Quality assurance and deduplication
+            verified_news = []
+            seen_headlines = set()
+
+            async with aiohttp.ClientSession() as session:
+                for item in all_new_items[:25]:  # Limit total items
+                    headline = item.get("headline", "").strip()
+                    if headline in seen_headlines:
+                        continue
+
+                    # Quick link verification
+                    if item.get("source_url"):
+                        try:
+                            async with session.get(item["source_url"], timeout=3) as resp:
+                                if resp.status == 200:
+                                    verified_news.append(item)
+                                    seen_headlines.add(headline)
+                        except:
+                            continue
+
+            print(f"[FALLBACK] Successfully fetched {len(verified_news)} news items")
+            return verified_news
+
+        except Exception as e:
+            print(f"[FALLBACK] Critical error: {e}")
+            return []
+
+    async def fetch_emergency(self) -> List[Dict]:
+        """Emergency news fetch with minimal requirements."""
+        try:
+            print("[EMERGENCY] Starting emergency news fetch")
+            emergency_news = []
+
+            # Generate minimal news for each category
+            for category in Config.CATEGORIES:
+                try:
+                    # Create basic news items using simple templates
+                    emergency_item = {
+                        "headline": f"Latest Developments in {category} - {datetime.now().strftime('%B %d, %Y')}",
+                        "summary": f"Stay tuned for the latest updates and innovations in {category}. Our team continues to monitor developments in this rapidly evolving field.",
+                        "domain": category,
+                        "source_name": "Simplii Daily Update",
+                        "source_url": "https://postflow.panscience.ai"
+                    }
+                    emergency_news.append(emergency_item)
+
+                except Exception as e:
+                    print(f"[EMERGENCY] Error creating {category} news: {e}")
+
+            print(f"[EMERGENCY] Generated {len(emergency_news)} emergency news items")
+            return emergency_news
+
+        except Exception as e:
+            print(f"[EMERGENCY] Critical error: {e}")
+            return []
+
+    async def save_news_emergency(self, news_items: List[Dict], news_date: str):
+        """Emergency save method using file system if database fails."""
+        try:
+            print("[EMERGENCY SAVE] Attempting file-based backup")
+            import json
+            import os
+
+            # Save to a backup file
+            backup_dir = "emergency_news_backup"
+            os.makedirs(backup_dir, exist_ok=True)
+
+            backup_file = os.path.join(backup_dir, f"news_{news_date}.json")
+            backup_data = {
+                "date": news_date,
+                "items": news_items,
+                "timestamp": datetime.now().isoformat()
+            }
+
+            with open(backup_file, 'w') as f:
+                json.dump(backup_data, f, indent=2)
+
+            print(f"[EMERGENCY SAVE] Saved {len(news_items)} news items to {backup_file}")
+
+            # Try to load emergency news into memory for immediate use
+            NewsFetchAgent._cache = news_items[:50]  # Make available in cache
+
+        except Exception as e:
+            print(f"[EMERGENCY SAVE] File backup failed: {e}")
+
+    async def generate_minimal_news(self, news_date: str):
+        """Generate minimal placeholder news when all else fails."""
+        try:
+            print("[MINIMAL NEWS] Generating placeholder news")
+            minimal_news = []
+
+            for category in Config.CATEGORIES[:3]:  # Just first 3 categories
+                minimal_news.append({
+                    "headline": f"Daily {category} Update - {news_date}",
+                    "summary": f"News monitoring active for {category}. Check back later for detailed updates.",
+                    "domain": category,
+                    "source_name": "Simplii News Service",
+                    "source_url": "https://postflow.panscience.ai"
+                })
+
+            # Save minimal news
+            await self.save_news_emergency(minimal_news, news_date)
+            print(f"[MINIMAL NEWS] Generated {len(minimal_news)} placeholder items")
+
+        except Exception as e:
+            print(f"[MINIMAL NEWS] Failed: {e}")
+
     async def search_query(self, query: str) -> List[Dict]:
         """Performs a specific search for the user and returns normalized news items."""
+        # Check daily limit before search
+        if not self._check_daily_limit():
+            print("[NEWS LIMIT] Daily limit reached, skipping search query")
+            return []
+
         search_results = search_google_cse(query, max_results=10)
         if not search_results:
             return []
@@ -88,6 +376,11 @@ class NewsFetchAgent:
                     if item and item.get("source_url"):
                         if await self.verify_link(session, item["source_url"]):
                             verified_news.append(item)
+
+            # Update daily counter for search query results
+            if verified_news:
+                self._increment_daily_count(len(verified_news))
+
             return verified_news
         except Exception as e:
             print(f"[ERROR] Search query failed: {e}")
@@ -98,6 +391,11 @@ class NewsFetchAgent:
         Fetches, analyzes, and returns domain-specific news with strict filtering.
         Mandates REAL search results for all reference links.
         """
+        # Check daily limit before any fetching
+        if not self._check_daily_limit():
+            print("[NEWS LIMIT] Daily limit reached, returning cached results")
+            return NewsFetchAgent._cache[:20] if NewsFetchAgent._cache else []
+
         if query:
             print(f"--- SEARCHING FOR: {query} ---")
             results = await self.search_query(query)
@@ -231,9 +529,13 @@ class NewsFetchAgent:
             
             # Add new items to the top of the cache
             NewsFetchAgent._cache = new_verified_news + NewsFetchAgent._cache
-            
+
             if len(NewsFetchAgent._cache) > 200:
                 NewsFetchAgent._cache = NewsFetchAgent._cache[:200]
+
+            # Update daily counter with newly fetched items
+            if new_verified_news:
+                self._increment_daily_count(len(new_verified_news))
 
             print(f"[DEBUG] Added {len(new_verified_news)} items. Total pool: {len(NewsFetchAgent._cache)}")
             

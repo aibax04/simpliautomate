@@ -10,7 +10,7 @@ class ImageAgent:
     def __init__(self):
         # Using valid Gemini model for image generation as requested
         self.model_name = 'models/gemini-2.0-flash' # Using flash for OCR/QA
-        self.image_model_name = 'models/gemini-2.5-flash-image'
+        self.image_model_name = 'models/gemini-3-pro-image'
         try:
             self.model = genai.GenerativeModel(self.model_name)
             self.image_model = genai.GenerativeModel(self.image_model_name)
@@ -20,7 +20,7 @@ class ImageAgent:
         except Exception as e:
             print(f"[ERROR] Failed to initialize models: {e}")
             self.model = genai.GenerativeModel('models/gemini-2.0-flash')
-            self.image_model = genai.GenerativeModel('models/gemini-2.5-flash-image')
+            self.image_model = genai.GenerativeModel('models/gemini-3-pro-image')
 
     async def verify_image(self, image_path: str, expected_text: str) -> bool:
         """

@@ -114,3 +114,17 @@ async def login(login_data: LoginRequest, db: AsyncSession = Depends(get_db)):
 @router.get("/me")
 async def read_users_me(current_user: User = Depends(get_current_user)):
     return {"id": current_user.id, "username": current_user.username, "email": current_user.email}
+
+@router.get("/api-token")
+async def get_api_token(current_user: User = Depends(get_current_user)):
+    """Generate a JWT API token for Chrome extension use"""
+    from backend.auth.security import create_access_token
+
+    # Create a proper JWT token with the user's email
+    token = create_access_token({"sub": current_user.email})
+
+    return {
+        "token": token,
+        "user_id": current_user.id,
+        "message": "Copy this token and paste it into the Chrome extension"
+    }
