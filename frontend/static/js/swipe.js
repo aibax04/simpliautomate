@@ -325,7 +325,7 @@ class SwipeApp {
         const card = document.createElement('div');
         card.className = 'card';
         card.style.backgroundColor = data.palette.bg;
-        card.style.borderTop = `6px solid ${data.palette.accent} `;
+        card.style.borderTop = `6px solid ${data.palette.accent}`;
 
         card.innerHTML = `
             <div class="category" style="color: ${data.palette.accent}">${data.domain}</div>
@@ -637,8 +637,7 @@ class SwipeApp {
             const isCaptionRegen = target.id === 'regen-caption-btn' || target.closest('#regen-caption-btn');
             if (isCaptionRegen) {
                 e.preventDefault();
-                console.log("[DEBUG] Caption regen button clicked (global)", target);
-                alert("Caption regeneration clicked!"); // Temporary alert for testing
+                console.log("[DEBUG] Caption regen button clicked (global handler)");
                 await this.handleCaptionRegeneration();
                 return;
             }
@@ -879,6 +878,7 @@ class SwipeApp {
     }
 
     async handleCaptionRegeneration() {
+        alert("Caption regeneration button clicked! Method called.");
         const finalPostId = this.currentPostId || (this.generatedPost ? this.generatedPost.post_id || this.generatedPost.id : null);
         console.log("[DEBUG] Starting caption regeneration. Job ID:", this.currentJobId, "Post ID:", finalPostId);
 
@@ -1064,7 +1064,10 @@ class SwipeApp {
     }
 
     openResult(job) {
+        console.log("[DEBUG] openResult called with job:", job);
         const result = job.result || job;
+        console.log("[DEBUG] Result object:", result);
+        console.log("[DEBUG] Image URL:", result.image_url);
         this.generatedPost = result;
         this.currentJobId = job.id || job.job_id || null;
         this.currentPostId = result.post_id || null;
@@ -1131,9 +1134,9 @@ class SwipeApp {
                         <span>AI Architect is redesigning...</span>
                     </div>
                     ${imageUrl ? `
-                        <div class="image-container" style="position: relative; border: 2px solid red;">
+                        <div class="image-container">
                             <img src="${imageUrl}" alt="Generated Infographic" class="generated-post-image">
-                            <button id="regen-caption-btn" class="caption-regen-icon" title="Regenerate Caption Only" style="position: absolute; top: 8px; right: 8px; z-index: 10; background: yellow; color: black; border: 2px solid black;">
+                            <button id="regen-caption-btn" class="caption-regen-icon" title="Regenerate Caption Only" style="background: #007bff !important; border: 2px solid #fff !important; color: white !important;">
                                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                     <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
                                     <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
@@ -1144,35 +1147,70 @@ class SwipeApp {
                     ` : '<div class="preview-image-fallback">Visualization generated...<br>(check network/path)</div>'}
                 </div>
                 <div class="preview-content">
-                    <div class="preview-caption" contenteditable="true" spellcheck="false" style="outline:none; border:1px dashed transparent; padding:4px;">${displayBody}</div></div>
+                    <div class="preview-caption" contenteditable="true" spellcheck="false" style="outline:none; border:1px dashed transparent; padding:4px;">${displayBody}</div>
+                </div>
+
+                <!-- Debug info -->
+                <div style="margin-top: 10px; padding: 10px; background: #f0f0f0; border: 1px solid #ccc; font-size: 12px;">
+                    <strong>DEBUG INFO:</strong><br>
+                    Image URL: ${imageUrl || 'None'}<br>
+                    Job ID: ${this.currentJobId || 'None'}<br>
+                    Post ID: ${this.currentPostId || 'None'}<br>
+            <button onclick="console.log('Manual button test'); alert('Manual test!');" style="margin-top: 5px;">Test Button</button>
+        </div>
+
         ${hashtags ? `<div class="preview-hashtags">${hashtags}</div>` : ''}
 
-<div class="preview-footer" style="display: flex; flex-direction: column; gap: 12px; margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border);">
-    <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
-        <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
-            <button id="regen-image-btn" class="btn-secondary" style="font-size: 0.75rem; padding: 6px 12px; background: #f0f0f0; color: #666; border: 1px solid #ddd;">
-                Redo
-            </button>
-            <button id="edit-image-btn" class="btn-secondary" style="font-size: 0.75rem; padding: 6px 12px; background: #f0f0f0; color: #666; border: 1px solid #ddd;">
-                Edit
-            </button>
-            <div id="regen-loader" class="mini-spinner hidden" style="width: 16px; height: 16px; border-width: 2px;"></div>
-        </div>
-        ${result.is_custom ? '' : `
-                            <div class="source-attribution">
-                                <span style="font-size: 0.75rem; color: var(--text-secondary); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Source:</span>
-                                <a href="${this.currentNews ? this.currentNews.source_url : '#'}" target="_blank" style="font-size: 0.85rem; color: var(--primary); text-decoration: none; font-weight: 500; margin-left: 4px;">
-                                    ${this.currentNews ? this.currentNews.source_name : 'Original Article'}
-                                </a>
-                            </div>
-                            `}
-    </div>
+        <div class="preview-footer" style="display: flex; flex-direction: column; gap: 12px; margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border);">
+            <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+                    <button id="regen-image-btn" class="btn-secondary" style="font-size: 0.75rem; padding: 6px 12px; background: #f0f0f0; color: #666; border: 1px solid #ddd;">
+                        Redo
+                    </button>
+                    <button id="edit-image-btn" class="btn-secondary" style="font-size: 0.75rem; padding: 6px 12px; background: #f0f0f0; color: #666; border: 1px solid #ddd;">
+                        Edit
+                    </button>
+                    <div id="regen-loader" class="mini-spinner hidden" style="width: 16px; height: 16px; border-width: 2px;"></div>
+                </div>
+                ${result.is_custom ? '' : `
+                    <div class="source-attribution">
+                        <span style="font-size: 0.75rem; color: var(--text-secondary); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Source:</span>
+                        <a href="${this.currentNews ? this.currentNews.source_url : '#'}" target="_blank" style="font-size: 0.85rem; color: var(--primary); text-decoration: none; font-weight: 500; margin-left: 4px;">
+                            ${this.currentNews ? this.currentNews.source_name : 'Original Article'}
+                        </a>
+                    </div>
+                `}
+            </div>
 
-    <div style="font-size:0.75rem; color:#999; text-align: right;">(Click text to edit)</div>
-</div>
-                </div >
-            </div >
+            <div style="font-size:0.75rem; color:#999; text-align: right;">(Click text to edit)</div>
+        </div>
+    </div>
     `;
+
+        // CRITICAL: Attach event listener immediately after HTML is set
+        setTimeout(() => {
+            const captionBtn = document.getElementById('regen-caption-btn');
+            console.log("[DEBUG] Looking for caption button:", captionBtn);
+
+            if (captionBtn) {
+                console.log("[DEBUG] Found caption button, attaching listener");
+                captionBtn.addEventListener('click', async (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    console.log("[DEBUG] Caption button clicked!");
+                    await this.handleCaptionRegeneration();
+                });
+
+                // Make sure button is visible
+                captionBtn.style.display = 'flex';
+                captionBtn.style.visibility = 'visible';
+                captionBtn.style.opacity = '1';
+
+                console.log("[DEBUG] Caption button styles applied");
+            } else {
+                console.log("[DEBUG] Caption button NOT found in DOM");
+            }
+        }, 100);
         this.resultModal.classList.remove('hidden');
     }
     switchView(mode) {

@@ -1028,34 +1028,37 @@ img.generated-post-image {
     position: absolute;
     top: 8px;
     right: 8px;
-    background: rgba(255, 255, 255, 0.9);
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    padding: 6px;
+    background: rgba(255, 255, 255, 0.95);
+    border: 2px solid #333;
+    border-radius: 8px;
+    padding: 8px;
     cursor: pointer;
-    opacity: 1; /* Temporarily visible for testing */
-    transition: opacity 0.2s ease, background-color 0.2s ease;
+    opacity: 1; /* Always visible */
+    transition: all 0.2s ease;
     display: flex;
     align-items: center;
     justify-content: center;
-    z-index: 10;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    z-index: 100;
 }
 
-.image-container:hover .caption-regen-icon {
-    opacity: 1;
-}
 
 .caption-regen-icon:hover {
-    background: rgba(255, 255, 255, 1);
-    border-color: var(--primary);
+    background: #0056b3 !important;
+    border-color: #fff !important;
+    transform: scale(1.05);
+}
+
+.caption-regen-icon:active {
+    transform: scale(0.95);
 }
 
 .caption-regen-icon svg {
-    color: var(--text-secondary);
+    color: #333;
 }
 
 .caption-regen-icon:hover svg {
-    color: var(--primary);
+    color: #007bff;
 }
 
 .preview-image-fallback {
@@ -1795,7 +1798,7 @@ input[type="datetime-local"]:focus {
 .header-select {
     appearance: none;
     -webkit-appearance: none;
-    background-image: url('data:image/svg+xml,%3Csvg xmlns=' 'http://www.w3.org/2000/svg' ' width=' '12' ' height=' '12' ' viewBox=' '0 0 24 24' ' fill=' 'none' ' stroke=' '%23334155' ' stroke-width=' '3' ' stroke-linecap=' 'round' ' stroke-linejoin=' 'round' '%3E%3Cpolyline points=' '6 9 12 15 18 9' '%3E%3C/polyline%3E%3C/svg%3E');
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23334155' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
     background-repeat: no-repeat;
     background-position: right 16px center;
     padding: 10px 48px 10px 20px;
