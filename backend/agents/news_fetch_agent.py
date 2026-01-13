@@ -19,7 +19,7 @@ class NewsFetchAgent:
 
     # Daily limit tracking for controlled news fetching
     _daily_fetch_count = 0
-    _daily_limit = 22  # Target 20-25 news per day
+    _daily_limit = 40  # Target ~35-40 news per day
     _last_reset_date = None
 
     def __init__(self):
@@ -410,7 +410,8 @@ class NewsFetchAgent:
             return items[:20]
 
         all_new_items = []
-        batch_size = 4
+        all_new_items = []
+        batch_size = 1
         category_batches = [Config.CATEGORIES[i:i + batch_size] for i in range(0, len(Config.CATEGORIES), batch_size)]
 
         async def fetch_batch(batch):
@@ -420,7 +421,7 @@ class NewsFetchAgent:
                 
                 # Fetch Search context for the batch
                 query = " recent news ".join(batch) + " news 2026"
-                search_results = search_google_cse(query, max_results=15)
+                search_results = search_google_cse(query, max_results=20)
                 
                 context_str = ""
                 for res in search_results:
@@ -430,7 +431,7 @@ class NewsFetchAgent:
                 You are an elite News Intelligence Agent with real-time access to the following search data.
                 
                 OBJECTIVE:
-                Curate 3-5 distinct, most recent, impactful, and authentic news articles from the last 24-48 hours for each of these domains:
+                Curate 7-8 distinct, most recent, impactful, and authentic news articles from the last 24-48 hours for each of these domains:
                 {batch}
                 
                 SEARCH DATA:
