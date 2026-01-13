@@ -61,7 +61,7 @@
                     </button>
                     <button id="settings-btn" class="sidebar-btn"
                         onclick="document.getElementById('settings-modal').classList.remove('hidden')">
-                        Settings
+                        Connect
                     </button>
                 </div>
 
@@ -625,8 +625,10 @@
                         <div style="display: flex; gap: 8px; align-items: center;">
                             <input type="text" id="api-token-display" readonly
                                 style="flex: 1; background: var(--bg); border: 1px solid var(--border); padding: 10px; border-radius: 6px; font-family: monospace; font-size: 12px;">
-                            <button id="generate-token-btn" class="btn-primary" style="padding: 8px 16px; font-size: 12px;">Generate</button>
-                            <button id="copy-token-btn" class="btn-secondary" style="padding: 8px 16px; font-size: 12px;">Copy</button>
+                            <button id="generate-token-btn" class="btn-primary"
+                                style="padding: 8px 16px; font-size: 12px;">Generate</button>
+                            <button id="copy-token-btn" class="btn-secondary"
+                                style="padding: 8px 16px; font-size: 12px;">Copy</button>
                         </div>
                         <p style="font-size: 12px; color: var(--text-secondary); margin-top: 8px;">
                             Copy this token and paste it into the Chrome extension to enable URL importing.

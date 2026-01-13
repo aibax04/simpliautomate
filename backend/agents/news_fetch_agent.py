@@ -328,11 +328,8 @@ class NewsFetchAgent:
 
     async def search_query(self, query: str) -> List[Dict]:
         """Performs a specific search for the user and returns normalized news items."""
-        # Check daily limit before search
-        if not self._check_daily_limit():
-            print("[NEWS LIMIT] Daily limit reached, skipping search query")
-            return []
-
+        # Manual search BYPASSES the daily limit check
+        
         search_results = search_google_cse(query, max_results=10)
         if not search_results:
             return []
@@ -377,7 +374,10 @@ class NewsFetchAgent:
                         if await self.verify_link(session, item["source_url"]):
                             verified_news.append(item)
 
-            # Update daily counter for search query results
+            # Update daily counter for search query results (optional: strictly speaking, manual searches 
+            # might not want to count towards the "automatic" limit, but keeping it counts 
+            # usage correctly. The user said "api usage for automatic... is same but it can by pass".
+            # So we still count it, but we don't BLOCK it.)
             if verified_news:
                 self._increment_daily_count(len(verified_news))
 
@@ -391,8 +391,8 @@ class NewsFetchAgent:
         Fetches, analyzes, and returns domain-specific news with strict filtering.
         Mandates REAL search results for all reference links.
         """
-        # Check daily limit before any fetching
-        if not self._check_daily_limit():
+        # Check daily limit before any fetching (ONLY if it's NOT a manual search)
+        if not query and not self._check_daily_limit():
             print("[NEWS LIMIT] Daily limit reached, returning cached results")
             return NewsFetchAgent._cache[:20] if NewsFetchAgent._cache else []
 
