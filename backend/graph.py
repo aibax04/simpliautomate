@@ -1,4 +1,4 @@
-updatefrom typing import TypedDict, List, Annotated, Optional
+from typing import TypedDict, List, Annotated, Optional
 from langgraph.graph import StateGraph, END
 from backend.agents.news_fetch_agent import NewsFetchAgent
 from backend.agents.curation_agent import CurationAgent

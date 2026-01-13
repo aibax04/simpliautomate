@@ -1150,14 +1150,7 @@ class SwipeApp {
                     <div class="preview-caption" contenteditable="true" spellcheck="false" style="outline:none; border:1px dashed transparent; padding:4px;">${displayBody}</div>
                 </div>
 
-                <!-- Debug info -->
-                <div style="margin-top: 10px; padding: 10px; background: #f0f0f0; border: 1px solid #ccc; font-size: 12px;">
-                    <strong>DEBUG INFO:</strong><br>
-                    Image URL: ${imageUrl || 'None'}<br>
-                    Job ID: ${this.currentJobId || 'None'}<br>
-                    Post ID: ${this.currentPostId || 'None'}<br>
-            <button onclick="console.log('Manual button test'); alert('Manual test!');" style="margin-top: 5px;">Test Button</button>
-        </div>
+
 
         ${hashtags ? `<div class="preview-hashtags">${hashtags}</div>` : ''}
 
