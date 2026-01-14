@@ -30,6 +30,35 @@ class Token(BaseModel):
     access_token: str
     token_type: str
 
+class WaitlistRequest(BaseModel):
+    name: str # Username or Company Name
+    email: EmailStr
+
+@router.post("/waitlist")
+async def request_waitlist(data: WaitlistRequest):
+    try:
+        from backend.utils.email_sender import send_email
+        
+        # Format as requested: "i would like to access the key [name]"
+        # Added email contact info so the admin can reply
+        message_body = f"i would like to access the key {data.name}<br><br>Contact Email: {data.email}"
+        
+        # Send to the specific admin email requested
+        success = send_email(
+            to_email="mohdaibad04@gmail.com", 
+            subject=f"Key Access Request: {data.name}", 
+            body=message_body
+        )
+        
+        if not success:
+            raise HTTPException(status_code=500, detail="Failed to deliver email credential check.")
+            
+        print(f"[AUTH] Waitlist request sent for {data.email}")
+        return {"message": "Request sent successfully"}
+    except Exception as e:
+        print(f"[AUTH ERROR] Waitlist failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 @router.post("/signup", status_code=status.HTTP_201_CREATED)
 async def signup(user_data: UserCreate, db: AsyncSession = Depends(get_db)):
     print(f"[AUTH] Signup attempt for: {user_data.username}")

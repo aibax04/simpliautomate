@@ -447,6 +447,10 @@
 
                     <div class="auth-toggle">
                         Don't have an account? <a id="go-to-signup">Create one now</a>
+                        <div style="margin-top: 15px; padding-top: 15px; border-top: 1px dashed rgba(0,0,0,0.05);">
+                            <a id="go-to-waitlist" style="cursor: pointer; font-size: 0.9em; opacity: 0.8;">Request
+                                Access Key</a>
+                        </div>
                     </div>
                 </div>
 
@@ -484,6 +488,33 @@
                         Already have an account? <a id="go-to-login">Sign in</a>
                     </div>
                 </div>
+
+                <!-- WAITLIST SECTION -->
+                <div class="auth-card hidden" id="waitlist-section">
+                    <div class="auth-header">
+                        <img src="simplii logo.png" alt="Simplii Logo" class="logo-img">
+                        <p>Request Platform Access</p>
+                    </div>
+
+                    <div id="waitlist-message" class="error-banner"></div>
+
+                    <form id="waitlist-form">
+                        <div class="form-group">
+                            <label for="waitlist-name">Name or Company</label>
+                            <input type="text" id="waitlist-name" placeholder="Who is requesting access?" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="waitlist-email">Email Address</label>
+                            <input type="email" id="waitlist-email" placeholder="Your email address" required>
+                        </div>
+
+                        <button type="submit" class="btn-primary btn-full">Send Request</button>
+                    </form>
+
+                    <div class="auth-toggle">
+                        <a id="back-to-login-from-waitlist" style="cursor: pointer;">Back to Login</a>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -491,42 +522,50 @@
     <script>
         const loginSection = document.getElementById('login-section');
         const signupSection = document.getElementById('signup-section');
+        const waitlistSection = document.getElementById('waitlist-section');
+
         const goToSignup = document.getElementById('go-to-signup');
         const goToLogin = document.getElementById('go-to-login');
+        const goToWaitlist = document.getElementById('go-to-waitlist');
+        const backFromWaitlist = document.getElementById('back-to-login-from-waitlist');
 
-        // Smooth Toggle
-        function toggleAuth(showSignup) {
-            const out = showSignup ? loginSection : signupSection;
-            const into = showSignup ? signupSection : loginSection;
+        // Smooth Transition Handler
+        function switchSection(target) {
+            // Hide all
+            [loginSection, signupSection, waitlistSection].forEach(sec => {
+                if (!sec.classList.contains('hidden')) {
+                    sec.style.opacity = '0';
+                    sec.style.transform = 'translateY(-10px)';
+                    setTimeout(() => {
+                        sec.classList.add('hidden');
+                    }, 300);
+                }
+            });
 
-            out.style.opacity = '0';
-            out.style.transform = 'translateY(-10px)';
-
+            // Show target
             setTimeout(() => {
-                out.classList.add('hidden');
-                into.classList.remove('hidden');
+                target.classList.remove('hidden');
                 // Trigger reflow
-                void into.offsetWidth;
-                into.style.opacity = '1';
-                into.style.transform = 'translateY(0)';
+                void target.offsetWidth;
+                target.style.opacity = '1';
+                target.style.transform = 'translateY(0)';
             }, 300);
         }
 
-        goToSignup.onclick = (e) => {
-            e.preventDefault();
-            toggleAuth(true);
-        };
+        goToSignup.onclick = (e) => { e.preventDefault(); switchSection(signupSection); };
+        goToLogin.onclick = (e) => { e.preventDefault(); switchSection(loginSection); };
+        goToWaitlist.onclick = (e) => { e.preventDefault(); switchSection(waitlistSection); };
+        backFromWaitlist.onclick = (e) => { e.preventDefault(); switchSection(loginSection); };
 
-        goToLogin.onclick = (e) => {
-            e.preventDefault();
-            toggleAuth(false);
-        };
+        // Initialize styles
+        [loginSection, signupSection, waitlistSection].forEach(sec => {
+            sec.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+        });
 
-        // Initialize styles for transition
-        loginSection.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
-        signupSection.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
         signupSection.style.opacity = '0';
         signupSection.style.transform = 'translateY(10px)';
+        waitlistSection.style.opacity = '0';
+        waitlistSection.style.transform = 'translateY(10px)';
 
         // Login Handler
         document.getElementById('login-form').onsubmit = async (e) => {
@@ -605,6 +644,50 @@
                 errorEl.innerText = 'Could not connect to server. Ensure backend is running.';
                 errorEl.style.display = 'block';
                 console.error("Signup Error:", err);
+            }
+        };
+
+        // Waitlist Handler
+        document.getElementById('waitlist-form').onsubmit = async (e) => {
+            e.preventDefault();
+            const msgEl = document.getElementById('waitlist-message');
+            msgEl.style.display = 'none';
+            msgEl.className = 'error-banner'; // Reset
+            msgEl.innerText = 'Sending...';
+            msgEl.style.display = 'block';
+            msgEl.style.background = 'var(--bg)';
+            msgEl.style.color = 'var(--text)';
+
+            const payload = {
+                name: document.getElementById('waitlist-name').value.trim(),
+                email: document.getElementById('waitlist-email').value.trim()
+            };
+
+            try {
+                const response = await fetch('/api/auth/waitlist', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    msgEl.style.background = '#E3FCEF';
+                    msgEl.style.color = '#006644';
+                    msgEl.style.borderColor = '#006644';
+                    msgEl.innerText = 'Request sent! We will contact you soon.';
+                    document.getElementById('waitlist-form').reset();
+                } else {
+                    msgEl.style.background = '#FFF0ED';
+                    msgEl.style.color = 'var(--error)';
+                    msgEl.innerText = data.detail || 'Failed to send request.';
+                }
+            } catch (err) {
+                msgEl.style.background = '#FFF0ED';
+                msgEl.style.color = 'var(--error)';
+                msgEl.innerText = 'Connection error.';
+                console.error("Waitlist Error:", err);
             }
         };
 
