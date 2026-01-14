@@ -392,14 +392,51 @@
         }
 
         /* Mobile responsiveness */
+        /* Mobile responsiveness */
         @media (max-width: 900px) {
+            .auth-wrapper {
+                flex-direction: column;
+                overflow-y: auto;
+                /* Allow scrolling on mobile */
+            }
+
             .auth-visual {
+                flex: 0 0 auto;
+                padding: 40px 20px;
+                min-height: auto;
+                background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            }
+
+            .visual-elements {
                 display: none;
+                /* Hide heavy animations on mobile */
+            }
+
+            .visual-content h1 {
+                font-size: 2.5rem;
+                /* Smaller heading */
+            }
+
+            .visual-content p {
+                font-size: 1rem;
+            }
+
+            .glass-card {
+                display: none;
+                /* Hide 'How it works' on mobile to keep it clean */
             }
 
             .auth-form-container {
                 flex: 1;
-                padding: 24px;
+                padding: 40px 24px;
+                background: var(--bg);
+                align-items: flex-start;
+                /* Better alignment for scroll */
+            }
+
+            .auth-container {
+                min-height: auto;
+                padding-bottom: 40px;
             }
         }
     </style>
