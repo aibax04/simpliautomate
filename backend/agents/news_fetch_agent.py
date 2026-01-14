@@ -23,8 +23,8 @@ class NewsFetchAgent:
     _last_reset_date = None
 
     def __init__(self):
-        # Using 1.5 Flash for stable high-speed processing
-        self.model_name = 'models/gemini-1.5-flash'
+        # Using 2.0 Flash for improved performance
+        self.model_name = 'models/gemini-2.0-flash-exp'
         
         # Grounding tool (dynamic retrieval) - Now using DuckDuckGo instead of Google Search
         self.model_with_search = None

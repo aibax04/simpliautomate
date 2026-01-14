@@ -7,7 +7,7 @@ from typing import List, Dict
 class DocumentReaderAgent:
     def __init__(self):
         # Using 2.0 Flash for efficient long-context parsing
-        self.model = genai.GenerativeModel('models/gemini-2.0-flash')
+        self.model = genai.GenerativeModel('models/gemini-2.0-flash-exp')
 
     async def parse_document(self, file_content: bytes, filename: str) -> Dict:
         """
