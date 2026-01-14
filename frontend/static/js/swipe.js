@@ -316,27 +316,38 @@ class SwipeApp {
         filtered.forEach((item, index) => {
             this.createCard(item, index);
         });
+
+        // CRITICAL FIX: Ensure stack is rendered effectively in Swipe Mode
         if (this.viewMode === 'list') {
             this.renderListView();
+        } else {
+            this.renderStack();
         }
     }
 
     createCard(data, index) {
+        // Safe default palette if missing from backend
+        const palette = data.palette || {
+            bg: '#FFFFFF',
+            text: '#1A1F23',
+            accent: '#2563EB' // Blue accent
+        };
+
         const card = document.createElement('div');
         card.className = 'card';
-        card.style.backgroundColor = data.palette.bg;
-        card.style.borderTop = `6px solid ${data.palette.accent}`;
+        card.style.backgroundColor = palette.bg;
+        card.style.borderTop = `6px solid ${palette.accent}`;
 
         card.innerHTML = `
-            <div class="category" style="color: ${data.palette.accent}">${data.domain}</div>
-            <h2 style="color: ${data.palette.text}">${data.headline}</h2>
-            <div class="content" style="color: ${data.palette.text}">${data.summary}</div>
+            <div class="category" style="color: ${palette.accent}">${data.domain}</div>
+            <h2 style="color: ${palette.text}">${data.headline}</h2>
+            <div class="content" style="color: ${palette.text}">${data.summary}</div>
             <div class="footer">
                 <div class="source-info">
-                    <strong style="color: ${data.palette.text}">${data.source_name}</strong>
-                    <a href="${data.source_url}" target="_blank" class="source-link" style="color: ${data.palette.accent}">View Source</a>
+                    <strong style="color: ${palette.text}">${data.source_name}</strong>
+                    <a href="${data.source_url}" target="_blank" class="source-link" style="color: ${palette.accent}">View Source</a>
                 </div>
-                <span style="color: ${data.palette.text}">${new Date().toLocaleDateString()}</span>
+                <span style="color: ${palette.text}">${new Date().toLocaleDateString()}</span>
             </div>
         `;
 
@@ -1040,17 +1051,24 @@ class SwipeApp {
             this.stack.innerHTML = '';
         }
         newCards.forEach((item, index) => {
+            // Safe default palette
+            const palette = item.palette || {
+                bg: '#FFFFFF',
+                text: '#1A1F23',
+                accent: '#2563EB'
+            };
+
             const card = document.createElement('div');
             card.className = 'card';
-            card.style.backgroundColor = item.palette.bg;
-            card.style.borderTop = `6px solid ${item.palette.accent}`;
+            card.style.backgroundColor = palette.bg;
+            card.style.borderTop = `6px solid ${palette.accent}`;
             card.innerHTML = `
-                <div class="category" style="color: ${item.palette.accent}">${item.domain}</div>
-                <h2 style="color: ${item.palette.text}">${item.headline}</h2>
-                <div class="content" style="color: ${item.palette.text}">${item.summary}</div>
+                <div class="category" style="color: ${palette.accent}">${item.domain}</div>
+                <h2 style="color: ${palette.text}">${item.headline}</h2>
+                <div class="content" style="color: ${palette.text}">${item.summary}</div>
                 <div class="footer">
                     <div class="source-info">
-                        <strong style="color: ${item.palette.text}">${item.source_name}</strong>
+                        <strong style="color: ${palette.text}">${item.source_name}</strong>
                         <a href="${item.source_url}" target="_blank" class="source-link" style="color: ${item.palette.accent}">View Source</a>
                     </div>
                     <span style="color: ${item.palette.text}">${new Date().toLocaleDateString()}</span>

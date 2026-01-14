@@ -41,8 +41,43 @@ app.include_router(queue_router, prefix="/api", dependencies=[Depends(get_curren
 
 # Background task for daily morning news fetching and database saving with fallbacks
 async def background_news_fetcher():
-    from datetime import datetime
+    from datetime import datetime, date
     agent = NewsFetchAgent()
+
+    # --- Startup Check: Fetch immediately if today's news is missing ---
+    try:
+        print("[DAILY NEWS] Startup: Checking for today's news...")
+        async with AsyncSessionLocal() as session:
+            today_start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+            stmt = select(NewsItem).where(NewsItem.created_at >= today_start).limit(5)
+            res = await session.execute(stmt)
+            existing = res.all()
+
+            if not existing or len(existing) < 5:
+                print("[DAILY NEWS] Startup: Insufficient news for today. Triggering immediate fetch...")
+                
+                # Reset counts for the new day
+                current_date = datetime.now().strftime('%Y-%m-%d')
+                agent._daily_fetch_count = 0
+                agent._last_reset_date = current_date
+
+                # Fetch and Save
+                news_items = await agent.fetch(force_refresh=True)
+                if news_items:
+                    await agent.save_news_to_database_with_retry(news_items)
+                    print(f"[DAILY NEWS] Startup: Saved {len(news_items)} items to DB.")
+                else:
+                    # Try fallback if main fetch fails
+                    print("[DAILY NEWS] Startup: Main fetch empty, trying fallback...")
+                    news_items = await agent.fetch_fallback()
+                    if news_items:
+                        await agent.save_news_to_database_with_retry(news_items)
+            else:
+                print("[DAILY NEWS] Startup: Today's news already available.")
+
+    except Exception as e:
+        print(f"[DAILY NEWS] Startup check warning: {e}")
+    # -------------------------------------------------------------
 
     while True:
         try:
@@ -246,7 +281,21 @@ async def fetch_news(q: str = None, user: User = Depends(get_current_user)):
         state["search_query"] = q
 
     result = await graph.ainvoke(state)
-    return result["news_items"]
+    news_items = result.get("news_items", [])
+
+    # NEW: Persist fetched news to database for future requests today
+    if not q and news_items: # Only save general news, not search results
+        try:
+            print(f"[NEWS] Persisting {len(news_items)} live-fetched items to database...")
+            # Create fresh agent instance for saving
+            save_agent = NewsFetchAgent()
+            # Use create_task to run in background so we return response faster, 
+            # OR await if we want to be sure. Await is safer for now.
+            await save_agent.save_news_to_database_with_retry(news_items)
+        except Exception as e:
+            print(f"[NEWS] Failed to persist news: {e}")
+
+    return news_items
 
 @app.get("/favicon.ico", include_in_schema=False)
 async def favicon():
