@@ -41,11 +41,15 @@ const Api = {
         return data;
     },
 
-    async fetchNews(query = null) {
+    async fetchNews(query = null, force = false) {
         try {
             let url = '/api/fetch-news';
-            if (query) {
-                url += `?q=${encodeURIComponent(query)}`;
+            const params = new URLSearchParams();
+            if (query) params.append('q', query);
+            if (force) params.append('force', 'true');
+
+            if (params.toString()) {
+                url += `?${params.toString()}`;
             }
             const response = await fetch(url, {
                 headers: this.getHeaders()

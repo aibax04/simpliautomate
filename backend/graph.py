@@ -10,6 +10,7 @@ class GraphState(TypedDict):
     generated_content: str
     status: str
     search_query: Optional[str]
+    force_refresh: Optional[bool]
 
 
 async def fetch_news_node(state: GraphState):
@@ -19,8 +20,10 @@ async def fetch_news_node(state: GraphState):
     else:
         print("--- FETCHING LIVE NEWS ---")
         
+    state_force_refresh = state.get("force_refresh", False)
+    
     fetcher = NewsFetchAgent()
-    items = await fetcher.fetch(query=query)
+    items = await fetcher.fetch(query=query, force_refresh=state_force_refresh)
     
     curator = CurationAgent()
     curated_items = curator.curate(items)

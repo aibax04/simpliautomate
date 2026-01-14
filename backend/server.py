@@ -228,11 +228,11 @@ async def health_check():
     return {"status": "ok"}
 
 @app.get("/api/fetch-news")
-async def fetch_news(q: str = None, user: User = Depends(get_current_user)):
-    """Endpoint to fetch and curate live news cards, supports optional search query 'q'"""
+async def fetch_news(q: str = None, force: bool = False, user: User = Depends(get_current_user)):
+    """Endpoint to fetch and curate live news cards, supports optional search query 'q' and 'force' refresh"""
 
-    # If no search query, check database for today's news first
-    if not q:
+    # If no search query and not forced, check database for today's news first
+    if not q and not force:
         try:
             from backend.db.database import AsyncSessionLocal
             from backend.db.models import NewsItem
@@ -276,7 +276,7 @@ async def fetch_news(q: str = None, user: User = Depends(get_current_user)):
             print(f"[NEWS] Database check failed: {e}, falling back to live fetch")
 
     # Fallback to live fetching (original behavior)
-    state = {"news_items": [], "status": "init"}
+    state = {"news_items": [], "status": "init", "force_refresh": force}
     if q:
         state["search_query"] = q
 

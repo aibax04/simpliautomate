@@ -1226,16 +1226,21 @@ class SwipeApp {
     }
     switchView(mode) {
         this.viewMode = mode;
+        const swipeActions = document.getElementById('swipe-view-actions');
 
         if (mode === 'list') {
             document.getElementById('card-stack').classList.add('hidden');
             document.getElementById('controls').classList.add('hidden');
+            if (swipeActions) swipeActions.classList.add('hidden');
+
             this.listView.classList.remove('hidden');
             this.swipeContainer.classList.add('list-mode');
             this.renderListView();
         } else {
             document.getElementById('card-stack').classList.remove('hidden');
             document.getElementById('controls').classList.remove('hidden');
+            if (swipeActions) swipeActions.classList.remove('hidden');
+
             this.listView.classList.add('hidden');
             this.swipeContainer.classList.remove('list-mode');
             // Ensure stack is rendered correctly
@@ -1330,14 +1335,68 @@ class SwipeApp {
             </div>
 
             <div style="text-align: center; padding: 30px; margin-top: 20px; border-top: 1px solid var(--border);">
-                <button onclick="window.app.init()" class="btn-primary" style="display: inline-flex; align-items: center; gap: 8px; padding: 12px 24px;">
+                <button id="load-more-list-btn" onclick="window.app.loadMoreNews()" class="btn-primary" style="display: inline-flex; align-items: center; gap: 8px; padding: 12px 24px;">
                     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"></path><path d="M16 21h5v-5"></path></svg>
-                    Find More News
+                    Reload More News
                 </button>
             </div>
         `;
 
         this.listView.innerHTML = html;
+    }
+
+    async loadMoreNews() {
+        // Show loading on button(s)
+        const listBtn = document.getElementById('load-more-list-btn');
+        const swipeBtn = document.getElementById('load-more-swipe-btn');
+
+        const originalListText = listBtn ? listBtn.innerHTML : '';
+        const originalSwipeText = swipeBtn ? swipeBtn.innerHTML : '';
+
+        if (listBtn) {
+            listBtn.disabled = true;
+            listBtn.innerHTML = '<div class="mini-spinner" style="border-color: white; border-right-color: transparent;"></div> Loading...';
+        }
+        if (swipeBtn) {
+            swipeBtn.disabled = true;
+            swipeBtn.innerHTML = '<div class="mini-spinner" style="border-color: white; border-right-color: transparent;"></div> Loading...';
+        }
+
+        try {
+            if (window.Toast) window.Toast.show("Fetching fresh news...", "info");
+
+            // Force fetch
+            const newNews = await Api.fetchNews(null, true);
+
+            if (newNews && newNews.length > 0) {
+                // Deduplicate based on source_url (simple check)
+                const existingUrls = new Set(this.allNews.map(n => n.source_url));
+                const uniqueNew = newNews.filter(n => !existingUrls.has(n.source_url));
+
+                if (uniqueNew.length > 0) {
+                    this.injectCards(uniqueNew);
+                    if (window.Toast) window.Toast.show(`Added ${uniqueNew.length} new stories!`, "success");
+                } else {
+                    // Even if duplicates, we might want to refresh 'allNews' or just say nothing new found
+                    if (window.Toast) window.Toast.show("No new unique stories found right now.", "info");
+                }
+            } else {
+                if (window.Toast) window.Toast.show("No more news available at the moment.", "info");
+            }
+
+        } catch (e) {
+            console.error("Load more error:", e);
+            if (window.Toast) window.Toast.show("Failed to load more news.", "error");
+        } finally {
+            if (listBtn) {
+                listBtn.disabled = false;
+                listBtn.innerHTML = originalListText;
+            }
+            if (swipeBtn) {
+                swipeBtn.disabled = false;
+                swipeBtn.innerHTML = originalSwipeText;
+            }
+        }
     }
 
     selectNewsFromList(cacheId) {
