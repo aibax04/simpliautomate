@@ -213,13 +213,13 @@ class ImageAgent:
         else:
             print(f"   [PRE-CHECK] Verified {len(verified_text_elements)} text elements for image")
 
-        # Mandatory quality rules as per strict senior engineer requirements - GRAPHICS FIRST APPROACH
+        # Mandatory quality rules as per strict senior engineer requirements - RICH GRAPHICS FIRST
         spelling_rules = (
             "CRITICAL TEXT REQUIREMENTS: If any text appears, it must be 100% grammatically correct and free of spelling errors. "
             "Spell-check EVERY SINGLE WORD that appears anywhere in the image. "
             "Common misspellings to avoid: teh→the, recieve→receive, definately→definitely, seperate→separate, occassion→occasion, recomend→recommend. "
             "PRIORITY: Minimize text usage. Replace text with charts, diagrams, icons, and visual elements whenever possible. "
-            "If text is necessary, keep it extremely concise (max 3 words per element) and use only simple, common words."
+            "If text is necessary (like a HOOK LINE), keep it impactful (max 8 words) using simple, common words."
         )
         alignment_rules = (
             "LAYOUT: Headings must be center-aligned. Body text must be left-aligned. "
@@ -229,7 +229,7 @@ class ImageAgent:
         typography_rules = (
             "TYPOGRAPHY REQUIREMENTS: Use one sans-serif font family only (Arial, Helvetica, or Calibri). "
             "Clear hierarchy with proper contrast: "
-            "1) Primary heading: can be expressive but must be readable. "
+            "1) Primary heading (HOOK): can be expressive but must be readable (max 8 words). "
             "2) Sub-headings: must be concise (under 8 words), spell-checked, and clearly legible. "
             "3) Small text/labels: must use only minimal, dictionary-valid words with no jargon. "
             "ENSURE HIGH CONTRAST: Black/dark text on light backgrounds, white/light text on dark backgrounds. "
@@ -237,11 +237,11 @@ class ImageAgent:
         )
         subtext_constraints = (
             "GRAPHICS OVER TEXT - MAXIMUM RESTRICTION: Minimize all text usage. Replace text with visual elements whenever possible. "
-            "If text is absolutely necessary, use ONLY single words or very short phrases (max 2-3 words). "
+            "If text is absolutely necessary, use ONLY high-impact hooks or single words. "
             "APPROVED SINGLE WORDS: Growth, Impact, Future, Trends, Innovation, Progress, Results, Success, Change, Data, Flow, Path, Goal. "
-            "FORBIDDEN: Sentences, phrases over 3 words, technical jargon, compound words, hyphens. "
+            "FORBIDDEN: Long paragraphs, technical jargon, compound words, hyphens. "
             "PRIORITY: Use charts, diagrams, flowcharts, icons, arrows, and visual metaphors instead of text labels. "
-            "STYLE: Visual communication through graphics, not text. Keep any text extremely minimal and readable."
+            "STYLE: Visual communication through rich graphics, not text."
         )
         
         # FEATURE 5: STRICT ADHERENCE TO STYLE AND PALETTE
@@ -279,13 +279,13 @@ class ImageAgent:
         refined_prompt = (
             f"REF: {unique_id}. {base_prompt}. {content_grounding} {spelling_rules} {alignment_rules} {typography_rules} {subtext_constraints} "
             f"{style_rules} {palette_rules} {clarity_rules} "
-            "GRAPHICS FIRST, TEXT LAST: Prioritize charts, diagrams, flowcharts, and visual elements over text. Replace text-heavy areas with graphical representations. "
-            "Quality: Elite Studio-Grade, 4K resolution, razor-sharp vector edges, zero blur. "
-            "Visual Communication: Use charts, diagrams, icons, arrows, and spatial relationships to convey information instead of text. "
-            "Minimal Text Design: If any text appears, it must be perfectly spelled, clearly readable, and extremely concise (max 3 words). "
-            "Aesthetic: Clean, professional graphics-focused design with minimal text overlay. "
-            "CRITICAL REQUIREMENTS: Replace text with visual metaphors. Use graphical elements for data representation. Ensure perfect spelling in any text present. "
-            "Strictly FORBID: Text walls, paragraph text, ANY spelling errors, text overlap, generic AI artifacts, or cluttered layouts."
+            "RICH VISUALS FIRST: Prioritize detailed 3D charts, diagrams, flowcharts, and high-fidelity visual elements. "
+            "Quality: Elite Studio-Grade, 4K resolution, cinematic lighting, depth of field, razor-sharp vector edges, zero blur. "
+            "Visual Communication: Use complex charts, diagrams, icons, arrows, and spatial relationships to convey information. "
+            "Text Design: Use a strong HOOK LINE (max 8 words) as the centerpiece if text is present. "
+            "Aesthetic: Rich, stunning, professional graphics-focused design with deep visual texture. "
+            "CRITICAL REQUIREMENTS: Replace heavy text with visual metaphors. Ensure perfect spelling in any text present. "
+            "Strictly FORBID: Text walls, ANY spelling errors, text overlap, generic AI artifacts, or cluttered layouts."
         )
         
         # Absolute path normalization

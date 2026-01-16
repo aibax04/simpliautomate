@@ -37,7 +37,7 @@ class NewsFetchAgent:
             print(f"[ERROR] Could not initialize Gemini model: {e}")
 
         self.qa_agent = QualityAssuranceAgent()
-
+        
     def _check_daily_limit(self) -> bool:
         """Check if we've reached the daily limit and reset counter if needed."""
         from datetime import datetime
@@ -120,6 +120,7 @@ class NewsFetchAgent:
                             source_id=source.id,
                             source_url=source_url
                         )
+                        
 
                         session.add(db_news)
                         saved_count += 1

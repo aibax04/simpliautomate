@@ -14,8 +14,9 @@ class VisualPlanningAgent:
         domain = news_item.get('domain', 'AI Intelligence')
         headline = news_item.get('headline', 'Breaking News')
         summary = news_item.get('summary', '')
-        # Leverage high-level strategic insights from the caption strategist
+        # Leverage high-level strategic insights AND HOOK from the caption strategist
         strategic_insights = caption_data.get('strategic_insights', [])
+        hook_line = caption_data.get('hook', '')
         
         image_style = user_prefs.get('image_style', 'Futuristic')
         image_palette = user_prefs.get('image_palette', 'Multi-color vibrant')
@@ -49,11 +50,11 @@ class VisualPlanningAgent:
             visual_type = "custom_creative_piece"
         else:
             persona = "Elite Data Visualization Designer and Information Architect"
-            objective = f"Design a clean, graphical visualization for this news: '{headline}'."
+            objective = f"Design a rich, graphical visualization for this news: '{headline}'."
             guidelines = f"""
-            1. GRAPHICS-FIRST APPROACH: Prioritize charts, diagrams, and visual metaphors over text.
-            2. MINIMAL TEXT: Use only essential single words or short phrases (max 3 words per text element).
-            3. VISUAL ELEMENTS: Include flowcharts, bar charts, pie charts, timelines, icons, or conceptual diagrams.
+            1. RICH GRAPHICS-FIRST APPROACH: Prioritize detailed 3D charts, diagrams, and high-fidelity visual metaphors.
+            2. IMPACTFUL HOOK: Use the hook line '{hook_line}' as the main headline if text is used.
+            3. VISUAL ELEMENTS: Include complex flowcharts, bar charts, pie charts, timelines, icons, or conceptual diagrams.
             4. INFORMATION ARCHITECTURE: Structure information visually through shapes, colors, and spatial relationships.
             5. NO WALLS OF TEXT: Replace text-heavy sections with corresponding visual representations.
             {branding_note}
@@ -70,9 +71,10 @@ class VisualPlanningAgent:
         MANDATORY COLOR PALETTE: {image_palette}
         
         STRATEGIC INSIGHTS TO VISUALIZE: {strategic_insights}
+        SUGGESTED HOOK LINE: {hook_line}
 
         STRICT RULES FOR GRAPHICS-FIRST DESIGN:
-        1. TEXT MINIMIZATION: Use ONLY single words or very short phrases (max 3 words). Replace text with visual elements.
+        1. TEXT MINIMIZATION: Use ONLY the hook line and very short phrases.
         2. GRAPHICAL REPRESENTATION: Convert concepts into charts, diagrams, flowcharts, icons, or visual metaphors.
         3. VISUAL HIERARCHY: Use size, color, and position to show importance instead of text labels.
         4. SPELLING PERFECTION: Every letter in every word must be spelled correctly.
@@ -84,7 +86,7 @@ class VisualPlanningAgent:
             "style": "{image_style}",
             "palette_preference": "{image_palette}",
             "headline_hierarchy": {{
-                "main": "{summary if is_custom else headline}",
+                "main": "{summary if is_custom else hook_line if hook_line else headline}",
                 "sub": "{'' if is_custom else 'Contextual sub-headline'}"
             }},
             "visual_layers": [
@@ -92,7 +94,7 @@ class VisualPlanningAgent:
                 {{"type": "supporting_graphics", "description": "Additional visual elements: icons, arrows, connecting elements, or secondary diagrams that support the main graphic"}},
                 {{"type": "data_visualization", "description": "Any metrics or data points represented visually through graphs, progress bars, or comparative visuals"}}
             ],
-            "image_prompt": "A clean, graphics-focused 4K 4:5 vertical design. MINIMAL TEXT, MAXIMUM VISUALS. SUBJECT: {summary if is_custom else headline}. STYLE: {image_style}. PALETTE: {image_palette}. PRIORITIZE: Charts, diagrams, flowcharts, icons, and visual metaphors over text explanations. Replace any text-heavy areas with corresponding graphical representations. Use visual hierarchy through size, color, and position. {f'Ensure it strictly represents {summary} as a visual concept.' if is_custom else 'Graphics-first information design with minimal text labels.'} Perfect alignment, zero spelling errors in any text present. {f'Subtly include {product_info.get('name')} branding elements.' if product_info else ''}"
+            "image_prompt": "A rich, stunning, graphics-focused 4K 4:5 vertical design. Deep visual texture, elite design aesthetics, professional color grading. SUBJECT: {summary if is_custom else headline}. HEADLINE: {hook_line if hook_line else headline}. STYLE: {image_style}. PALETTE: {image_palette}. PRIORITIZE: detailed charts, diagrams, flowcharts, icons, and visual metaphors over text explanations. Use a strong, catchy HOOK LINE as the main text element. Replace any text-heavy areas with corresponding graphical representations. Use visual hierarchy through size, color, and position. {f'Ensure it strictly represents {summary} as a visual concept.' if is_custom else 'Graphics-first information design with profound visual depth.'} Perfect alignment, zero spelling errors in any text present. {f'Subtly include {product_info.get('name')} branding elements.' if product_info else ''}"
         }}
         Return ONLY valid JSON.
         """
