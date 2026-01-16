@@ -22,6 +22,7 @@ async def create_product(
     website_url: Optional[str] = Form(None),
     documents: List[UploadFile] = File([]),
     photos: List[UploadFile] = File([]),
+    logo: Optional[UploadFile] = File(None),
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user)
 ):
@@ -29,6 +30,24 @@ async def create_product(
     db.add(product)
     await db.commit()
     await db.refresh(product)
+
+    # Handle Logo
+    if logo and logo.filename:
+        file_ext = os.path.splitext(logo.filename)[1]
+        unique_filename = f"{uuid.uuid4()}{file_ext}"
+        file_path = os.path.join(UPLOAD_DIR, unique_filename)
+        
+        with open(file_path, "wb") as f:
+            content = await logo.read()
+            f.write(content)
+        
+        collateral = ProductCollateral(
+            product_id=product.id,
+            file_name="logo_" + logo.filename, # Prefix just in case
+            file_path=file_path,
+            file_type="logo"
+        )
+        db.add(collateral)
 
     # Handle Documents
     for doc in documents:

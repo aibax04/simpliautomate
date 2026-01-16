@@ -18,6 +18,9 @@ class VisualPlanningAgent:
         strategic_insights = caption_data.get('strategic_insights', [])
         hook_line = caption_data.get('hook', '')
         
+        # FEATURE: Logo Path Initialization
+        logo_path = None
+        
         image_style = user_prefs.get('image_style', 'Futuristic')
         image_palette = user_prefs.get('image_palette', 'Multi-color vibrant')
 
@@ -26,6 +29,11 @@ class VisualPlanningAgent:
             collateral_info = ""
             if product_info.get('collateral'):
                 photos = [c['file_name'] for c in product_info['collateral'] if c['file_type'] == 'photo']
+                # FEATURE: Logo Extraction
+                logo_files = [c for c in product_info['collateral'] if c.get('file_type') == 'logo' or 'logo' in c.get('file_name', '').lower()]
+                if logo_files:
+                    logo_path = logo_files[0].get('file_path')
+                
                 if photos:
                     collateral_info = f"\n            - Available Brand Photos for reference: {', '.join(photos)}"
 
@@ -103,10 +111,15 @@ class VisualPlanningAgent:
             response = await self.model.generate_content_async(prompt)
             text = response.text.replace('```json', '').replace('```', '').strip()
             import json
-            return json.loads(text)
+            plan = json.loads(text)
+            # Inject Logo Path if found
+            if logo_path:
+                plan['logo_path'] = logo_path
+            return plan
         except Exception as e:
             print(f"Visual planning error: {e}")
             return {
                 "visual_type": "studio_grade_infographic",
-                "image_prompt": f"Elite 4K editorial infographic about {domain}, {headline}. High-fidelity design studio output, complex visual hierarchy, rich data visualization, modern layout, premium slate palette, razor-sharp text."
+                "image_prompt": f"Elite 4K editorial infographic about {domain}, {headline}. High-fidelity design studio output, complex visual hierarchy, rich data visualization, modern layout, premium slate palette, razor-sharp text.",
+                "logo_path": logo_path
             }

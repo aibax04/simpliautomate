@@ -375,6 +375,11 @@ class ImageAgent:
                     file_size = os.path.getsize(filepath)
                     print(f"[SUCCESS] Image saved successfully at {filepath} ({file_size} bytes)")
                     sys.stdout.flush()
+                    
+                    # FEATURE: LOGO OVERLAY
+                    if visual_plan.get('logo_path'):
+                         self._overlay_logo(f"/generated_images/{filename}", visual_plan['logo_path'])
+                         
                     return f"/generated_images/{filename}"
                 else:
                     if attempts < max_attempts:
@@ -390,3 +395,69 @@ class ImageAgent:
                 raise e
         
         return f"/generated_images/{filename}" # Should not reach here if failed
+
+    def _overlay_logo(self, main_image_path: str, logo_path: str):
+        """
+        Overlays the brand logo on the bottom-right of the generated image.
+        Uses PIL for high-quality composition.
+        """
+        try:
+            print(f"[IMAGE POST-PROCESSING] Adding logo from {logo_path}...")
+            
+            # Resolve paths
+            current_dir = os.path.dirname(os.path.abspath(__file__))
+            project_root = os.path.dirname(os.path.dirname(current_dir))
+            
+            # generated image path is like /generated_images/uuid.png
+            full_main_path = os.path.join(project_root, "frontend", main_image_path.lstrip('/'))
+            
+            # logo path might be absolute or relative to project root
+            # heuristic: if it contains 'backslashes' or 'C:', it's likely absolute
+            if os.path.isabs(logo_path):
+                 full_logo_path = logo_path
+            else:
+                 full_logo_path = os.path.join(project_root, logo_path)
+
+            if not os.path.exists(full_main_path):
+                print(f"[LOGO ERROR] Main image not found: {full_main_path}")
+                return
+            
+            if not os.path.exists(full_logo_path):
+                print(f"[LOGO ERROR] Logo file not found: {full_logo_path}")
+                return
+
+            # Open images
+            main_img = PIL.Image.open(full_main_path).convert("RGBA")
+            logo_img = PIL.Image.open(full_logo_path).convert("RGBA")
+
+            # Calculate resize sizing (max 20% of main image width)
+            main_w, main_h = main_img.size
+            target_w = int(main_w * 0.20)
+            
+            # Resize logo maintaining aspect ratio
+            aspect_ratio = logo_img.width / logo_img.height
+            target_h = int(target_w / aspect_ratio)
+            
+            logo_resized = logo_img.resize((target_w, target_h), PIL.Image.Resampling.LANCZOS)
+            
+            # Position: Bottom Right with padding
+            padding_x = int(main_w * 0.05) # 5% padding
+            padding_y = int(main_h * 0.05)
+            
+            pos_x = main_w - target_w - padding_x
+            pos_y = main_h - target_h - padding_y
+            
+            # Create a transparent layer for the composition
+            final_img = PIL.Image.new("RGBA", main_img.size)
+            final_img.paste(main_img, (0,0))
+            final_img.paste(logo_resized, (pos_x, pos_y), mask=logo_resized)
+            
+            # Convert back to RGB to save as PNG/JPG (though PNG supports RGBA)
+            # If original was PNG, we can save as RGBA.
+            final_img.save(full_main_path, quality=95)
+            print("[IMAGE POST-PROCESSING] Logo added successfully.")
+
+        except Exception as e:
+            print(f"[LOGO ERROR] Failed to overlay logo: {e}")
+            import traceback
+            traceback.print_exc()

@@ -61,9 +61,17 @@ class PostGenerationAgent:
         # QUALITY GATE 2: Verify Visual Plan Text (Crucial for Image Generation)
         print("   [Quality Gate] Verifying Visual Blueprint Language...")
         if on_progress: await on_progress("quality_check_visual", 65)
+        
+        # Backup critical functional fields that might be dropped by LLM
+        logo_path_backup = visual_plan.get('logo_path')
+        
         visual_plan = await self.qa_agent.verify_and_fix(visual_plan)
         if not visual_plan:
             return None
+            
+        # Restore critical fields
+        if logo_path_backup:
+            visual_plan['logo_path'] = logo_path_backup
         
         # 3. Generate Image using only spelling-verified visual plan
         print("3. Generating Image (based on 100% verified text)...")

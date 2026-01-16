@@ -29,7 +29,7 @@ const ProductManagement = {
 
     setupEventListeners() {
         const addBtn = document.getElementById('add-product-btn');
-        
+
         if (addBtn) {
             addBtn.onclick = async () => {
                 const name = document.getElementById('new-product-name').value.trim();
@@ -37,6 +37,7 @@ const ProductManagement = {
                 const url = document.getElementById('new-product-url').value.trim();
                 const docFiles = document.getElementById('new-product-docs').files;
                 const photoFiles = document.getElementById('new-product-photos').files;
+                const logoFile = document.getElementById('new-product-logo').files[0];
 
                 if (!name) {
                     Toast.show("Please enter a product name.", "error");
@@ -47,7 +48,11 @@ const ProductManagement = {
                 formData.append('name', name);
                 formData.append('description', desc);
                 formData.append('website_url', url);
-                
+
+                if (logoFile) {
+                    formData.append('logo', logoFile);
+                }
+
                 for (let i = 0; i < docFiles.length; i++) {
                     formData.append('documents', docFiles[i]);
                 }
@@ -58,7 +63,7 @@ const ProductManagement = {
                 try {
                     addBtn.disabled = true;
                     addBtn.innerText = "Creating...";
-                    
+
                     const response = await fetch('/api/products', {
                         method: 'POST',
                         headers: {
@@ -74,6 +79,7 @@ const ProductManagement = {
                         document.getElementById('new-product-url').value = '';
                         document.getElementById('new-product-docs').value = '';
                         document.getElementById('new-product-photos').value = '';
+                        document.getElementById('new-product-logo').value = '';
                         await this.loadProducts();
                     } else {
                         Toast.show("Failed to add product", "error");
@@ -101,7 +107,7 @@ const ProductManagement = {
         list.innerHTML = this.products.map(p => {
             const docs = (p.collateral || []).filter(c => c.file_type === 'document').length;
             const photos = (p.collateral || []).filter(c => c.file_type === 'photo').length;
-            
+
             return `
                 <div class="account-item" style="flex-direction: column; align-items: flex-start; gap: 4px; padding: 12px;">
                     <div style="display: flex; justify-content: space-between; width: 100%; align-items: center;">
@@ -144,7 +150,7 @@ const ProductManagement = {
         const selectors = document.querySelectorAll('.product-selector');
         selectors.forEach(select => {
             const currentValue = select.value;
-            select.innerHTML = '<option value="">None (Generic Industry News)</option>' + 
+            select.innerHTML = '<option value="">None (Generic Industry News)</option>' +
                 this.products.map(p => `
                     <option value="${p.id}" ${p.id == currentValue ? 'selected' : ''}>
                         ${p.name}

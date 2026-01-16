@@ -308,9 +308,10 @@ async def generate_post(request: Request, user: User = Depends(get_current_user)
     data = await request.json()
     news_item = data.get("news")
     prefs = data.get("prefs")
+    product_info = data.get("product")
     
     agent = PostGenerationAgent()
-    result = await agent.generate(news_item, prefs)
+    result = await agent.generate(news_item, prefs, product_info=product_info)
     return result
 
 @app.post("/api/generate-blog")
