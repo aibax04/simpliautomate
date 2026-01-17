@@ -2,10 +2,7 @@ import requests
 import os
 import logging
 from typing import List, Dict
-try:
-    from duckduckgo_search import DDGS
-except ImportError:
-    from ddgs import DDGS
+from ddgs import DDGS
 
 logger = logging.getLogger(__name__)
 

@@ -1024,42 +1024,23 @@ img.generated-post-image {
     width: 100%;
 }
 
+/* Caption regeneration button styling (now in footer) */
 .caption-regen-icon {
-    position: absolute;
-    top: 8px;
-    right: 8px;
-    background: rgba(255, 255, 255, 0.95);
-    border: 2px solid #333;
-    border-radius: 8px;
-    padding: 8px;
-    cursor: pointer;
-    opacity: 1;
-    /* Always visible */
-    transition: all 0.2s ease;
     display: flex;
     align-items: center;
     justify-content: center;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
-    z-index: 100;
+    cursor: pointer;
+    transition: all 0.2s ease;
 }
-
 
 .caption-regen-icon:hover {
     background: #0056b3 !important;
-    border-color: #fff !important;
-    transform: scale(1.05);
-}
-
-.caption-regen-icon:active {
-    transform: scale(0.95);
+    border-color: #0056b3 !important;
+    color: white !important;
 }
 
 .caption-regen-icon svg {
-    color: #333;
-}
-
-.caption-regen-icon:hover svg {
-    color: #007bff;
+    color: inherit;
 }
 
 .preview-image-fallback {

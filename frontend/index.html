@@ -30,7 +30,8 @@
             const sidebar = document.getElementById('sidebar');
             const switchBtn = document.getElementById('switch-view-btn');
             const switchText = document.getElementById('switch-view-text');
-            
+            const viewModeSelector = document.getElementById('view-mode-selector');
+
             if (currentView === 'content') {
                 // Switch to Monitoring
                 layoutContainer.classList.add('hidden');
@@ -38,6 +39,8 @@
                 monitoringView.classList.remove('hidden');
                 switchText.textContent = 'Switch to Content';
                 switchBtn.classList.add('active');
+                // Hide swipe view selector in monitoring mode
+                if (viewModeSelector) viewModeSelector.style.display = 'none';
                 currentView = 'monitoring';
                 // Initialize monitoring data
                 if (typeof SocialListening !== 'undefined') {
@@ -50,6 +53,8 @@
                 monitoringView.classList.add('hidden');
                 switchText.textContent = 'Switch to Monitoring';
                 switchBtn.classList.remove('active');
+                // Show swipe view selector in content mode
+                if (viewModeSelector) viewModeSelector.style.display = 'inline-block';
                 currentView = 'content';
             }
         }

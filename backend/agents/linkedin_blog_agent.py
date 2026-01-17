@@ -63,13 +63,21 @@ class LinkedInBlogAgent:
         branding_context = ""
         if product_info:
             branding_context = f"""
-            BRANDING CONTEXT (Crucial):
-            The user wants this piece to relate to their product/venture:
-            - Product Name: {product_info.get('name')}
-            - Description: {product_info.get('description')}
-            
-            MANDATORY RULE: Connect the factual data from the sources to this product. 
-            The blog should position the product as a relevant solution or example in the context of the topic.
+            PRODUCT FOCUS REQUIREMENTS (Critical):
+            This blog is centered around your product: {product_info.get('name')}
+            - Product Description: {product_info.get('description')}
+
+            BLOG STRUCTURE MANDATE:
+            1. Start with a brief, professional introduction about the blog topic (2-3 sentences max)
+            2. After the intro, immediately pivot to revolve the entire remaining content around {product_info.get('name')}
+            3. Connect all factual data, insights, and analysis to how {product_info.get('name')} addresses or exemplifies the topic
+            4. Position {product_info.get('name')} as the central solution or key example throughout the piece
+
+            TERMINOLOGY RULE:
+            - When introducing a technical term or acronym for the first time, use ONLY the full form (e.g., "Artificial Intelligence")
+            - After the initial full form introduction, consistently use only the short form (AI) throughout the rest of the blog
+            - DO NOT use brackets or show both forms together at any point
+            - Apply this rule to all acronyms, technical terms, and product-specific terminology
             """
 
         prompt = f"""
@@ -77,7 +85,7 @@ class LinkedInBlogAgent:
         Your goal is to write a high-quality, professional LinkedIn piece based ONLY on the provided factual data.
 
         TOPIC: {topic}
-        TONE: {tone}
+        TONE: {tone} 
         TARGET LENGTH/CONSTRAINT: {length_str}
 
         {branding_context}
