@@ -326,11 +326,71 @@ const Api = {
             body: JSON.stringify({ job_id: jobId, post_id: postId, edit_prompt: editPrompt })
         });
         return await this.handleResponse(response);
+    },
+
+    // ==================== Generic HTTP Methods ====================
+    // Used by Social Listening module and other dynamic API calls
+
+    async get(url) {
+        try {
+            const response = await fetch(url, {
+                method: 'GET',
+                headers: this.getHeaders()
+            });
+            return await this.handleResponse(response);
+        } catch (e) {
+            console.error("API GET Error:", e);
+            throw e;
+        }
+    },
+
+    async post(url, data = {}) {
+        try {
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: this.getHeaders(),
+                body: JSON.stringify(data)
+            });
+            return await this.handleResponse(response);
+        } catch (e) {
+            console.error("API POST Error:", e);
+            throw e;
+        }
+    },
+
+    async patch(url, data = {}) {
+        try {
+            const response = await fetch(url, {
+                method: 'PATCH',
+                headers: this.getHeaders(),
+                body: JSON.stringify(data)
+            });
+            return await this.handleResponse(response);
+        } catch (e) {
+            console.error("API PATCH Error:", e);
+            throw e;
+        }
+    },
+
+    async delete(url) {
+        try {
+            const response = await fetch(url, {
+                method: 'DELETE',
+                headers: this.getHeaders()
+            });
+            return await this.handleResponse(response);
+        } catch (e) {
+            console.error("API DELETE Error:", e);
+            throw e;
+        }
     }
 };
 
 // Explicitly export to window for global access
 window.Api = Api;
+
+// Also export as API (uppercase) for compatibility with Social Listening module
+window.API = Api;
 
 const Toast = {
     container: null,

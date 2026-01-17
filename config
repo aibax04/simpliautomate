@@ -1,4 +1,4 @@
 Host simplii
     HostName 13.201.46.26
     User ubuntu
-    IdentityFile C:/Users/mohda/.ssh/supportnest_keypair.pem
+    IdentityFile "C:/Users/mohda/.ssh/supportnest_keypair.pem"

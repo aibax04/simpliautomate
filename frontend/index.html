@@ -20,6 +20,53 @@
             localStorage.removeItem('simplii_token');
             window.location.href = '/login.html';
         }
+        
+        // View Toggle - Content Automation vs Monitoring
+        let currentView = 'content'; // 'content' or 'monitoring'
+        
+        function toggleMainView() {
+            const layoutContainer = document.querySelector('.layout-container');
+            const monitoringView = document.getElementById('monitoring-view');
+            const sidebar = document.getElementById('sidebar');
+            const switchBtn = document.getElementById('switch-view-btn');
+            const switchText = document.getElementById('switch-view-text');
+            
+            if (currentView === 'content') {
+                // Switch to Monitoring
+                layoutContainer.classList.add('hidden');
+                sidebar.classList.add('hidden');
+                monitoringView.classList.remove('hidden');
+                switchText.textContent = 'Switch to Content';
+                switchBtn.classList.add('active');
+                currentView = 'monitoring';
+                // Initialize monitoring data
+                if (typeof SocialListening !== 'undefined') {
+                    SocialListening.init();
+                }
+            } else {
+                // Switch to Content Automation
+                layoutContainer.classList.remove('hidden');
+                sidebar.classList.remove('hidden');
+                monitoringView.classList.add('hidden');
+                switchText.textContent = 'Switch to Monitoring';
+                switchBtn.classList.remove('active');
+                currentView = 'content';
+            }
+        }
+        
+        function showMonitoringSection(section) {
+            // Hide all sections
+            document.querySelectorAll('.monitoring-section').forEach(el => el.classList.add('hidden'));
+            // Show selected section
+            document.getElementById('monitoring-' + section).classList.remove('hidden');
+            // Update nav buttons
+            document.querySelectorAll('.monitoring-nav-btn').forEach(btn => {
+                btn.classList.remove('active');
+                if (btn.dataset.section === section) {
+                    btn.classList.add('active');
+                }
+            });
+        }
     </script>
 </head>
 
@@ -107,6 +154,13 @@
                 </div>
 
                 <div class="header-right">
+                    <button id="switch-view-btn" class="btn-switch-view" onclick="toggleMainView()">
+                        <span id="switch-view-text">Switch to Monitoring</span>
+                        <svg id="switch-view-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <polyline points="12 6 12 12 16 14"></polyline>
+                        </svg>
+                    </button>
                     <span id="user-display-name" class="user-id-label">loading...</span>
                 </div>
             </header>
@@ -148,6 +202,376 @@
                         <!-- Queue items injected here -->
                     </div>
                 </aside>
+            </div>
+
+            <!-- Monitoring View Container (Hidden by Default) -->
+            <div id="monitoring-view" class="monitoring-container hidden">
+                <!-- Monitoring Sidebar -->
+                <div class="monitoring-sidebar">
+                    <div class="monitoring-sidebar-header">
+                        <h3>Social Listening</h3>
+                    </div>
+                    <nav class="monitoring-nav">
+                        <button class="monitoring-nav-btn active" data-section="feed" onclick="showMonitoringSection('feed')">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11a9 9 0 0 1 9 9"></path><path d="M4 4a16 16 0 0 1 16 16"></path><circle cx="5" cy="19" r="1"></circle></svg>
+                            Live Feed
+                        </button>
+                        <button class="monitoring-nav-btn" data-section="rules" onclick="showMonitoringSection('rules')">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg>
+                            Rule Builder
+                        </button>
+                        <button class="monitoring-nav-btn" data-section="alerts" onclick="showMonitoringSection('alerts')">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
+                            Alerts
+                            <span id="alert-badge" class="alert-badge hidden">0</span>
+                        </button>
+                        <button class="monitoring-nav-btn" data-section="analytics" onclick="showMonitoringSection('analytics')">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
+                            Analytics
+                        </button>
+                        <button class="monitoring-nav-btn" data-section="reports" onclick="showMonitoringSection('reports')">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                            Reports
+                        </button>
+                    </nav>
+                </div>
+
+                <!-- Monitoring Main Content -->
+                <div class="monitoring-main">
+                    <!-- Live Feed Section -->
+                    <div id="monitoring-feed" class="monitoring-section">
+                        <div class="section-toolbar">
+                            <h2>Live Content Feed</h2>
+                            <div class="toolbar-actions">
+                                <select id="feed-rule-filter" class="toolbar-select">
+                                    <option value="all">All Rules</option>
+                                </select>
+                                <select id="feed-platform-filter" class="toolbar-select">
+                                    <option value="all">All Platforms</option>
+                                    <option value="twitter">Twitter/X</option>
+                                    <option value="linkedin">LinkedIn</option>
+                                    <option value="reddit">Reddit</option>
+                                    <option value="news">News Sites</option>
+                                </select>
+                                <button class="btn-refresh" onclick="SocialListening.refreshFeed()">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+                                    Refresh
+                                </button>
+                            </div>
+                        </div>
+                        <div id="feed-content" class="feed-grid">
+                            <div class="feed-empty-state">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                                <h3>No monitored content yet</h3>
+                                <p>Create a tracking rule to start monitoring social media content.</p>
+                                <button class="btn-primary" onclick="showMonitoringSection('rules')">Create First Rule</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Rule Builder Section -->
+                    <div id="monitoring-rules" class="monitoring-section hidden">
+                        <div class="section-toolbar">
+                            <h2>Tracking Rules</h2>
+                            <button class="btn-primary" onclick="SocialListening.showRuleModal()">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                                New Rule
+                            </button>
+                        </div>
+                        <div id="rules-list" class="rules-container">
+                            <div class="rules-empty-state">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg>
+                                <h3>No tracking rules configured</h3>
+                                <p>Create rules to monitor keywords, handles, and topics across social platforms.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Alerts Section -->
+                    <div id="monitoring-alerts" class="monitoring-section hidden">
+                        <div class="section-toolbar">
+                            <h2>Alerts</h2>
+                            <div class="toolbar-actions">
+                                <button class="btn-secondary" onclick="SocialListening.markAllAlertsRead()">Mark All Read</button>
+                            </div>
+                        </div>
+                        <div id="alerts-list" class="alerts-container">
+                            <div class="alerts-empty-state">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
+                                <h3>No alerts yet</h3>
+                                <p>Alerts will appear here when your tracking rules match new content.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Analytics Section -->
+                    <div id="monitoring-analytics" class="monitoring-section hidden">
+                        <div class="section-toolbar">
+                            <h2>Analytics Dashboard</h2>
+                            <div class="toolbar-actions">
+                                <select id="analytics-timeframe" class="toolbar-select">
+                                    <option value="7d">Last 7 Days</option>
+                                    <option value="30d">Last 30 Days</option>
+                                    <option value="90d">Last 90 Days</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="analytics-grid">
+                            <!-- Sentiment Overview -->
+                            <div class="analytics-card">
+                                <h4>Sentiment Distribution</h4>
+                                <div id="sentiment-chart" class="chart-container">
+                                    <div class="sentiment-bars">
+                                        <div class="sentiment-bar positive" style="height: 0%;">
+                                            <span class="sentiment-label">Positive</span>
+                                            <span class="sentiment-value">0%</span>
+                                        </div>
+                                        <div class="sentiment-bar neutral" style="height: 0%;">
+                                            <span class="sentiment-label">Neutral</span>
+                                            <span class="sentiment-value">0%</span>
+                                        </div>
+                                        <div class="sentiment-bar negative" style="height: 0%;">
+                                            <span class="sentiment-label">Negative</span>
+                                            <span class="sentiment-value">0%</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- Platform Activity -->
+                            <div class="analytics-card">
+                                <h4>Platform Activity</h4>
+                                <div id="platform-chart" class="chart-container">
+                                    <div class="platform-stats">
+                                        <div class="platform-stat">
+                                            <span class="platform-icon twitter">𝕏</span>
+                                            <span class="platform-name">Twitter/X</span>
+                                            <span class="platform-count">0</span>
+                                        </div>
+                                        <div class="platform-stat">
+                                            <span class="platform-icon linkedin">in</span>
+                                            <span class="platform-name">LinkedIn</span>
+                                            <span class="platform-count">0</span>
+                                        </div>
+                                        <div class="platform-stat">
+                                            <span class="platform-icon reddit">r/</span>
+                                            <span class="platform-name">Reddit</span>
+                                            <span class="platform-count">0</span>
+                                        </div>
+                                        <div class="platform-stat">
+                                            <span class="platform-icon news">📰</span>
+                                            <span class="platform-name">News</span>
+                                            <span class="platform-count">0</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- Trending Keywords -->
+                            <div class="analytics-card wide">
+                                <h4>Trending Keywords</h4>
+                                <div id="keywords-cloud" class="keywords-container">
+                                    <p class="empty-text">No keyword data available yet.</p>
+                                </div>
+                            </div>
+                            <!-- Volume Over Time -->
+                            <div class="analytics-card wide">
+                                <h4>Content Volume</h4>
+                                <div id="volume-chart" class="chart-container volume-chart">
+                                    <p class="empty-text">No volume data available yet.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Reports Section -->
+                    <div id="monitoring-reports" class="monitoring-section hidden">
+                        <div class="section-toolbar">
+                            <h2>Export Reports</h2>
+                        </div>
+                        <div class="reports-config">
+                            <div class="report-form">
+                                <div class="form-group">
+                                    <label>Report Type</label>
+                                    <select id="report-type" class="form-select">
+                                        <option value="summary">Summary Report</option>
+                                        <option value="detailed">Detailed Analysis</option>
+                                        <option value="sentiment">Sentiment Report</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label>Date Range</label>
+                                    <div class="date-range-inputs">
+                                        <input type="date" id="report-start-date" class="form-input">
+                                        <span>to</span>
+                                        <input type="date" id="report-end-date" class="form-input">
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label>Include Rules</label>
+                                    <select id="report-rules" class="form-select" multiple>
+                                        <option value="all" selected>All Rules</option>
+                                    </select>
+                                </div>
+                                <button class="btn-primary" onclick="SocialListening.generateReport()">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                                    Generate PDF Report
+                                </button>
+                            </div>
+                            <div id="report-preview" class="report-preview">
+                                <p class="empty-text">Configure report settings and click generate to preview.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Rule Builder Modal -->
+            <div id="rule-builder-modal" class="modal hidden">
+                <div class="modal-overlay"></div>
+                <div class="modal-content wide">
+                    <button class="close-modal-btn" onclick="document.getElementById('rule-builder-modal').classList.add('hidden')">&times;</button>
+                    <h2>Create Tracking Rule</h2>
+                    
+                    <div class="form-group">
+                        <label>Rule Name</label>
+                        <input type="text" id="rule-name" placeholder="e.g. AI Startup Monitor">
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group flex-1">
+                            <label>Keywords (comma separated)</label>
+                            <textarea id="rule-keywords" placeholder="AI, machine learning, startup funding" rows="3"></textarea>
+                        </div>
+                        <div class="form-group flex-1">
+                            <label>Social Handles (comma separated)</label>
+                            <textarea id="rule-handles" placeholder="@sequoia, @a16z, @ycombinator" rows="3"></textarea>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Platforms</label>
+                        <div class="checkbox-group">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="platform-twitter" value="twitter" checked>
+                                <span>Twitter/X</span>
+                            </label>
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="platform-linkedin" value="linkedin" checked>
+                                <span>LinkedIn</span>
+                            </label>
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="platform-reddit" value="reddit">
+                                <span>Reddit</span>
+                            </label>
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="platform-news" value="news" checked>
+                                <span>News Sites</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group flex-1">
+                            <label>Logic Type</label>
+                            <select id="rule-logic">
+                                <option value="keywords_only">Keywords Only</option>
+                                <option value="handles_only">Handles Only</option>
+                                <option value="keywords_and_handles">Keywords AND Handles</option>
+                                <option value="keywords_or_handles" selected>Keywords OR Handles</option>
+                                <option value="exclude_keywords">Exclude Keywords</option>
+                            </select>
+                        </div>
+                        <div class="form-group flex-1">
+                            <label>Monitoring Frequency</label>
+                            <select id="rule-frequency">
+                                <option value="realtime">Real-time</option>
+                                <option value="hourly" selected>Hourly</option>
+                                <option value="daily">Daily</option>
+                                <option value="weekly">Weekly</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-divider">Alert Settings</div>
+                    <div class="checkbox-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="alert-email">
+                            <span>Email Alerts</span>
+                        </label>
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="alert-inapp" checked>
+                            <span>In-App Notifications</span>
+                        </label>
+                    </div>
+
+                    <div class="modal-actions">
+                        <button class="btn-secondary" onclick="document.getElementById('rule-builder-modal').classList.add('hidden')">Cancel</button>
+                        <button class="btn-primary" onclick="SocialListening.saveRule()">Save Rule</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- AI Response Modal -->
+            <div id="ai-response-modal" class="modal hidden">
+                <div class="modal-overlay"></div>
+                <div class="modal-content wide">
+                    <button class="close-modal-btn" onclick="document.getElementById('ai-response-modal').classList.add('hidden')">&times;</button>
+                    <h2>Generate AI Response</h2>
+                    
+                    <div class="original-content-preview">
+                        <label>Original Content</label>
+                        <div id="original-content-box" class="content-preview-box"></div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group flex-1">
+                            <label>Response Intent</label>
+                            <select id="response-intent">
+                                <option value="supportive">Supportive Comment</option>
+                                <option value="professional">Professional Response</option>
+                                <option value="counter">Counter Argument</option>
+                                <option value="neutral">Neutral Summary</option>
+                                <option value="promotional">Promotional Reply</option>
+                            </select>
+                        </div>
+                        <div class="form-group flex-1">
+                            <label>Tone</label>
+                            <select id="response-tone">
+                                <option value="friendly">Friendly</option>
+                                <option value="professional" selected>Professional</option>
+                                <option value="casual">Casual</option>
+                                <option value="formal">Formal</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Response Length</label>
+                        <select id="response-length">
+                            <option value="short">Short (1-2 sentences)</option>
+                            <option value="medium" selected>Medium (paragraph)</option>
+                            <option value="long">Long (detailed)</option>
+                        </select>
+                    </div>
+
+                    <div id="ai-response-status" class="hidden" style="text-align: center; padding: 20px;">
+                        <div class="mini-spinner"></div>
+                        <span>Generating response...</span>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Generated Response</label>
+                        <textarea id="generated-response" rows="6" placeholder="Click 'Generate' to create a response..."></textarea>
+                    </div>
+
+                    <div class="modal-actions">
+                        <button class="btn-secondary" onclick="document.getElementById('ai-response-modal').classList.add('hidden')">Close</button>
+                        <button class="btn-secondary" onclick="SocialListening.generateResponse()">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+                            Generate
+                        </button>
+                        <button class="btn-primary" onclick="SocialListening.copyResponse()">Copy Response</button>
+                    </div>
+                </div>
             </div>
 
             <!-- Upload Modal -->
@@ -657,7 +1081,8 @@
             </div>
         </div>
 
-        <script src="static/js/api.js?v=1.1"></script>
+        <script src="static/js/api.js?v=1.3"></script>
+        <script src="static/js/social_listening.js?v=1.3"></script>
         <script src="static/js/linkedin_accounts.js"></script>
         <script src="static/js/products.js"></script>
         <script src="static/js/scheduler.js"></script>

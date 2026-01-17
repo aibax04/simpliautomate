@@ -50,6 +50,21 @@ else
     echo "WARNING: requirements.txt not found!"
 fi
 
+# 4.5. Initialize Database Tables
+echo "[4.5/7] Initializing database tables..."
+python -c "
+import asyncio
+from backend.db.database import engine, Base
+from backend.db import models  # Import all models to register them
+
+async def init():
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    print('[DB] All tables initialized successfully!')
+
+asyncio.run(init())
+"
+
 # 5. Setup Systemd Service
 echo "[5/7] Configuring Systemd Service..."
 SERVICE_FILE="/etc/systemd/system/simplii.service"
@@ -66,7 +81,7 @@ Group=www-data
 WorkingDirectory=$APP_DIR
 Environment="PATH=$APP_DIR/venv/bin"
 EnvironmentFile=$APP_DIR/.env
-ExecStart=$APP_DIR/venv/bin/gunicorn -w 4 -k uvicorn.workers.UvicornWorker backend.server:app --bind 0.0.0.0:8000
+ExecStart=$APP_DIR/venv/bin/gunicorn -w 4 -k uvicorn.workers.UvicornWorker backend.server:app --bind 0.0.0.0:35000
 Restart=always
 RestartSec=5
 
@@ -88,7 +103,7 @@ server {
     server_name _;
 
     location / {
-        proxy_pass http://127.0.0.1:8000;
+        proxy_pass http://127.0.0.1:35000;
         proxy_set_header Host \$host;
         proxy_set_header X-Real-IP \$remote_addr;
         proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
