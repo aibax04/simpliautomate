@@ -113,7 +113,7 @@ const SocialListening = {
     async refreshFeed() {
         const refreshBtn = document.querySelector('.btn-refresh');
         if (refreshBtn) {
-            refreshBtn.innerHTML = '<div class="mini-spinner"></div> Fetching from DuckDuckGo...';
+            refreshBtn.innerHTML = '<div class="mini-spinner"></div> Fetching...';
             refreshBtn.disabled = true;
         }
         
@@ -399,13 +399,19 @@ const SocialListening = {
 
         const reportPreview = document.getElementById('report-preview');
 
+        // Show immediate notification to user
+        this.showToast('Report generation started! Analyzing your data...', 'info');
+
         try {
-            // Show loading state with progress
+            // Show loading state with progress in the preview area
+            const reportTypeDisplay = reportType.charAt(0).toUpperCase() + reportType.slice(1);
             reportPreview.innerHTML = `
                 <div class="report-loading">
                     <div class="loading-spinner"></div>
-                    <h3 style="margin: 0 0 10px 0; color: var(--text-primary);">Generating Report</h3>
-                    <p style="margin: 0; color: var(--text-secondary);">Analyzing data and compiling insights...</p>
+                    <h3 style="margin: 0 0 10px 0; color: var(--text-primary);">Generating Your ${reportTypeDisplay} Report</h3>
+                    <p style="margin: 0 0 5px 0; color: var(--text-secondary);">Analyzing social media data from ${startDate} to ${endDate}...</p>
+                    <p style="margin: 0 0 5px 0; color: var(--text-secondary); font-size: 13px;">Processing monitoring data and compiling insights</p>
+                    <p style="margin: 0; color: var(--text-secondary); font-size: 12px;">This may take a few moments depending on the date range selected</p>
                     <div style="margin-top: 20px; width: 100%; max-width: 200px;">
                         <div style="height: 4px; background: var(--border); border-radius: 2px; overflow: hidden;">
                             <div style="height: 100%; background: var(--accent); width: 0%; animation: progress 2s ease-in-out infinite;"></div>
@@ -443,7 +449,7 @@ const SocialListening = {
                     <div class="report-content-container">
                         <div class="report-header">
                             <div class="report-actions">
-                                <button onclick="downloadReportText('${response.report_id}')" class="btn-primary" title="Download report as text file">
+                                <button onclick="downloadReportText('${response.report_id}')" class="btn-primary btn-download" title="Download report as text file">
                                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                         <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
                                         <polyline points="7 10 12 15 17 10"></polyline>
@@ -468,10 +474,15 @@ const SocialListening = {
                         <div class="report-content">
                             ${formattedContent}
                         </div>
+                        <div class="report-footer">
+                            <p style="margin: 0; font-size: 12px; color: var(--text-secondary); text-align: center;">
+                                Report generated successfully • Ready for download
+                            </p>
+                        </div>
                     </div>
                 `;
 
-                this.showToast('Report generated successfully', 'success');
+                this.showToast('Report generated successfully! Check the preview and download options.', 'success');
             }
         } catch (error) {
             console.error('[SocialListening] Error generating report:', error);
@@ -975,9 +986,27 @@ function downloadReportText(reportId) {
     document.body.removeChild(a);
     window.URL.revokeObjectURL(url);
 
-    // Show success message
+    // Show success message with download confirmation
     if (window.SocialListening && window.SocialListening.showToast) {
-        window.SocialListening.showToast('Report downloaded successfully', 'success');
+        window.SocialListening.showToast('Report downloaded successfully! Check your downloads folder.', 'success');
+    }
+
+    // Also show a visual confirmation in the download button
+    const downloadBtn = document.querySelector('.btn-download');
+    if (downloadBtn) {
+        const originalText = downloadBtn.innerHTML;
+        const originalClass = downloadBtn.className;
+
+        downloadBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg> Downloaded!';
+        downloadBtn.className = 'btn-primary btn-download success';
+        downloadBtn.disabled = true;
+
+        // Reset button after 3 seconds
+        setTimeout(() => {
+            downloadBtn.innerHTML = originalText;
+            downloadBtn.className = originalClass;
+            downloadBtn.disabled = false;
+        }, 3000);
     }
 }
 

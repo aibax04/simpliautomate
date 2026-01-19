@@ -3234,6 +3234,44 @@ textarea:focus {
     line-height: 1.6;
 }
 
+/* Report Footer */
+.report-footer {
+    padding: 16px 24px;
+    border-top: 1px solid var(--border);
+    background: var(--bg);
+    text-align: center;
+}
+
+/* Enhanced Download Button */
+.btn-download {
+    position: relative;
+    animation: gentlePulse 3s infinite;
+    font-weight: 600;
+    border: 2px solid var(--accent);
+}
+
+.btn-download:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(59, 130, 246, 0.4);
+    border-color: var(--accent);
+}
+
+.btn-download:active {
+    transform: translateY(0);
+}
+
+@keyframes gentlePulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.3); }
+    50% { box-shadow: 0 0 0 6px rgba(59, 130, 246, 0.1); }
+}
+
+/* Success state for download button */
+.btn-download.success {
+    background: #10b981 !important;
+    border-color: #10b981 !important;
+    animation: none !important;
+}
+
 .report-content h3 {
     color: var(--text-primary) !important;
     margin: 25px 0 12px 0 !important;

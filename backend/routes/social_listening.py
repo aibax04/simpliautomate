@@ -27,6 +27,7 @@ async def generate_report_content(db: AsyncSession, user_id: int, report_type: s
                                 start_date: datetime, end_date: datetime, rule_ids: List[str]):
     """Generate clean, readable report content with bullet points"""
 
+    print(f"[Reports] Generating {report_type} report content for user {user_id}")
     report_lines = []
 
     # Report Header
@@ -44,16 +45,33 @@ async def generate_report_content(db: AsyncSession, user_id: int, report_type: s
     report_lines.append("")
 
     # Get data based on report type
-    if report_type == "summary":
-        content = await generate_summary_report(db, user_id, start_date, end_date, rule_ids)
-    elif report_type == "detailed":
-        content = await generate_detailed_report(db, user_id, start_date, end_date, rule_ids)
-    elif report_type == "sentiment":
-        content = await generate_sentiment_report(db, user_id, start_date, end_date, rule_ids)
-    else:
-        content = ["- Invalid report type specified"]
+    try:
+        if report_type == "summary":
+            print("[Reports] Generating summary report...")
+            content = await generate_summary_report(db, user_id, start_date, end_date, rule_ids)
+        elif report_type == "detailed":
+            print("[Reports] Generating detailed report...")
+            content = await generate_detailed_report(db, user_id, start_date, end_date, rule_ids)
+        elif report_type == "sentiment":
+            print("[Reports] Generating sentiment report...")
+            content = await generate_sentiment_report(db, user_id, start_date, end_date, rule_ids)
+        else:
+            print(f"[Reports] Invalid report type: {report_type}")
+            content = ["- Invalid report type specified"]
 
-    report_lines.extend(content)
+        report_lines.extend(content)
+        print(f"[Reports] Report content generated with {len(content)} lines")
+
+    except Exception as e:
+        print(f"[Reports] Error generating report content: {e}")
+        import traceback
+        traceback.print_exc()
+        report_lines.extend([
+            "",
+            "ERROR GENERATING REPORT",
+            "- An error occurred while generating this report",
+            "- Please try again or contact support if the issue persists"
+        ])
 
     return "\n".join(report_lines)
 
@@ -62,78 +80,99 @@ async def generate_summary_report(db: AsyncSession, user_id: int, start_date: da
                                 end_date: datetime, rule_ids: List[str]):
     """Generate summary report with key metrics"""
 
+    print(f"[Reports] Generating summary report for date range: {start_date} to {end_date}")
     lines = []
     lines.append("EXECUTIVE SUMMARY")
     lines.append("-" * 20)
 
-    # Get total posts fetched in date range
-    stmt = select(func.count(FetchedPost.id)).where(
-        and_(
-            FetchedPost.created_at >= start_date,
-            FetchedPost.created_at <= end_date
+    try:
+        # Get total posts fetched in date range
+        stmt = select(func.count(FetchedPost.id)).where(
+            and_(
+                FetchedPost.created_at >= start_date,
+                FetchedPost.created_at <= end_date
+            )
         )
-    )
-    result = await db.execute(stmt)
-    total_posts = result.scalar() or 0
-    lines.append("- Total Posts Monitored: {}".format(total_posts))
+        result = await db.execute(stmt)
+        total_posts = result.scalar() or 0
+        print(f"[Reports] Found {total_posts} total posts")
+        lines.append("- Total Posts Monitored: {}".format(total_posts))
 
-    # Get posts by platform
-    platform_stmt = select(
-        FetchedPost.platform,
-        func.count(FetchedPost.id).label('count')
-    ).where(
-        and_(
-            FetchedPost.created_at >= start_date,
-            FetchedPost.created_at <= end_date
+        # Get posts by platform
+        platform_stmt = select(
+            FetchedPost.platform,
+            func.count(FetchedPost.id).label('count')
+        ).where(
+            and_(
+                FetchedPost.created_at >= start_date,
+                FetchedPost.created_at <= end_date
+            )
+        ).group_by(FetchedPost.platform)
+        platform_result = await db.execute(platform_stmt)
+        platform_counts = platform_result.all()
+
+        print(f"[Reports] Found platform counts: {platform_counts}")
+
+        if platform_counts:
+            lines.append("- Posts by Platform:")
+            for platform, count in platform_counts:
+                lines.append("  - {}: {}".format(platform.title(), count))
+
+        # Get alert count
+        alert_stmt = select(func.count(SocialAlert.id)).where(
+            and_(
+                SocialAlert.user_id == user_id,
+                SocialAlert.created_at >= start_date,
+                SocialAlert.created_at <= end_date
+            )
         )
-    ).group_by(FetchedPost.platform)
-    platform_result = await db.execute(platform_stmt)
-    platform_counts = platform_result.all()
+        alert_result = await db.execute(alert_stmt)
+        alert_count = alert_result.scalar() or 0
+        print(f"[Reports] Found {alert_count} alerts")
+        lines.append("- Alerts Triggered: {}".format(alert_count))
 
-    if platform_counts:
-        lines.append("- Posts by Platform:")
-        for platform, count in platform_counts:
-            lines.append("  - {}: {}".format(platform.title(), count))
-
-    # Get alert count
-    alert_stmt = select(func.count(SocialAlert.id)).where(
-        and_(
-            SocialAlert.user_id == user_id,
-            SocialAlert.created_at >= start_date,
-            SocialAlert.created_at <= end_date
+        # Get active rules
+        rule_stmt = select(func.count(TrackingRule.id)).where(
+            and_(
+                TrackingRule.user_id == user_id,
+                TrackingRule.status == "active"
+            )
         )
-    )
-    alert_result = await db.execute(alert_stmt)
-    alert_count = alert_result.scalar() or 0
-    lines.append("- Alerts Triggered: {}".format(alert_count))
+        rule_result = await db.execute(rule_stmt)
+        active_rules = rule_result.scalar() or 0
+        print(f"[Reports] Found {active_rules} active rules")
+        lines.append("- Active Tracking Rules: {}".format(active_rules))
 
-    # Get active rules
-    rule_stmt = select(func.count(TrackingRule.id)).where(
-        and_(
-            TrackingRule.user_id == user_id,
-            TrackingRule.status == "active"
-        )
-    )
-    rule_result = await db.execute(rule_stmt)
-    active_rules = rule_result.scalar() or 0
-    lines.append("- Active Tracking Rules: {}".format(active_rules))
+        lines.append("")
+        lines.append("KEY FINDINGS")
+        lines.append("-" * 15)
 
-    lines.append("")
-    lines.append("KEY FINDINGS")
-    lines.append("-" * 15)
+        # Most active platforms
+        if platform_counts:
+            most_active = max(platform_counts, key=lambda x: x[1])
+            lines.append("- Most Active Platform: {} ({} posts)".format(
+                most_active[0].title(), most_active[1]))
 
-    # Most active platforms
-    if platform_counts:
-        most_active = max(platform_counts, key=lambda x: x[1])
-        lines.append("- Most Active Platform: {} ({} posts)".format(
-            most_active[0].title(), most_active[1]))
+        # Alert frequency
+        if total_posts > 0:
+            alert_rate = (alert_count / total_posts) * 100
+            lines.append("- Alert Rate: {:.1f}% of monitored posts".format(alert_rate))
+        else:
+            lines.append("- No posts found in the selected date range")
 
-    # Alert frequency
-    if total_posts > 0:
-        alert_rate = (alert_count / total_posts) * 100
-        lines.append("- Alert Rate: {:.1f}% of monitored posts".format(alert_rate))
+        print(f"[Reports] Summary report generated with {len(lines)} lines")
+        return lines
 
-    return lines
+    except Exception as e:
+        print(f"[Reports] Error in summary report generation: {e}")
+        import traceback
+        traceback.print_exc()
+        return [
+            "EXECUTIVE SUMMARY",
+            "-" * 20,
+            "- Error generating summary report",
+            "- Please try again or contact support"
+        ]
 
 
 async def generate_detailed_report(db: AsyncSession, user_id: int, start_date: datetime,
@@ -818,13 +857,25 @@ async def generate_report(
 ):
     """Generate a clean, readable report"""
     try:
-        start_date = datetime.fromisoformat(request.start_date)
-        end_date = datetime.fromisoformat(request.end_date)
+        print(f"[Reports] Generating {request.type} report for user {user.id}")
+        print(f"[Reports] Date range: {request.start_date} to {request.end_date}")
+
+        # Parse dates with better error handling
+        try:
+            start_date = datetime.fromisoformat(request.start_date)
+            end_date = datetime.fromisoformat(request.end_date)
+            print(f"[Reports] Parsed dates: {start_date} to {end_date}")
+        except ValueError as date_error:
+            print(f"[Reports] Date parsing error: {date_error}")
+            raise HTTPException(status_code=400, detail=f"Invalid date format. Expected YYYY-MM-DD, got: {request.start_date}, {request.end_date}")
 
         # Generate the report content
+        print(f"[Reports] Generating content for {request.type} report...")
         report_content = await generate_report_content(
             db, user.id, request.type, start_date, end_date, request.rule_ids
         )
+
+        print(f"[Reports] Content generated, length: {len(report_content)} characters")
 
         # Create report record
         report = MonitoringReport(
@@ -832,7 +883,7 @@ async def generate_report(
             report_type=request.type,
             start_date=start_date,
             end_date=end_date,
-            rules_included=request.rule_ids,
+            rules_included=request.rule_ids or [],
             content=report_content
         )
 
@@ -840,16 +891,22 @@ async def generate_report(
         await db.commit()
         await db.refresh(report)
 
+        print(f"[Reports] Report saved with ID: {report.id}")
+
         return {
             "status": "success",
             "report_id": str(report.id),
             "report_content": report_content,
             "message": "Report generated successfully."
         }
+    except HTTPException:
+        raise
     except Exception as e:
         await db.rollback()
-        print(f"[SocialListening] Error generating report: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        print(f"[Reports] Unexpected error generating report: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Report generation failed: {str(e)}")
 
 
 @router.get("/reports")
