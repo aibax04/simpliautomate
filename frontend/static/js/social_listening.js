@@ -27,6 +27,7 @@ const SocialListening = {
         await this.loadFeed();
         await this.loadAlerts();
         await this.loadAnalytics();
+        await this.loadUserNotificationEmail(); // Load user's notification email
         this.updateRuleFilters();
     },
 
@@ -390,24 +391,112 @@ const SocialListening = {
         const reportType = document.getElementById('report-type').value;
         const startDate = document.getElementById('report-start-date').value;
         const endDate = document.getElementById('report-end-date').value;
-        
+
         if (!startDate || !endDate) {
-            alert('Please select a date range');
+            this.showToast('Please select a date range', 'error');
             return;
         }
-        
+
+        const reportPreview = document.getElementById('report-preview');
+
         try {
+            // Show loading state with progress
+            reportPreview.innerHTML = `
+                <div class="report-loading">
+                    <div class="loading-spinner"></div>
+                    <h3 style="margin: 0 0 10px 0; color: var(--text-primary);">Generating Report</h3>
+                    <p style="margin: 0; color: var(--text-secondary);">Analyzing data and compiling insights...</p>
+                    <div style="margin-top: 20px; width: 100%; max-width: 200px;">
+                        <div style="height: 4px; background: var(--border); border-radius: 2px; overflow: hidden;">
+                            <div style="height: 100%; background: var(--accent); width: 0%; animation: progress 2s ease-in-out infinite;"></div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            // Add progress animation
+            const style = document.createElement('style');
+            style.textContent = `
+                @keyframes progress {
+                    0% { width: 0%; }
+                    50% { width: 70%; }
+                    100% { width: 100%; }
+                }
+            `;
+            document.head.appendChild(style);
+
             const response = await getAPI().post('/api/social-listening/reports/generate', {
                 type: reportType,
                 start_date: startDate,
                 end_date: endDate
             });
-            
-            if (response.pdf_url) {
-                window.open(response.pdf_url, '_blank');
+
+            if (response.report_content) {
+                // Display the clean report content
+                const formattedContent = response.report_content
+                    .replace(/\n/g, '<br>')
+                    .replace(/^([A-Z\s]+)$/gm, '<h3 style="color: var(--text-primary); margin: 25px 0 12px 0; font-weight: 600; font-size: 16px; border-bottom: 2px solid var(--accent); padding-bottom: 8px;">$1</h3>')
+                    .replace(/^(- .*)$/gm, '<div style="margin: 8px 0; padding: 8px 0 8px 20px; border-left: 3px solid var(--border); background: rgba(255,255,255,0.02);">$1</div>')
+                    .replace(/^(\s{2}- .*)$/gm, '<div style="margin: 5px 0; margin-left: 30px; color: var(--text-secondary); font-size: 13px;">$1</div>');
+
+                reportPreview.innerHTML = `
+                    <div class="report-content-container">
+                        <div class="report-header">
+                            <div class="report-actions">
+                                <button onclick="downloadReportText('${response.report_id}')" class="btn-primary" title="Download report as text file">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                        <polyline points="7 10 12 15 17 10"></polyline>
+                                        <line x1="12" y1="15" x2="12" y2="3"></line>
+                                    </svg>
+                                    Download Report
+                                </button>
+                                <button onclick="printReport()" class="btn-secondary" title="Print report">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <polyline points="6 9 6 2 18 2 18 9"></polyline>
+                                        <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
+                                        <rect x="6" y="14" width="12" height="8"></rect>
+                                    </svg>
+                                    Print
+                                </button>
+                            </div>
+                            <div class="report-meta">
+                                <span class="report-type-badge">${reportType.charAt(0).toUpperCase() + reportType.slice(1)} Report</span>
+                                <span class="report-date">Generated: ${new Date().toLocaleDateString()}</span>
+                            </div>
+                        </div>
+                        <div class="report-content">
+                            ${formattedContent}
+                        </div>
+                    </div>
+                `;
+
+                this.showToast('Report generated successfully', 'success');
             }
         } catch (error) {
             console.error('[SocialListening] Error generating report:', error);
+
+            // Show detailed error message
+            let errorMessage = 'Failed to generate report. Please try again.';
+            if (error.message) {
+                errorMessage += ` Error: ${error.message}`;
+            }
+
+            reportPreview.innerHTML = `
+                <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 60px 20px; text-align: center;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#e74c3c" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom: 20px;">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <line x1="15" y1="9" x2="9" y2="15"></line>
+                        <line x1="9" y1="9" x2="15" y2="15"></line>
+                    </svg>
+                    <h3 style="margin: 0 0 10px 0; color: #e74c3c;">Report Generation Failed</h3>
+                    <p style="margin: 0; color: var(--text-secondary); line-height: 1.5;">${errorMessage}</p>
+                    <button onclick="SocialListening.generateReport()" class="btn-primary" style="margin-top: 20px;">
+                        Try Again
+                    </button>
+                </div>
+            `;
+
             this.showToast('Failed to generate report', 'error');
         }
     },
@@ -751,6 +840,234 @@ document.addEventListener('DOMContentLoaded', () => {
         analyticsTimeframe.addEventListener('change', () => SocialListening.loadAnalytics());
     }
 });
+
+/**
+ * Load user's current notification email
+ */
+async function loadUserNotificationEmail() {
+    try {
+        const response = await getAPI().get('/api/social-listening/user/notification-email');
+
+        if (response.has_email) {
+            const emailInput = document.getElementById('user-notification-email');
+            emailInput.placeholder = `Current: ${response.email} - Enter new email to update`;
+            showEmailStatus(`📧 Current notification email: ${response.email}`, 'info');
+        }
+    } catch (error) {
+        console.log('[Email] Could not load current email:', error.message);
+    }
+}
+
+/**
+ * Save user notification email
+ */
+async function saveUserNotificationEmail() {
+    const emailInput = document.getElementById('user-notification-email');
+    const statusDiv = document.getElementById('email-save-status');
+    const email = emailInput.value.trim();
+
+    if (!email) {
+        showEmailStatus('Please enter a valid email address.', 'error');
+        return;
+    }
+
+    // Basic email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+        showEmailStatus('Please enter a valid email address format.', 'error');
+        return;
+    }
+
+    try {
+        showEmailStatus('Saving email...', 'info');
+
+        const response = await getAPI().post('/api/user/notification-email', { email });
+
+        if (response.success) {
+            showEmailStatus('✅ Email saved successfully! You will now receive instant notifications.', 'success');
+            emailInput.value = ''; // Clear the input
+
+            // Reload the user's notification email to update the UI
+            await loadUserNotificationEmail();
+
+            // Optional: Refresh alerts to show updated status
+            setTimeout(() => {
+                SocialListening.loadAlerts();
+            }, 1000);
+
+        } else {
+            showEmailStatus('Failed to save email. Please try again.', 'error');
+        }
+
+    } catch (error) {
+        console.error('[Email] Save failed:', error);
+        showEmailStatus('Failed to save email. Please check your connection and try again.', 'error');
+    }
+}
+
+/**
+ * Show email save status message
+ */
+function showEmailStatus(message, type) {
+    const statusDiv = document.getElementById('email-save-status');
+
+    statusDiv.textContent = message;
+    statusDiv.style.display = 'block';
+
+    // Remove existing classes
+    statusDiv.classList.remove('success', 'error', 'info');
+
+    // Add appropriate styling based on type
+    if (type === 'success') {
+        statusDiv.style.backgroundColor = '#d4edda';
+        statusDiv.style.color = '#155724';
+        statusDiv.style.border = '1px solid #c3e6cb';
+    } else if (type === 'error') {
+        statusDiv.style.backgroundColor = '#f8d7da';
+        statusDiv.style.color = '#721c24';
+        statusDiv.style.border = '1px solid #f5c6cb';
+    } else if (type === 'info') {
+        statusDiv.style.backgroundColor = '#cce7ff';
+        statusDiv.style.color = '#004085';
+        statusDiv.style.border = '1px solid #b3d7ff';
+    }
+
+    // Auto-hide success messages after 5 seconds
+    if (type === 'success') {
+        setTimeout(() => {
+            statusDiv.style.display = 'none';
+        }, 5000);
+    }
+}
+
+/**
+ * Download report as text file
+ */
+function downloadReportText(reportId) {
+    const reportContent = document.querySelector('.report-content');
+    if (!reportContent) return;
+
+    // Get the text content and format it properly
+    let textContent = reportContent.textContent || reportContent.innerText;
+
+    // Clean up and format the text
+    const cleanText = textContent
+        .replace(/\s+/g, ' ')  // Replace multiple spaces with single space
+        .replace(/•/g, '-')    // Replace bullets if any
+        .replace(/\n\s*\n/g, '\n\n')  // Ensure double line breaks between sections
+        .trim();
+
+    // Add report header
+    const reportType = document.querySelector('.report-type-badge')?.textContent || 'Report';
+    const reportDate = document.querySelector('.report-date')?.textContent || '';
+    const header = `${reportType}\n${reportDate}\n${'='.repeat(50)}\n\n`;
+
+    const finalText = header + cleanText;
+
+    // Create blob and download
+    const blob = new Blob([finalText], { type: 'text/plain;charset=utf-8' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `social_monitoring_report_${reportId}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+
+    // Show success message
+    if (window.SocialListening && window.SocialListening.showToast) {
+        window.SocialListening.showToast('Report downloaded successfully', 'success');
+    }
+}
+
+/**
+ * Print the report
+ */
+function printReport() {
+    const reportContent = document.querySelector('.report-content');
+    if (!reportContent) return;
+
+    const reportType = document.querySelector('.report-type-badge')?.textContent || 'Social Media Monitoring Report';
+    const reportDate = document.querySelector('.report-date')?.textContent || '';
+
+    const printWindow = window.open('', '_blank');
+    const content = reportContent.innerHTML;
+
+    printWindow.document.write(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>${reportType}</title>
+            <style>
+                @media print {
+                    body { margin: 0; }
+                    .no-print { display: none; }
+                }
+                body {
+                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+                    font-size: 12px;
+                    line-height: 1.6;
+                    margin: 20px;
+                    color: #333;
+                }
+                h3 {
+                    color: #2563eb;
+                    margin: 25px 0 12px 0;
+                    font-weight: 600;
+                    font-size: 14px;
+                    border-bottom: 2px solid #2563eb;
+                    padding-bottom: 8px;
+                    text-transform: uppercase;
+                    letter-spacing: 0.5px;
+                }
+                .report-header {
+                    text-align: center;
+                    margin-bottom: 30px;
+                    padding-bottom: 20px;
+                    border-bottom: 1px solid #ddd;
+                }
+                .report-title {
+                    font-size: 18px;
+                    font-weight: bold;
+                    margin-bottom: 5px;
+                }
+                .report-date {
+                    color: #666;
+                    font-size: 11px;
+                }
+                .report-content div[style*="border-left"] {
+                    margin: 8px 0;
+                    padding: 8px 0 8px 20px;
+                    border-left: 3px solid #ddd;
+                    background: #f9f9f9;
+                }
+                .report-content div[style*="margin-left"] {
+                    margin: 5px 0;
+                    margin-left: 30px;
+                    color: #666;
+                    font-size: 11px;
+                    font-style: italic;
+                }
+            </style>
+        </head>
+        <body>
+            <div class="report-header">
+                <div class="report-title">${reportType}</div>
+                <div class="report-date">${reportDate}</div>
+            </div>
+            <div class="report-content">${content}</div>
+        </body>
+        </html>
+    `);
+
+    printWindow.document.close();
+
+    // Wait a bit for content to load, then print
+    setTimeout(() => {
+        printWindow.print();
+    }, 500);
+}
 
 // Export for global access
 window.SocialListening = SocialListening;

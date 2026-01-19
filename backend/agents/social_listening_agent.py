@@ -1,7 +1,7 @@
 """
 Social Listening Agent
-Fetches content from DuckDuckGo based on tracking rules and stores matches
-Supports platform-specific searches for Twitter, LinkedIn, Reddit
+Fetches content from DuckDuckGo and official APIs based on tracking rules and stores matches
+Supports platform-specific searches for Twitter, LinkedIn, Reddit, and News APIs
 """
 
 import asyncio
@@ -12,18 +12,42 @@ from ddgs import DDGS
 import hashlib
 import re
 
+# Import social ingestion services
+from backend.services.ingestion_service import get_ingestion_service
+from backend.services.connectors import Platform
+
+# Import email functionality
+from backend.utils.email_sender import send_email
+
+
+async def send_email_async(to_email: str, subject: str, body: str):
+    """Send email asynchronously"""
+    try:
+        # Run email sending in thread pool to avoid blocking
+        await asyncio.get_event_loop().run_in_executor(
+            None, send_email, to_email, subject, body
+        )
+    except Exception as e:
+        print(f"[EMAIL ASYNC] Failed to send email to {to_email}: {e}")
+
 logger = logging.getLogger(__name__)
 
 
 class SocialListeningAgent:
     """Agent that fetches social media content based on tracking rules"""
-    
+
     # Platform-specific site filters for DuckDuckGo
     PLATFORM_SITES = {
         "twitter": ["site:twitter.com", "site:x.com"],
         "linkedin": ["site:linkedin.com/posts", "site:linkedin.com/feed"],
         "reddit": ["site:reddit.com"],
         "news": []  # No site filter for general news
+    }
+
+    # Platforms that support official APIs
+    API_SUPPORTED_PLATFORMS = {
+        "twitter": Platform.TWITTER.value,
+        "news": Platform.NEWS.value
     }
     
     def __init__(self):
@@ -41,6 +65,91 @@ class SocialListeningAgent:
         }
         return limits.get(frequency, 18)  # Default to hourly limit
     
+    async def search_official_apis(self, platform: str, keywords: List[str], handles: List[str], max_results: int = 15) -> List[Dict]:
+        """
+        Search using official APIs for supported platforms (Twitter, News)
+        Returns results in the same format as DuckDuckGo for consistency
+        """
+        results = []
+
+        if platform not in self.API_SUPPORTED_PLATFORMS:
+            return results
+
+        try:
+            ingestion_service = await get_ingestion_service()
+
+            # Build query based on platform
+            if platform == "twitter":
+                # Build Twitter query from keywords and handles
+                query_parts = []
+
+                # Add handles (from: syntax)
+                if handles:
+                    for handle in handles[:2]:  # Limit to avoid query complexity
+                        clean_handle = handle.replace("@", "").strip()
+                        query_parts.append(f"from:{clean_handle}")
+
+                # Add keywords
+                if keywords:
+                    keyword_part = " OR ".join(keywords[:3])  # Combine keywords
+                    query_parts.append(f"({keyword_part})")
+
+                # Combine with AND logic if both exist
+                if query_parts:
+                    api_query = " ".join(query_parts)
+                else:
+                    api_query = " OR ".join(keywords[:3]) if keywords else ""
+
+            elif platform == "news":
+                # Build News query
+                query_parts = []
+
+                # Add keywords
+                if keywords:
+                    query_parts.extend(keywords[:3])
+
+                # Add handles/sources
+                if handles:
+                    for handle in handles[:2]:
+                        clean_handle = handle.replace("@", "").strip()
+                        query_parts.append(clean_handle)
+
+                api_query = " OR ".join(query_parts) if query_parts else ""
+
+            if not api_query:
+                return results
+
+            # Run ingestion task
+            rule_config = {
+                "rule_id": f"social_listening_{platform}_{hash(api_query)}",
+                "platform": platform,
+                "query": api_query,
+                "max_posts_per_run": max_results,
+                "enabled": True
+            }
+
+            api_result = await ingestion_service.run_ingestion_task(rule_config)
+
+            # Convert API results to DuckDuckGo-like format
+            if api_result.get("success", False):
+                for post_data in api_result.get("posts", []):
+                    # Convert UnifiedPost format to DuckDuckGo-like format
+                    results.append({
+                        "title": post_data.get("content", "")[:100] + "..." if len(post_data.get("content", "")) > 100 else post_data.get("content", ""),
+                        "body": post_data.get("content", ""),
+                        "href": post_data.get("url", ""),
+                        "source": post_data.get("author", ""),
+                        "platform": platform,
+                        "from_api": True  # Mark as coming from official API
+                    })
+
+            print(f"[SocialListening] Official {platform} API search returned {len(results)} results")
+
+        except Exception as e:
+            print(f"[SocialListening] Official {platform} API search error: {e}")
+
+        return results
+
     def search_duckduckgo(self, query: str, max_results: int = 15) -> List[Dict]:
         """
         Search DuckDuckGo for the given query
@@ -54,7 +163,8 @@ class SocialListeningAgent:
                         "title": r.get("title", ""),
                         "body": r.get("body", ""),
                         "href": r.get("href", ""),
-                        "source": r.get("source", "")
+                        "source": r.get("source", ""),
+                        "from_api": False  # Mark as coming from search
                     })
             print(f"[SocialListening] DuckDuckGo search for '{query}' returned {len(results)} results")
         except Exception as e:
@@ -507,34 +617,76 @@ class SocialListeningAgent:
                 # Default: search keywords
                 platform_queries = self.build_platform_queries(keywords or [""], handles, platform, frequency)
             
-            # Execute searches for this platform
+            # Execute searches for this platform - try official APIs first, then DuckDuckGo
             for query in platform_queries[:5]:  # Limit queries per platform
                 try:
-                    search_results = self.search_duckduckgo(query, max_results=8)
+                    search_results = []
+
+                    # First, try official APIs for supported platforms
+                    if platform in self.API_SUPPORTED_PLATFORMS:
+                        try:
+                            # Extract keywords and handles from the query for API calls
+                            api_keywords = keywords[:3] if keywords else []
+                            api_handles = handles[:2] if handles else []
+
+                            # For Twitter, try to extract handles from query if it's a "from:" query
+                            if platform == "twitter" and "from:" in query:
+                                # Extract handles from Twitter queries
+                                import re
+                                handle_matches = re.findall(r'from:(\w+)', query)
+                                if handle_matches:
+                                    api_handles.extend([f"@{h}" for h in handle_matches])
+
+                            api_results = await self.search_official_apis(platform, api_keywords, api_handles, max_results=8)
+                            search_results.extend(api_results)
+
+                            # If we got good results from API, reduce DuckDuckGo search
+                            max_duck_results = 4 if len(api_results) >= 4 else 8
+                        except Exception as api_e:
+                            print(f"[SocialListening] Official API failed for {platform}, falling back to DuckDuckGo: {api_e}")
+                            max_duck_results = 8
+                    else:
+                        max_duck_results = 8
+
+                    # Always do DuckDuckGo search as backup/supplement
+                    duck_results = self.search_duckduckgo(query, max_results=max_duck_results)
+                    search_results.extend(duck_results)
                     
                     for item in search_results:
                         url = item.get("href", "")
-                        
+
                         # Skip if already seen
                         if url in seen_urls:
                             continue
                         seen_urls.add(url)
-                        
-                        # Determine actual platform from URL
-                        actual_platform = self.determine_platform(url)
-                        
+
+                        # Determine actual platform from URL or use marked platform
+                        actual_platform = item.get("platform") or self.determine_platform(url)
+
                         # For platform-specific searches, only accept results from that platform
                         if platform != "news" and actual_platform != platform:
                             continue
+
+                        # Skip if this is from API and we already have it from search (avoid duplicates)
+                        if item.get("from_api") and url in seen_urls:
+                            continue
                         
-                        author, handle_extracted = self.extract_author_from_url(url, actual_platform)
-                        
-                        # Clean and format content
-                        content = self.clean_content(
-                            item.get("title", ""),
-                            item.get("body", ""),
-                            actual_platform
-                        )
+                        # For API results, use the provided author/handle, otherwise extract from URL
+                        if item.get("from_api"):
+                            author = item.get("source", "Unknown") or "Unknown"
+                            handle_extracted = ""  # API results may not have handles in the same format
+                        else:
+                            author, handle_extracted = self.extract_author_from_url(url, actual_platform)
+
+                        # Clean and format content - API results may have better content
+                        if item.get("from_api") and item.get("body"):
+                            content = item.get("body", "").strip()
+                        else:
+                            content = self.clean_content(
+                                item.get("title", ""),
+                                item.get("body", ""),
+                                actual_platform
+                            )
 
                         # Skip if content is too short or empty
                         if not content or len(content) < 20:
@@ -599,7 +751,7 @@ class SocialListeningAgent:
         Process all active rules for a user and store results
         """
         from backend.db.database import AsyncSessionLocal
-        from backend.db.models import TrackingRule, FetchedPost, MatchedResult, SocialAlert
+        from backend.db.models import TrackingRule, FetchedPost, MatchedResult, SocialAlert, User
         from sqlalchemy import select
         
         stats = {"rules_processed": 0, "posts_fetched": 0, "alerts_created": 0}
@@ -628,7 +780,8 @@ class SocialListeningAgent:
                         "handles": rule.handles or [],
                         "platforms": rule.platforms or ["news"],
                         "logic_type": rule.logic_type,
-                        "alert_in_app": rule.alert_in_app
+                        "alert_in_app": rule.alert_in_app,
+                        "alert_email": rule.alert_email
                     }
                     
                     # Fetch content for this rule
@@ -682,16 +835,54 @@ class SocialListeningAgent:
                         new_matches += 1
                     
                     # Create alert if there are new matches and alerts are enabled
-                    if new_matches > 0 and rule.alert_in_app:
-                        alert = SocialAlert(
-                            user_id=user_id,
-                            rule_id=rule.id,
-                            title=f"New matches for '{rule.name}'",
-                            message=f"Found {new_matches} new posts matching your rule.",
-                            alert_type="match"
-                        )
-                        session.add(alert)
-                        stats["alerts_created"] += 1
+                    if new_matches > 0:
+                        # Create in-app alert if enabled
+                        if rule.alert_in_app:
+                            alert = SocialAlert(
+                                user_id=user_id,
+                                rule_id=rule.id,
+                                title=f"New matches for '{rule.name}'",
+                                message=f"Found {new_matches} new posts matching your rule.",
+                                alert_type="match"
+                            )
+                            session.add(alert)
+                            stats["alerts_created"] += 1
+
+                        # Send email notification if enabled
+                        if rule.alert_email:
+                            try:
+                                # Get user email for notification (use notification_email if set, otherwise regular email)
+                                user_stmt = select(User).where(User.id == user_id)
+                                user_result = await session.execute(user_stmt)
+                                user = user_result.scalar_one_or_none()
+
+                                # Use notification_email if set, otherwise fall back to regular email
+                                notification_email = user.notification_email or user.email
+
+                                if user and notification_email:
+                                    subject = f"🚨 Social Media Alert: {rule.name}"
+                                    body = f"""
+                                    <h2>New Social Media Matches Found</h2>
+                                    <p>Hi {user.username},</p>
+                                    <p>Your tracking rule "<strong>{rule.name}</strong>" has found <strong>{new_matches}</strong> new matching posts.</p>
+                                    <p><strong>Platforms monitored:</strong> {', '.join(rule.platforms or ['news'])}</p>
+                                    <p><strong>Keywords:</strong> {', '.join(rule.keywords or [])}</p>
+                                    {f'<p><strong>Handles:</strong> {', '.join(rule.handles or [])}</p>' if rule.handles else ''}
+                                    <p>Check your Simplii dashboard for details and take action on these opportunities.</p>
+                                    <br>
+                                    <p>Best regards,<br>Your Simplii Team</p>
+                                    """
+
+                                    # Send email asynchronously to avoid blocking
+                                    asyncio.create_task(
+                                        send_email_async(notification_email, subject, body)
+                                    )
+
+                                    print(f"[SocialListening] Email alert sent to {notification_email} for rule '{rule.name}'")
+
+                            except Exception as email_e:
+                                print(f"[SocialListening] Failed to send email alert: {email_e}")
+                                # Don't fail the entire process if email fails
                 
                 await session.commit()
                 print(f"[SocialListening] Processing complete: {stats}")

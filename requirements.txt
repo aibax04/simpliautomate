@@ -24,3 +24,6 @@ pypdf
 python-docx
 beautifulsoup4
 ddgs
+# Social Media Connectors
+newsapi-python
+tweepy

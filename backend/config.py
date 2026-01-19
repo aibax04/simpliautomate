@@ -2,7 +2,14 @@ import os
 from dotenv import load_dotenv
 
 # Load environment variables from .env file
-load_dotenv()
+try:
+    load_dotenv(encoding='utf-8-sig')  # Try with BOM handling
+except UnicodeDecodeError:
+    try:
+        load_dotenv(encoding='utf-8')  # Try without BOM
+    except UnicodeDecodeError:
+        # If both fail, continue without .env loading
+        print("WARNING: Could not load .env file due to encoding issues. Using system environment variables only.")
 
 class Config:
     GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
@@ -28,6 +35,12 @@ class Config:
     SMTP_USER = os.getenv("SMTP_USER")
     SMTP_PASSWORD = os.getenv("SMTP_PASSWORD")
     FROM_EMAIL = os.getenv("FROM_EMAIL", "notifications@simplii.ai")
+
+    # Social Media API Credentials
+    TWITTER_BEARER_TOKEN = os.getenv("TWITTER_BEARER_TOKEN")
+    NEWS_PROVIDER = os.getenv("NEWS_PROVIDER", "newsapi")  # 'newsapi' or 'gnews'
+    NEWSAPI_KEY = os.getenv("NEWSAPI_KEY")
+    GNEWS_API_KEY = os.getenv("GNEWS_API_KEY")
 
     @staticmethod
     def validate():

@@ -5,10 +5,11 @@ from backend.db.database import Base
 
 class User(Base):
     __tablename__ = "users"
-    
+
     id = Column(Integer, primary_key=True, index=True)
     username = Column(String, unique=True, index=True, nullable=False)
     email = Column(String, unique=True, index=True, nullable=False)
+    notification_email = Column(String, nullable=True)  # Email for instant notifications
     hashed_password = Column(String, nullable=False)
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
@@ -208,12 +209,13 @@ class SocialAlert(Base):
 class MonitoringReport(Base):
     """Generated monitoring reports"""
     __tablename__ = "monitoring_reports"
-    
+
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     report_type = Column(String, nullable=False)  # summary, detailed, sentiment
     start_date = Column(DateTime(timezone=True), nullable=False)
     end_date = Column(DateTime(timezone=True), nullable=False)
     rules_included = Column(JSONB, default=[])
+    content = Column(String, nullable=True)  # Store the actual report content
     pdf_path = Column(String, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())

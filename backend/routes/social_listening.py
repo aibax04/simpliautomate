@@ -18,9 +18,234 @@ from backend.db.models import (
 from backend.auth.security import get_current_user
 from backend.config import Config
 from backend.agents.social_listening_agent import get_social_listening_agent
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr
 
 router = APIRouter(prefix="/social-listening", tags=["Social Listening"])
+
+
+async def generate_report_content(db: AsyncSession, user_id: int, report_type: str,
+                                start_date: datetime, end_date: datetime, rule_ids: List[str]):
+    """Generate clean, readable report content with bullet points"""
+
+    report_lines = []
+
+    # Report Header
+    report_lines.append("SOCIAL MEDIA MONITORING REPORT")
+    report_lines.append("=" * 50)
+    report_lines.append("")
+
+    # Report Info
+    report_lines.append("REPORT DETAILS")
+    report_lines.append("- Report Type: {}".format(report_type.title()))
+    report_lines.append("- Date Range: {} to {}".format(
+        start_date.strftime("%Y-%m-%d"), end_date.strftime("%Y-%m-%d")
+    ))
+    report_lines.append("- Generated: {}".format(datetime.now().strftime("%Y-%m-%d %H:%M")))
+    report_lines.append("")
+
+    # Get data based on report type
+    if report_type == "summary":
+        content = await generate_summary_report(db, user_id, start_date, end_date, rule_ids)
+    elif report_type == "detailed":
+        content = await generate_detailed_report(db, user_id, start_date, end_date, rule_ids)
+    elif report_type == "sentiment":
+        content = await generate_sentiment_report(db, user_id, start_date, end_date, rule_ids)
+    else:
+        content = ["- Invalid report type specified"]
+
+    report_lines.extend(content)
+
+    return "\n".join(report_lines)
+
+
+async def generate_summary_report(db: AsyncSession, user_id: int, start_date: datetime,
+                                end_date: datetime, rule_ids: List[str]):
+    """Generate summary report with key metrics"""
+
+    lines = []
+    lines.append("EXECUTIVE SUMMARY")
+    lines.append("-" * 20)
+
+    # Get total posts fetched in date range
+    stmt = select(func.count(FetchedPost.id)).where(
+        and_(
+            FetchedPost.created_at >= start_date,
+            FetchedPost.created_at <= end_date
+        )
+    )
+    result = await db.execute(stmt)
+    total_posts = result.scalar() or 0
+    lines.append("- Total Posts Monitored: {}".format(total_posts))
+
+    # Get posts by platform
+    platform_stmt = select(
+        FetchedPost.platform,
+        func.count(FetchedPost.id).label('count')
+    ).where(
+        and_(
+            FetchedPost.created_at >= start_date,
+            FetchedPost.created_at <= end_date
+        )
+    ).group_by(FetchedPost.platform)
+    platform_result = await db.execute(platform_stmt)
+    platform_counts = platform_result.all()
+
+    if platform_counts:
+        lines.append("- Posts by Platform:")
+        for platform, count in platform_counts:
+            lines.append("  - {}: {}".format(platform.title(), count))
+
+    # Get alert count
+    alert_stmt = select(func.count(SocialAlert.id)).where(
+        and_(
+            SocialAlert.user_id == user_id,
+            SocialAlert.created_at >= start_date,
+            SocialAlert.created_at <= end_date
+        )
+    )
+    alert_result = await db.execute(alert_stmt)
+    alert_count = alert_result.scalar() or 0
+    lines.append("- Alerts Triggered: {}".format(alert_count))
+
+    # Get active rules
+    rule_stmt = select(func.count(TrackingRule.id)).where(
+        and_(
+            TrackingRule.user_id == user_id,
+            TrackingRule.status == "active"
+        )
+    )
+    rule_result = await db.execute(rule_stmt)
+    active_rules = rule_result.scalar() or 0
+    lines.append("- Active Tracking Rules: {}".format(active_rules))
+
+    lines.append("")
+    lines.append("KEY FINDINGS")
+    lines.append("-" * 15)
+
+    # Most active platforms
+    if platform_counts:
+        most_active = max(platform_counts, key=lambda x: x[1])
+        lines.append("- Most Active Platform: {} ({} posts)".format(
+            most_active[0].title(), most_active[1]))
+
+    # Alert frequency
+    if total_posts > 0:
+        alert_rate = (alert_count / total_posts) * 100
+        lines.append("- Alert Rate: {:.1f}% of monitored posts".format(alert_rate))
+
+    return lines
+
+
+async def generate_detailed_report(db: AsyncSession, user_id: int, start_date: datetime,
+                                 end_date: datetime, rule_ids: List[str]):
+    """Generate detailed report with post-by-post breakdown"""
+
+    lines = []
+    lines.append("DETAILED ANALYSIS")
+    lines.append("-" * 20)
+
+    # Get posts with their matching rules
+    stmt = select(
+        FetchedPost,
+        MatchedResult.rule_id,
+        TrackingRule.name.label('rule_name')
+    ).join(
+        MatchedResult, FetchedPost.id == MatchedResult.post_id
+    ).join(
+        TrackingRule, MatchedResult.rule_id == TrackingRule.id
+    ).where(
+        and_(
+            FetchedPost.created_at >= start_date,
+            FetchedPost.created_at <= end_date,
+            TrackingRule.user_id == user_id
+        )
+    ).order_by(FetchedPost.created_at.desc()).limit(50)
+
+    result = await db.execute(stmt)
+    posts = result.all()
+
+    if not posts:
+        lines.append("- No posts found in the specified date range")
+        return lines
+
+    lines.append("- Recent Matched Posts (Last 50):")
+    lines.append("")
+
+    current_date = None
+    for post, rule_id, rule_name in posts:
+        post_date = post.created_at.date()
+
+        # Group by date
+        if post_date != current_date:
+            if current_date is not None:
+                lines.append("")
+            lines.append("{}:".format(post_date.strftime("%Y-%m-%d")))
+            current_date = post_date
+
+        # Format post info
+        author = post.author[:30] + "..." if len(post.author or "") > 30 else (post.author or "Unknown")
+        content_preview = post.content[:80] + "..." if len(post.content or "") > 80 else (post.content or "")
+
+        lines.append("  - [{}] {} | {} | {}".format(
+            post.platform.upper(),
+            author,
+            rule_name,
+            content_preview
+        ))
+
+    return lines
+
+
+async def generate_sentiment_report(db: AsyncSession, user_id: int, start_date: datetime,
+                                  end_date: datetime, rule_ids: List[str]):
+    """Generate sentiment-focused report"""
+
+    lines = []
+    lines.append("SENTIMENT ANALYSIS")
+    lines.append("-" * 20)
+
+    # Get sentiment data from the last 30 days of analysis
+    sentiment_stmt = select(
+        SentimentAnalysis.sentiment,
+        func.count(SentimentAnalysis.id).label('count')
+    ).join(
+        FetchedPost, SentimentAnalysis.post_id == FetchedPost.id
+    ).where(
+        and_(
+            SentimentAnalysis.created_at >= start_date,
+            SentimentAnalysis.created_at <= end_date
+        )
+    ).group_by(SentimentAnalysis.sentiment)
+
+    sentiment_result = await db.execute(sentiment_stmt)
+    sentiment_data = sentiment_result.all()
+
+    if sentiment_data:
+        lines.append("- Sentiment Distribution:")
+        total = sum(count for _, count in sentiment_data)
+
+        for sentiment, count in sentiment_data:
+            percentage = (count / total) * 100
+            sentiment_label = sentiment.title() if sentiment else "Neutral"
+            lines.append("  - {}: {} posts ({:.1f}%)".format(sentiment_label, count, percentage))
+
+        # Most common sentiment
+        most_common = max(sentiment_data, key=lambda x: x[1])
+        sentiment_name = most_common[0].title() if most_common[0] else "Neutral"
+        lines.append("- Dominant Sentiment: {} ({} posts)".format(sentiment_name, most_common[1]))
+    else:
+        lines.append("- No sentiment analysis data available for the selected period")
+        lines.append("- Enable sentiment analysis in your tracking rules to see this data")
+
+    # Get top keywords by sentiment
+    lines.append("")
+    lines.append("TOP KEYWORDS BY SENTIMENT")
+    lines.append("-" * 25)
+
+    # This would require more complex analysis - for now, show placeholder
+    lines.append("- Feature coming soon: Keyword sentiment analysis")
+
+    return lines
 
 
 # ==================== Pydantic Models ====================
@@ -591,32 +816,35 @@ async def generate_report(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user)
 ):
-    """Generate a PDF report"""
+    """Generate a clean, readable report"""
     try:
-        # For now, return a placeholder. Full PDF generation would use ReportLab/WeasyPrint
         start_date = datetime.fromisoformat(request.start_date)
         end_date = datetime.fromisoformat(request.end_date)
-        
+
+        # Generate the report content
+        report_content = await generate_report_content(
+            db, user.id, request.type, start_date, end_date, request.rule_ids
+        )
+
         # Create report record
         report = MonitoringReport(
             user_id=user.id,
             report_type=request.type,
             start_date=start_date,
             end_date=end_date,
-            rules_included=request.rule_ids
+            rules_included=request.rule_ids,
+            content=report_content
         )
-        
+
         db.add(report)
         await db.commit()
         await db.refresh(report)
-        
-        # TODO: Generate actual PDF using ReportLab or WeasyPrint
-        # For now, return a message
+
         return {
             "status": "success",
             "report_id": str(report.id),
-            "message": "Report generation queued. PDF will be available shortly.",
-            "pdf_url": None  # Would be populated after PDF generation
+            "report_content": report_content,
+            "message": "Report generated successfully."
         }
     except Exception as e:
         await db.rollback()
@@ -655,3 +883,57 @@ async def get_reports(
     except Exception as e:
         print(f"[SocialListening] Error fetching reports: {e}")
         return {"reports": []}
+
+
+# =============================================================================
+# EMAIL NOTIFICATION SETTINGS
+# =============================================================================
+
+class NotificationEmailRequest(BaseModel):
+    """Request model for updating notification email"""
+    email: EmailStr
+
+
+@router.post("/user/notification-email")
+async def update_notification_email(
+    request: NotificationEmailRequest,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Update the user's notification email for instant alerts
+
+    This endpoint allows users to set their email address for receiving
+    immediate notifications when social monitoring rules find new matches.
+    """
+    try:
+        # Update user's notification email
+        user.notification_email = request.email
+        await db.commit()
+
+        print(f"[Email] Updated notification email for user {user.id}: {request.email}")
+
+        return {
+            "success": True,
+            "message": "Notification email updated successfully",
+            "email": request.email
+        }
+
+    except Exception as e:
+        print(f"[Email] Error updating notification email: {e}")
+        await db.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to update notification email"
+        )
+
+
+@router.get("/user/notification-email")
+async def get_notification_email(user: User = Depends(get_current_user)):
+    """
+    Get the user's current notification email setting
+    """
+    return {
+        "email": user.notification_email,
+        "has_email": bool(user.notification_email)
+    }

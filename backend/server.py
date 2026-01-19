@@ -15,6 +15,7 @@ from backend.routes.products import router as products_router
 from backend.routes.scheduler import router as scheduler_router
 from backend.routes.media import setup_media_routes
 from backend.routes.social_listening import router as social_listening_router
+from backend.routes.social_ingestion import router as social_ingestion_router
 from backend.auth.security import decode_access_token, get_current_user, decrypt_token
 from backend.db.models import User
 from fastapi.security import OAuth2PasswordBearer
@@ -40,6 +41,7 @@ app.include_router(scheduler_router, prefix="/api", dependencies=[Depends(get_cu
 app.include_router(ingest_router, prefix="/api", dependencies=[Depends(get_current_user)])
 app.include_router(queue_router, prefix="/api", dependencies=[Depends(get_current_user)])
 app.include_router(social_listening_router, prefix="/api", dependencies=[Depends(get_current_user)])
+app.include_router(social_ingestion_router, prefix="/api", dependencies=[Depends(get_current_user)])
 
 # Background task for daily morning news fetching and database saving with fallbacks
 async def background_news_fetcher():
@@ -463,7 +465,7 @@ if __name__ == "__main__":
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             return s.connect_ex(('0.0.0.0', port)) == 0
 
-    port = 8000
+    port = 35000
     if is_port_in_use(port):
         print(f"[WARNING] Port {port} is busy. Falling back to port {port + 1}...")
         port += 1

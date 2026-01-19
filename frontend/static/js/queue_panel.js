@@ -261,7 +261,7 @@ class QueuePanel {
             'generating_caption': 'Drafting',
             'generating_visual_plan': 'Designing',
             'generating_image': 'Rendering',
-            'fetching_sources': 'Sourcing',
+            'fetching_sources': 'Fetching',
             'generating_content': 'Writing',
             'quality_check_caption': 'Proofreading',
             'quality_check_visual': 'Polishing',
