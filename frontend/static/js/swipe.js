@@ -13,6 +13,15 @@ class SwipeApp {
         this.isCustomPost = false;
         this.customPrompt = "";
 
+        // Image comparison state
+        this.previousImageUrl = null;
+        this.currentImageUrl = null;
+        this.hasComparisonImage = false;
+
+        // Recent posts navigation
+        this.recentPosts = [];
+        this.currentPostIndex = -1;
+
         this.allNews = [];
         this.allNews = [];
         this.currentFilter = 'All';
@@ -756,6 +765,9 @@ class SwipeApp {
             return;
         }
 
+        // Store the previous image URL for comparison
+        this.previousImageUrl = this.generatedPost?.image_url || this.originalImageUrl;
+
         // --- CONTEXT VALIDATION ---
         const finalPostId = this.currentPostId ||
             (this.generatedPost ? (this.generatedPost.post_id || this.generatedPost.id) : null);
@@ -809,6 +821,8 @@ class SwipeApp {
                 this.generatedPost.image_url = newImageUrl;
             }
             this.originalImageUrl = newImageUrl;
+            this.currentImageUrl = newImageUrl;
+            this.hasComparisonImage = true;
 
             const imgEl = document.querySelector('.generated-post-image');
             if (imgEl) {
@@ -817,10 +831,13 @@ class SwipeApp {
                 console.log("[DEBUG] UI Image updated:", imgEl.src);
             }
 
+            // Add comparison slider UI
+            this.addImageComparisonUI();
+
             // Hide edit container and restore main buttons
             this.handleImageEditCancel();
 
-            const successMsg = "Image updated successfully!";
+            const successMsg = "Image updated! Use the slider to compare with previous version.";
             if (typeof Toast !== 'undefined') Toast.show(successMsg, "success");
             else if (window.Toast) window.Toast.show(successMsg, "success");
 
@@ -843,6 +860,9 @@ class SwipeApp {
     async handleImageRegeneration() {
         const finalPostId = this.currentPostId || (this.generatedPost ? this.generatedPost.post_id || this.generatedPost.id : null);
         console.log("[DEBUG] Starting image regeneration. Job ID:", this.currentJobId, "Post ID:", finalPostId);
+
+        // Store the previous image URL for comparison
+        this.previousImageUrl = this.generatedPost?.image_url || this.originalImageUrl;
 
         const loader = document.getElementById('regen-loader');
         const overlay = document.getElementById('image-overlay');
@@ -867,16 +887,21 @@ class SwipeApp {
 
             if (!updateResp) throw new Error("Failed to sync new image to database");
 
-            // Update UI
+            // Store the new image and show comparison option
             this.generatedPost.image_url = newImageUrl;
             this.originalImageUrl = newImageUrl;
+            this.currentImageUrl = newImageUrl;
+            this.hasComparisonImage = true;
 
             const imgEl = document.querySelector('.generated-post-image');
             if (imgEl) {
                 imgEl.src = newImageUrl + '?t=' + new Date().getTime();
             }
 
-            if (window.Toast) window.Toast.show("Image redesigned and updated successfully!", "success");
+            // Add comparison slider UI
+            this.addImageComparisonUI();
+
+            if (window.Toast) window.Toast.show("Image redesigned! Use the slider to compare with previous version.", "success");
 
         } catch (e) {
             console.error("Regeneration Error:", e);
@@ -1093,6 +1118,9 @@ class SwipeApp {
 
         console.log("[DEBUG] Opening result. Job ID:", this.currentJobId, "Post ID:", this.currentPostId);
 
+        // Add this post to recent posts for navigation
+        this.addToRecentPosts(result);
+
         if (job.payload) {
             if (job.payload.news_item) this.currentNews = job.payload.news_item;
             if (job.payload.user_prefs) this.currentPrefs = job.payload.user_prefs;
@@ -1214,6 +1242,11 @@ class SwipeApp {
                 console.log("[DEBUG] Caption button NOT found in DOM");
             }
         }, 100);
+
+        // Bind navigation events for recent posts
+        this.bindNavigationEvents();
+        this.updateNavigationButtons();
+
         this.resultModal.classList.remove('hidden');
     }
     switchView(mode) {
@@ -1399,6 +1432,263 @@ class SwipeApp {
         this.currentNews = item;
         this.isCustomPost = false;
         this.showPrefs();
+    }
+
+    addImageComparisonUI() {
+        if (!this.hasComparisonImage || !this.previousImageUrl) return;
+
+        // Find the image container
+        const imageContainer = document.querySelector('.image-container');
+        if (!imageContainer) return;
+
+        // Remove existing comparison UI if present
+        const existingComparison = document.querySelector('.image-comparison-container');
+        if (existingComparison) {
+            existingComparison.remove();
+        }
+
+        // Add comparison UI
+        const comparisonHTML = `
+            <div class="image-comparison-container">
+                <div class="image-comparison-slider">
+                    <div class="comparison-labels">
+                        <span class="previous-label">Previous</span>
+                        <span class="current-label">New</span>
+                    </div>
+                    <input type="range" min="0" max="100" value="100" class="comparison-slider"
+                           id="image-comparison-range">
+                    <div class="slider-track"></div>
+                </div>
+                <div class="comparison-instruction">
+                    Slide to compare images
+                </div>
+            </div>
+        `;
+
+        imageContainer.insertAdjacentHTML('afterend', comparisonHTML);
+
+        // Add event listener for the slider
+        const slider = document.getElementById('image-comparison-range');
+        if (slider) {
+            slider.addEventListener('input', (e) => {
+                this.updateImageComparison(e.target.value);
+            });
+        }
+
+        // Initialize comparison
+        this.updateImageComparison(100);
+    }
+
+    updateImageComparison(sliderValue) {
+        const mainImage = document.querySelector('.generated-post-image');
+        const sliderTrack = document.querySelector('.slider-track');
+
+        if (!mainImage) return;
+
+        const percentage = sliderValue / 100;
+
+        // Update the main image source based on slider position
+        if (sliderValue < 50) {
+            // Show previous image
+            mainImage.src = this.previousImageUrl + '?t=' + new Date().getTime();
+            if (sliderTrack) sliderTrack.style.width = '0%';
+        } else {
+            // Show current image
+            mainImage.src = this.currentImageUrl + '?t=' + new Date().getTime();
+            if (sliderTrack) sliderTrack.style.width = sliderValue + '%';
+        }
+
+        // Update slider track visual
+        if (sliderTrack) {
+            sliderTrack.style.width = sliderValue + '%';
+        }
+    }
+
+    async loadRecentPosts() {
+        console.log("[DEBUG] Loading recent posts from database...");
+
+        try {
+            // First try to load from database API
+            const response = await window.Api.getRecentPosts(20);
+
+            if (response && response.posts && response.posts.length > 0) {
+                // Transform database posts to match our expected format
+                this.recentPosts = response.posts.map(post => ({
+                    id: post.id,
+                    image_url: post.image_url,
+                    text: post.caption,
+                    caption_data: {
+                        body: post.caption,
+                        hashtags: "",
+                        hook: post.caption ? post.caption.split('.')[0] : ""
+                    },
+                    created_at: post.created_at,
+                    style: post.style,
+                    palette: post.palette,
+                    news_headline: post.news_headline,
+                    posted_to_linkedin: post.posted_to_linkedin,
+                    last_image_edit_prompt: post.last_image_edit_prompt,
+                    from_database: true
+                }));
+
+                console.log(`[DEBUG] Loaded ${this.recentPosts.length} posts from database`);
+            } else {
+                // Fallback to localStorage if no database posts
+                console.log("[DEBUG] No posts from database, checking localStorage...");
+                await this.loadRecentPostsFromLocalStorage();
+            }
+        } catch (error) {
+            console.warn("[DEBUG] Failed to load from database, falling back to localStorage:", error);
+            await this.loadRecentPostsFromLocalStorage();
+        }
+
+        // Update current index for navigation
+        this.currentPostIndex = this.recentPosts.length > 0 ? 0 : -1;
+    }
+
+    async loadRecentPostsFromLocalStorage() {
+        try {
+            const stored = localStorage.getItem('recentPosts');
+            if (stored) {
+                const parsed = JSON.parse(stored);
+                this.recentPosts = parsed.slice(0, 20); // Keep only last 20
+                console.log(`[DEBUG] Loaded ${this.recentPosts.length} posts from localStorage`);
+            } else {
+                this.recentPosts = [];
+                console.log("[DEBUG] No posts in localStorage");
+            }
+        } catch (error) {
+            console.warn("[DEBUG] Could not load stored recent posts:", error);
+            this.recentPosts = [];
+        }
+    }
+
+    saveRecentPosts() {
+        try {
+            localStorage.setItem('recentPosts', JSON.stringify(this.recentPosts));
+        } catch (error) {
+            console.warn("[DEBUG] Could not save recent posts:", error);
+        }
+    }
+
+    showPostInModal(postData, index = -1) {
+        // Update current index if provided
+        if (index >= 0) {
+            this.currentPostIndex = index;
+        }
+
+        // Update navigation buttons
+        this.updateNavigationButtons();
+
+        // Add navigation event listeners
+        this.bindNavigationEvents();
+
+        // Show the post in the modal (existing functionality)
+        this.openResult({ result: postData, id: this.currentJobId });
+    }
+
+    updateNavigationButtons() {
+        const prevBtn = document.getElementById('prev-post-btn');
+        const nextBtn = document.getElementById('next-post-btn');
+
+        console.log('[DEBUG] Updating navigation buttons. Index:', this.currentPostIndex, 'Total posts:', this.recentPosts.length);
+
+        if (prevBtn) {
+            const shouldDisable = this.currentPostIndex <= 0;
+            prevBtn.disabled = shouldDisable;
+            console.log('[DEBUG] Previous button disabled:', shouldDisable);
+        }
+
+        if (nextBtn) {
+            const shouldDisable = this.currentPostIndex >= this.recentPosts.length - 1;
+            nextBtn.disabled = shouldDisable;
+            console.log('[DEBUG] Next button disabled:', shouldDisable);
+        }
+
+        // Update modal title to show position
+        const titleEl = document.getElementById('result-modal-title');
+        if (titleEl && this.recentPosts.length > 0) {
+            const total = this.recentPosts.length;
+            const current = this.currentPostIndex + 1;
+            titleEl.textContent = `Your Curated Post (${current}/${total})`;
+            console.log('[DEBUG] Updated modal title:', titleEl.textContent);
+        }
+    }
+
+    navigateToPreviousPost() {
+        if (this.currentPostIndex > 0) {
+            this.currentPostIndex--;
+            const postData = this.recentPosts[this.currentPostIndex];
+            this.showPostInModal(postData, this.currentPostIndex);
+        }
+    }
+
+    navigateToNextPost() {
+        if (this.currentPostIndex < this.recentPosts.length - 1) {
+            this.currentPostIndex++;
+            const postData = this.recentPosts[this.currentPostIndex];
+            this.showPostInModal(postData, this.currentPostIndex);
+        }
+    }
+
+    bindNavigationEvents() {
+        const prevBtn = document.getElementById('prev-post-btn');
+        const nextBtn = document.getElementById('next-post-btn');
+
+        console.log('[DEBUG] Binding navigation events. Prev btn:', !!prevBtn, 'Next btn:', !!nextBtn);
+
+        if (prevBtn) {
+            prevBtn.onclick = () => {
+                console.log('[DEBUG] Previous button clicked');
+                this.navigateToPreviousPost();
+            };
+        }
+
+        if (nextBtn) {
+            nextBtn.onclick = () => {
+                console.log('[DEBUG] Next button clicked');
+                this.navigateToNextPost();
+            };
+        }
+    }
+
+    addToRecentPosts(postData) {
+        if (!postData) return;
+
+        // Remove if already exists
+        this.recentPosts = this.recentPosts.filter(post => post.id !== postData.id);
+
+        // Create a standardized post object
+        const standardizedPost = {
+            id: postData.id || postData.post_id,
+            image_url: postData.image_url || postData.image_path,
+            text: postData.text || postData.caption,
+            caption_data: postData.caption_data || {
+                body: postData.caption || postData.text,
+                hashtags: "",
+                hook: (postData.caption || postData.text || "").split('.')[0]
+            },
+            created_at: postData.created_at || new Date().toISOString(),
+            style: postData.style,
+            palette: postData.palette,
+            news_headline: postData.news_headline,
+            posted_to_linkedin: postData.posted_to_linkedin,
+            last_image_edit_prompt: postData.last_image_edit_prompt,
+            from_database: postData.from_database || false
+        };
+
+        // Add to beginning of array
+        this.recentPosts.unshift(standardizedPost);
+
+        // Keep only last 20 posts
+        if (this.recentPosts.length > 20) {
+            this.recentPosts = this.recentPosts.slice(0, 20);
+        }
+
+        // Save to localStorage as backup
+        this.saveRecentPosts();
+
+        console.log(`[DEBUG] Added post to recent posts. Total: ${this.recentPosts.length}, From DB: ${standardizedPost.from_database}`);
     }
 }
 

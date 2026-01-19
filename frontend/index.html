@@ -920,7 +920,19 @@
                 <div class="modal-overlay"></div>
                 <div class="modal-content wide">
                     <button class="close-modal-btn">&times;</button>
-                    <h2 id="result-modal-title">Your Curated Post</h2>
+                    <div class="modal-header-with-nav">
+                        <button class="nav-btn prev-btn" id="prev-post-btn" title="Previous post">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <polyline points="15,18 9,12 15,6"></polyline>
+                            </svg>
+                        </button>
+                        <h2 id="result-modal-title">Your Curated Post</h2>
+                        <button class="nav-btn next-btn" id="next-post-btn" title="Next post">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <polyline points="9,18 15,12 9,6"></polyline>
+                            </svg>
+                        </button>
+                    </div>
                     <div id="post-preview" class="post-preview"></div>
 
                     <!-- Manual Image Edit UI (Moved to static HTML for reliability) -->

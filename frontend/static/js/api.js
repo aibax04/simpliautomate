@@ -158,6 +158,18 @@ const Api = {
         }
     },
 
+    async getRecentPosts(limit = 20) {
+        try {
+            const response = await fetch(`/api/recent-posts?limit=${limit}`, {
+                headers: this.getHeaders()
+            });
+            return await this.handleResponse(response);
+        } catch (e) {
+            console.error("Get Recent Posts Error:", e);
+            return { posts: [], count: 0 };
+        }
+    },
+
     async publishPost(content, imageUrl, accountId) {
         try {
             const response = await fetch('/api/post-linkedin', {

@@ -3266,10 +3266,168 @@ textarea:focus {
 }
 
 /* Success state for download button */
-.btn-download.success {
-    background: #10b981 !important;
-    border-color: #10b981 !important;
-    animation: none !important;
+    .btn-download.success {
+        background: #10b981 !important;
+        border-color: #10b981 !important;
+        animation: none !important;
+    }
+
+/* Post Navigation in Modal */
+.modal-header-with-nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+    padding-bottom: 15px;
+    border-bottom: 1px solid var(--border);
+}
+
+.modal-header-with-nav h2 {
+    margin: 0;
+    flex: 1;
+    text-align: center;
+}
+
+.nav-btn {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    color: var(--text-secondary);
+}
+
+.nav-btn:hover {
+    background: var(--bg-secondary);
+    border-color: var(--accent);
+    color: var(--accent);
+}
+
+.nav-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.nav-btn:disabled:hover {
+    background: var(--bg);
+    border-color: var(--border);
+    color: var(--text-secondary);
+}
+
+/* Image Comparison UI */
+.image-comparison-container {
+    margin-top: 16px;
+    padding: 16px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    position: relative;
+}
+
+.image-comparison-slider {
+    position: relative;
+    margin-bottom: 12px;
+}
+
+.comparison-labels {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 8px;
+    font-size: 12px;
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+
+.previous-label {
+    color: #ef4444;
+}
+
+.current-label {
+    color: #10b981;
+}
+
+.comparison-slider {
+    width: 100%;
+    height: 6px;
+    border-radius: 3px;
+    background: var(--border);
+    outline: none;
+    appearance: none;
+    cursor: pointer;
+    position: relative;
+}
+
+.comparison-slider::-webkit-slider-thumb {
+    appearance: none;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: var(--accent);
+    cursor: pointer;
+    border: 2px solid var(--bg);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    transition: all 0.2s ease;
+}
+
+.comparison-slider::-webkit-slider-thumb:hover {
+    transform: scale(1.1);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+}
+
+.comparison-slider::-moz-range-thumb {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: var(--accent);
+    cursor: pointer;
+    border: 2px solid var(--bg);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+.slider-track {
+    position: absolute;
+    top: 50%;
+    left: 0;
+    height: 6px;
+    background: var(--accent);
+    border-radius: 3px;
+    transform: translateY(-50%);
+    pointer-events: none;
+    transition: width 0.1s ease;
+}
+
+.comparison-instruction {
+    text-align: center;
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin-top: 8px;
+    font-style: italic;
+}
+
+.comparison-images {
+    display: none; /* Hidden - we use the main image element */
+}
+
+/* Responsive adjustments for image comparison */
+@media (max-width: 768px) {
+    .image-comparison-container {
+        padding: 12px;
+        margin-top: 12px;
+    }
+
+    .comparison-slider {
+        height: 8px;
+    }
+
+    .comparison-slider::-webkit-slider-thumb {
+        width: 24px;
+        height: 24px;
+    }
 }
 
 .report-content h3 {

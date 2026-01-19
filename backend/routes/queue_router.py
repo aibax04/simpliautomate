@@ -573,6 +573,45 @@ async def update_post_image(payload: Dict[str, Any], user: User = Depends(get_cu
             print(f"[ERROR] update-post-image failed: {e}")
             raise HTTPException(status_code=500, detail=str(e))
 
+@router.get("/recent-posts")
+async def get_recent_posts(limit: int = 20, user: User = Depends(get_current_user)):
+    """
+    Get recent generated posts for slide navigation.
+    Returns the most recent posts with their details.
+    """
+    async with AsyncSessionLocal() as session:
+        try:
+            # Get recent posts with their associated news items
+            stmt = select(GeneratedPost, NewsItem).join(
+                NewsItem, GeneratedPost.news_id == NewsItem.id, isouter=True
+            ).where(GeneratedPost.user_id == user.id).order_by(
+                GeneratedPost.created_at.desc()
+            ).limit(limit)
+
+            result = await session.execute(stmt)
+            posts_data = []
+
+            for post, news in result.all():
+                posts_data.append({
+                    "id": post.id,
+                    "caption": post.caption,
+                    "image_path": post.image_path,
+                    "image_url": post.image_path if post.image_path else None,
+                    "style": post.style,
+                    "palette": post.palette,
+                    "created_at": post.created_at.isoformat() if post.created_at else None,
+                    "posted_to_linkedin": post.posted_to_linkedin,
+                    "news_headline": news.headline if news else None,
+                    "news_summary": news.summary if news else None,
+                    "last_image_edit_prompt": post.last_image_edit_prompt
+                })
+
+            return {"posts": posts_data, "count": len(posts_data)}
+
+        except Exception as e:
+            print(f"[ERROR] get_recent_posts failed: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+
 @router.delete("/queue/{job_id}")
 async def delete_job(job_id: str, user: User = Depends(get_current_user)):
     """
