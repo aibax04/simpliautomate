@@ -1,6 +1,6 @@
 import uuid
 import asyncio
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, Any, Optional
 
 class QueueManager:
@@ -19,7 +19,7 @@ class QueueManager:
             "user_id": user_id, # Store user_id in job
             "type": type,
             "status": "queued",
-            "created_at": datetime.now().isoformat(),
+            "created_at": datetime.now(timezone.utc).isoformat(),
             "payload": payload,
             "result": None,
             "error": None,
@@ -46,7 +46,7 @@ class QueueManager:
                 self.jobs[job_id]["error"] = error
             if progress is not None:
                 self.jobs[job_id]["progress"] = progress
-            self.jobs[job_id]["updated_at"] = datetime.now().isoformat()
+            self.jobs[job_id]["updated_at"] = datetime.now(timezone.utc).isoformat()
 
     def delete_job(self, job_id: str):
         if job_id in self.jobs:
