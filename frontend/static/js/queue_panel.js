@@ -298,8 +298,27 @@ class QueuePanel {
         }
 
         const dateObj = job.created_at ? new Date(job.created_at) : new Date();
+        const now = new Date();
         const timeStr = dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-        const dateStr = dateObj.toLocaleDateString([], { month: 'short', day: 'numeric' });
+
+        // Smart date formatting
+        let dateStr;
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const yesterday = new Date(today);
+        yesterday.setDate(yesterday.getDate() - 1);
+        const jobDate = new Date(dateObj.getFullYear(), dateObj.getMonth(), dateObj.getDate());
+
+        if (jobDate.getTime() === today.getTime()) {
+            dateStr = 'Today';
+        } else if (jobDate.getTime() === yesterday.getTime()) {
+            dateStr = 'Yesterday';
+        } else if (jobDate >= new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000)) {
+            // Within last week, show day name
+            dateStr = dateObj.toLocaleDateString([], { weekday: 'short' });
+        } else {
+            // Older, show full date with year
+            dateStr = dateObj.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' });
+        }
 
         item.innerHTML = `
             <div class="job-row-main">
