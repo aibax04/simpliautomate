@@ -3329,76 +3329,54 @@ textarea:focus {
     position: relative;
 }
 
-.image-comparison-slider {
-    position: relative;
-    margin-bottom: 12px;
-}
-
-.comparison-labels {
+.image-comparison-buttons {
     display: flex;
-    justify-content: space-between;
+    gap: 12px;
+    justify-content: center;
+    align-items: center;
     margin-bottom: 8px;
-    font-size: 12px;
+}
+
+.comparison-toggle-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 16px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg);
     color: var(--text-secondary);
+    font-size: 14px;
     font-weight: 500;
-}
-
-.previous-label {
-    color: #ef4444;
-}
-
-.current-label {
-    color: #10b981;
-}
-
-.comparison-slider {
-    width: 100%;
-    height: 6px;
-    border-radius: 3px;
-    background: var(--border);
-    outline: none;
-    appearance: none;
     cursor: pointer;
-    position: relative;
-}
-
-.comparison-slider::-webkit-slider-thumb {
-    appearance: none;
-    width: 20px;
-    height: 20px;
-    border-radius: 50%;
-    background: var(--accent);
-    cursor: pointer;
-    border: 2px solid var(--bg);
-    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
     transition: all 0.2s ease;
+    white-space: nowrap;
 }
 
-.comparison-slider::-webkit-slider-thumb:hover {
-    transform: scale(1.1);
-    box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+.comparison-toggle-btn:hover {
+    background: var(--bg-hover);
+    border-color: var(--accent);
+    color: var(--accent);
+    transform: translateY(-1px);
 }
 
-.comparison-slider::-moz-range-thumb {
-    width: 20px;
-    height: 20px;
-    border-radius: 50%;
+.comparison-toggle-btn.active {
     background: var(--accent);
-    cursor: pointer;
-    border: 2px solid var(--bg);
-    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    border-color: var(--accent);
+    color: white;
+    box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
 }
 
-.slider-track {
-    position: absolute;
-    top: 50%;
-    left: 0;
-    height: 6px;
-    background: var(--accent);
-    border-radius: 3px;
-    transform: translateY(-50%);
-    pointer-events: none;
-    transition: width 0.1s ease;
+.comparison-toggle-btn.active:hover {
+    background: var(--accent-hover);
+    border-color: var(--accent-hover);
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+}
+
+.comparison-toggle-btn svg {
+    flex-shrink: 0;
+    width: 16px;
+    height: 16px;
 }
 
 .comparison-instruction {
@@ -3409,10 +3387,6 @@ textarea:focus {
     font-style: italic;
 }
 
-.comparison-images {
-    display: none; /* Hidden - we use the main image element */
-}
-
 /* Responsive adjustments for image comparison */
 @media (max-width: 768px) {
     .image-comparison-container {
@@ -3420,13 +3394,15 @@ textarea:focus {
         margin-top: 12px;
     }
 
-    .comparison-slider {
-        height: 8px;
+    .image-comparison-buttons {
+        flex-direction: column;
+        gap: 8px;
     }
 
-    .comparison-slider::-webkit-slider-thumb {
-        width: 24px;
-        height: 24px;
+    .comparison-toggle-btn {
+        width: 100%;
+        justify-content: center;
+        padding: 12px 16px;
     }
 }
 

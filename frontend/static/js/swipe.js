@@ -17,6 +17,7 @@ class SwipeApp {
         this.previousImageUrl = null;
         this.currentImageUrl = null;
         this.hasComparisonImage = false;
+        this.currentImageView = 'current'; // 'current' or 'previous'
 
         // Recent posts navigation
         this.recentPosts = [];
@@ -1447,60 +1448,84 @@ class SwipeApp {
             existingComparison.remove();
         }
 
-        // Add comparison UI
+        // Add comparison UI with simple toggle button
         const comparisonHTML = `
             <div class="image-comparison-container">
-                <div class="image-comparison-slider">
-                    <div class="comparison-labels">
-                        <span class="previous-label">Previous</span>
-                        <span class="current-label">New</span>
-                    </div>
-                    <input type="range" min="0" max="100" value="100" class="comparison-slider"
-                           id="image-comparison-range">
-                    <div class="slider-track"></div>
+                <div class="image-comparison-buttons">
+                    <button class="comparison-toggle-btn active" id="show-current-btn">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <circle cx="12" cy="12" r="3"></circle>
+                        </svg>
+                        New Image
+                    </button>
+                    <button class="comparison-toggle-btn" id="show-previous-btn">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"></path>
+                            <path d="M21 3v5h-5"></path>
+                            <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"></path>
+                            <path d="M3 21v-5h5"></path>
+                        </svg>
+                        Previous Image
+                    </button>
                 </div>
                 <div class="comparison-instruction">
-                    Slide to compare images
+                    Click to toggle between images
                 </div>
             </div>
         `;
 
         imageContainer.insertAdjacentHTML('afterend', comparisonHTML);
 
-        // Add event listener for the slider
-        const slider = document.getElementById('image-comparison-range');
-        if (slider) {
-            slider.addEventListener('input', (e) => {
-                this.updateImageComparison(e.target.value);
+        // Add event listeners for the toggle buttons
+        const currentBtn = document.getElementById('show-current-btn');
+        const previousBtn = document.getElementById('show-previous-btn');
+
+        if (currentBtn) {
+            currentBtn.addEventListener('click', () => {
+                this.toggleImageView('current');
             });
         }
 
-        // Initialize comparison
-        this.updateImageComparison(100);
+        if (previousBtn) {
+            previousBtn.addEventListener('click', () => {
+                this.toggleImageView('previous');
+            });
+        }
+
+        // Initialize to show current image
+        this.currentImageView = 'current';
+        this.updateImageView();
     }
 
-    updateImageComparison(sliderValue) {
+    toggleImageView(viewType) {
+        this.currentImageView = viewType;
+        this.updateImageView();
+    }
+
+    updateImageView() {
         const mainImage = document.querySelector('.generated-post-image');
-        const sliderTrack = document.querySelector('.slider-track');
+        const currentBtn = document.getElementById('show-current-btn');
+        const previousBtn = document.getElementById('show-previous-btn');
 
         if (!mainImage) return;
 
-        const percentage = sliderValue / 100;
-
-        // Update the main image source based on slider position
-        if (sliderValue < 50) {
-            // Show previous image
-            mainImage.src = this.previousImageUrl + '?t=' + new Date().getTime();
-            if (sliderTrack) sliderTrack.style.width = '0%';
-        } else {
-            // Show current image
-            mainImage.src = this.currentImageUrl + '?t=' + new Date().getTime();
-            if (sliderTrack) sliderTrack.style.width = sliderValue + '%';
+        // Update button states
+        if (currentBtn && previousBtn) {
+            if (this.currentImageView === 'current') {
+                currentBtn.classList.add('active');
+                previousBtn.classList.remove('active');
+            } else {
+                currentBtn.classList.remove('active');
+                previousBtn.classList.add('active');
+            }
         }
 
-        // Update slider track visual
-        if (sliderTrack) {
-            sliderTrack.style.width = sliderValue + '%';
+        // Update image source
+        if (this.currentImageView === 'current' && this.currentImageUrl) {
+            mainImage.src = this.currentImageUrl + '?t=' + new Date().getTime();
+        } else if (this.currentImageView === 'previous' && this.previousImageUrl) {
+            mainImage.src = this.previousImageUrl + '?t=' + new Date().getTime();
         }
     }
 
