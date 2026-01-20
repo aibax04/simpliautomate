@@ -522,8 +522,14 @@ const SocialListening = {
             await getAPI().post(`/api/social-listening/feed/${itemId}/mark-important`);
             const item = this.feedItems.find(i => i.id === itemId);
             if (item) item.important = true;
-            this.renderFeed();
-            this.showToast('Marked as important', 'success');
+
+            // Add red highlight to the card
+            const card = document.querySelector(`[data-item-id="${itemId}"]`);
+            if (card) {
+                card.classList.add('important');
+            }
+
+            this.showToast('Post saved to Saved Posts', 'success');
         } catch (error) {
             console.error('[SocialListening] Error marking important:', error);
         }
@@ -535,10 +541,113 @@ const SocialListening = {
     async saveItem(itemId) {
         try {
             await getAPI().post(`/api/social-listening/feed/${itemId}/save`);
+            const item = this.feedItems.find(i => i.id === itemId);
+            if (item) item.saved = true;
             this.showToast('Item saved', 'success');
         } catch (error) {
             console.error('[SocialListening] Error saving item:', error);
         }
+    },
+
+    /**
+     * Unsave/unmark item as important
+     */
+    async unsaveItem(itemId) {
+        try {
+            await getAPI().post(`/api/social-listening/feed/${itemId}/unmark-important`);
+
+            // Remove from saved posts array
+            this.savedPosts = this.savedPosts.filter(i => i.id !== itemId);
+
+            // Update feed items if present
+            const item = this.feedItems.find(i => i.id === itemId);
+            if (item) {
+                item.important = false;
+                item.saved = false;
+            }
+
+            // Re-render saved posts
+            this.renderSavedPosts();
+
+            this.showToast('Post removed from saved', 'success');
+        } catch (error) {
+            console.error('[SocialListening] Error unsaving item:', error);
+        }
+    },
+
+    /**
+     * Load saved/important posts
+     */
+    async loadSavedPosts() {
+        try {
+            // Load posts that are marked as important or saved
+            const response = await getAPI().get('/api/social-listening/feed?limit=100');
+
+            // Filter for saved or important posts
+            this.savedPosts = response.items.filter(item => item.important || item.saved);
+
+            this.renderSavedPosts();
+        } catch (error) {
+            console.error('[SocialListening] Error loading saved posts:', error);
+            this.savedPosts = [];
+            this.renderSavedPosts();
+        }
+    },
+
+    /**
+     * Render saved posts
+     */
+    renderSavedPosts() {
+        const container = document.getElementById('saved-posts-content');
+        if (!container) return;
+
+        if (!this.savedPosts || this.savedPosts.length === 0) {
+            container.innerHTML = `
+                <div class="feed-empty-state">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24"
+                        fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
+                    </svg>
+                    <h3>No saved posts yet</h3>
+                    <p>Click the star button on posts in the Live Feed to save them here.</p>
+                </div>
+            `;
+            return;
+        }
+
+        container.innerHTML = this.savedPosts.map(item => {
+            const content = item.content || '';
+            const isLongContent = content.length > 300;
+            const truncatedContent = isLongContent ? content.substring(0, 300) + '...' : content;
+
+            return `
+            <div class="feed-card important" data-item-id="${item.id}">
+                <div class="feed-card-header">
+                    <div class="platform-badge ${item.platform}">${this.getPlatformIcon(item.platform)}</div>
+                    <div class="feed-card-author">
+                        <strong>${this.escapeHtml(item.author || 'Unknown')}</strong>
+                        <span>${this.escapeHtml(item.handle || '')}</span>
+                    </div>
+                </div>
+                <div class="feed-card-content ${isLongContent ? 'truncated' : ''}" data-full-content="${this.escapeHtml(content)}" data-truncated="${isLongContent}">
+                    <span class="content-text">${this.escapeHtml(truncatedContent)}</span>
+                    ${isLongContent ? `<button class="expand-content-btn" onclick="SocialListening.toggleContentExpand(this)">Show more</button>` : ''}
+                </div>
+                <div class="feed-card-meta">
+                    <span class="feed-card-rule">${this.escapeHtml(item.rule_name || 'Manual')}</span>
+                    <span>${this.formatDate(item.posted_at)}</span>
+                </div>
+                <div class="feed-card-actions">
+                    <button class="feed-action-btn primary" onclick="SocialListening.showResponseModal('${item.id}')">
+                        Generate Reply
+                    </button>
+                    <button class="feed-action-btn" onclick="SocialListening.unsaveItem('${item.id}')">Unsave</button>
+                    <a href="${item.url}" target="_blank" class="feed-action-btn">Open</a>
+                </div>
+            </div>
+            `;
+        }).join('');
     },
 
     // ==================== RENDERING ====================
@@ -623,9 +732,6 @@ const SocialListening = {
                     <div class="feed-card-author">
                         <strong>${this.escapeHtml(item.author || 'Unknown')}</strong>
                         <span>${this.escapeHtml(item.handle || '')}</span>
-                        <span class="quality-indicator ${qualityClass}" title="Quality Score: ${qualityScore}/10">
-                            ${'★'.repeat(Math.max(1, Math.round(qualityScore / 2)))}
-                        </span>
                     </div>
                 </div>
                 <div class="feed-card-content ${isLongContent ? 'truncated' : ''}" data-full-content="${this.escapeHtml(content)}" data-truncated="${isLongContent}">
@@ -701,6 +807,17 @@ const SocialListening = {
         if (negativeBar) {
             negativeBar.style.height = `${Math.max(40, (negative / total) * 120)}px`;
             negativeBar.querySelector('.sentiment-value').textContent = `${Math.round((negative / total) * 100)}%`;
+        }
+
+        // Update stat cards
+        const totalPostsEl = document.getElementById('total-posts-count');
+        if (totalPostsEl) {
+            totalPostsEl.textContent = this.analytics.total_posts || 0;
+        }
+
+        const activeRulesEl = document.getElementById('active-rules-count');
+        if (activeRulesEl) {
+            activeRulesEl.textContent = this.rules.filter(r => r.status === 'active').length;
         }
 
         // Platform stats

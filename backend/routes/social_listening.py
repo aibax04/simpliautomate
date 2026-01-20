@@ -626,6 +626,35 @@ async def mark_important(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.post("/feed/{item_id}/unmark-important")
+async def unmark_important(
+    item_id: int,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user)
+):
+    """Unmark a feed item as important"""
+    try:
+        stmt = select(MatchedResult).where(
+            MatchedResult.id == item_id,
+            MatchedResult.user_id == user.id
+        )
+        result = await db.execute(stmt)
+        match = result.scalar_one_or_none()
+        
+        if not match:
+            raise HTTPException(status_code=404, detail="Item not found")
+        
+        match.important = False
+        await db.commit()
+        
+        return {"status": "success"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.post("/feed/{item_id}/save")
 async def save_item(
     item_id: int,

@@ -20,10 +20,10 @@
             localStorage.removeItem('simplii_token');
             window.location.href = '/login.html';
         }
-        
+
         // View Toggle - Content Automation vs Monitoring
         let currentView = 'content'; // 'content' or 'monitoring'
-        
+
         function toggleMainView() {
             const layoutContainer = document.querySelector('.layout-container');
             const monitoringView = document.getElementById('monitoring-view');
@@ -58,7 +58,7 @@
                 currentView = 'content';
             }
         }
-        
+
         function showMonitoringSection(section) {
             // Hide all sections
             document.querySelectorAll('.monitoring-section').forEach(el => el.classList.add('hidden'));
@@ -71,6 +71,11 @@
                     btn.classList.add('active');
                 }
             });
+
+            // Load saved posts when saved section is shown
+            if (section === 'saved' && window.SocialListening) {
+                window.SocialListening.loadSavedPosts();
+            }
         }
     </script>
 </head>
@@ -161,7 +166,9 @@
                 <div class="header-right">
                     <button id="switch-view-btn" class="btn-switch-view" onclick="toggleMainView()">
                         <span id="switch-view-text">Switch to Monitoring</span>
-                        <svg id="switch-view-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <svg id="switch-view-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16"
+                            viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                            stroke-linecap="round" stroke-linejoin="round">
                             <circle cx="12" cy="12" r="10"></circle>
                             <polyline points="12 6 12 12 16 14"></polyline>
                         </svg>
@@ -217,25 +224,70 @@
                         <h3>Social Listening</h3>
                     </div>
                     <nav class="monitoring-nav">
-                        <button class="monitoring-nav-btn active" data-section="feed" onclick="showMonitoringSection('feed')">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11a9 9 0 0 1 9 9"></path><path d="M4 4a16 16 0 0 1 16 16"></path><circle cx="5" cy="19" r="1"></circle></svg>
+                        <button class="monitoring-nav-btn active" data-section="feed"
+                            onclick="showMonitoringSection('feed')">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24"
+                                fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                stroke-linejoin="round">
+                                <path d="M4 11a9 9 0 0 1 9 9"></path>
+                                <path d="M4 4a16 16 0 0 1 16 16"></path>
+                                <circle cx="5" cy="19" r="1"></circle>
+                            </svg>
                             Live Feed
                         </button>
-                        <button class="monitoring-nav-btn" data-section="rules" onclick="showMonitoringSection('rules')">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg>
+                        <button class="monitoring-nav-btn" data-section="saved"
+                            onclick="showMonitoringSection('saved')">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24"
+                                fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                stroke-linejoin="round">
+                                <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
+                            </svg>
+                            Saved Posts
+                        </button>
+                        <button class="monitoring-nav-btn" data-section="rules"
+                            onclick="showMonitoringSection('rules')">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24"
+                                fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                stroke-linejoin="round">
+                                <path
+                                    d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z">
+                                </path>
+                            </svg>
                             Rule Builder
                         </button>
-                        <button class="monitoring-nav-btn" data-section="alerts" onclick="showMonitoringSection('alerts')">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
+                        <button class="monitoring-nav-btn" data-section="alerts"
+                            onclick="showMonitoringSection('alerts')">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24"
+                                fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                stroke-linejoin="round">
+                                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+                                <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+                            </svg>
                             Alerts
                             <span id="alert-badge" class="alert-badge hidden">0</span>
                         </button>
-                        <button class="monitoring-nav-btn" data-section="analytics" onclick="showMonitoringSection('analytics')">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
+                        <button class="monitoring-nav-btn" data-section="analytics"
+                            onclick="showMonitoringSection('analytics')">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24"
+                                fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                stroke-linejoin="round">
+                                <line x1="18" y1="20" x2="18" y2="10"></line>
+                                <line x1="12" y1="20" x2="12" y2="4"></line>
+                                <line x1="6" y1="20" x2="6" y2="14"></line>
+                            </svg>
                             Analytics
                         </button>
-                        <button class="monitoring-nav-btn" data-section="reports" onclick="showMonitoringSection('reports')">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                        <button class="monitoring-nav-btn" data-section="reports"
+                            onclick="showMonitoringSection('reports')">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24"
+                                fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                stroke-linejoin="round">
+                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                                <polyline points="14 2 14 8 20 8"></polyline>
+                                <line x1="16" y1="13" x2="8" y2="13"></line>
+                                <line x1="16" y1="17" x2="8" y2="17"></line>
+                                <polyline points="10 9 9 9 8 9"></polyline>
+                            </svg>
                             Reports
                         </button>
                     </nav>
@@ -259,17 +311,61 @@
                                     <option value="news">News Sites</option>
                                 </select>
                                 <button class="btn-refresh" onclick="SocialListening.refreshFeed()">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
+                                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                        stroke-linejoin="round">
+                                        <polyline points="23 4 23 10 17 10"></polyline>
+                                        <polyline points="1 20 1 14 7 14"></polyline>
+                                        <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15">
+                                        </path>
+                                    </svg>
                                     Refresh
                                 </button>
                             </div>
                         </div>
                         <div id="feed-content" class="feed-grid">
                             <div class="feed-empty-state">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24"
+                                    fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round"
+                                    stroke-linejoin="round">
+                                    <circle cx="11" cy="11" r="8"></circle>
+                                    <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                                </svg>
                                 <h3>No monitored content yet</h3>
                                 <p>Create a tracking rule to start monitoring social media content.</p>
-                                <button class="btn-primary" onclick="showMonitoringSection('rules')">Create First Rule</button>
+                                <button class="btn-primary" onclick="showMonitoringSection('rules')">Create First
+                                    Rule</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Saved Posts Section -->
+                    <div id="monitoring-saved" class="monitoring-section hidden">
+                        <div class="section-toolbar">
+                            <h2>Saved Posts</h2>
+                            <div class="toolbar-actions">
+                                <button class="btn-refresh" onclick="SocialListening.loadSavedPosts()">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
+                                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                        stroke-linejoin="round">
+                                        <polyline points="23 4 23 10 17 10"></polyline>
+                                        <polyline points="1 20 1 14 7 14"></polyline>
+                                        <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15">
+                                        </path>
+                                    </svg>
+                                    Refresh
+                                </button>
+                            </div>
+                        </div>
+                        <div id="saved-posts-content" class="feed-grid">
+                            <div class="feed-empty-state">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24"
+                                    fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round"
+                                    stroke-linejoin="round">
+                                    <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
+                                </svg>
+                                <h3>No saved posts yet</h3>
+                                <p>Click the star button on posts in the Live Feed to save them here.</p>
                             </div>
                         </div>
                     </div>
@@ -279,13 +375,24 @@
                         <div class="section-toolbar">
                             <h2>Tracking Rules</h2>
                             <button class="btn-primary" onclick="SocialListening.showRuleModal()">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
+                                    fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                    stroke-linejoin="round">
+                                    <line x1="12" y1="5" x2="12" y2="19"></line>
+                                    <line x1="5" y1="12" x2="19" y2="12"></line>
+                                </svg>
                                 New Rule
                             </button>
                         </div>
                         <div id="rules-list" class="rules-container">
                             <div class="rules-empty-state">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24"
+                                    fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round"
+                                    stroke-linejoin="round">
+                                    <path
+                                        d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z">
+                                    </path>
+                                </svg>
                                 <h3>No tracking rules configured</h3>
                                 <p>Create rules to monitor keywords, handles, and topics across social platforms.</p>
                             </div>
@@ -297,29 +404,42 @@
                         <div class="section-toolbar">
                             <h2>Alerts</h2>
                             <div class="toolbar-actions">
-                                <button class="btn-secondary" onclick="SocialListening.markAllAlertsRead()">Mark All Read</button>
+                                <button class="btn-secondary" onclick="SocialListening.markAllAlertsRead()">Mark All
+                                    Read</button>
                             </div>
                         </div>
                         <div id="alerts-list" class="alerts-container">
                             <div class="alerts-empty-state">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24"
+                                    fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round"
+                                    stroke-linejoin="round">
+                                    <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+                                    <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+                                </svg>
                                 <h3>No alerts yet</h3>
                                 <p>Alerts will appear here when your tracking rules match new content.</p>
                             </div>
                         </div>
 
                         <!-- Email Notification Settings -->
-                        <div class="email-notification-settings" style="margin-top: 30px; padding: 20px; background: var(--bg-secondary); border-radius: 12px; border: 1px solid var(--border);">
-                            <h4 style="margin: 0 0 15px 0; color: var(--text-primary); display: flex; align-items: center; gap: 8px;">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                    <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+                        <div class="email-notification-settings"
+                            style="margin-top: 30px; padding: 20px; background: var(--bg-secondary); border-radius: 12px; border: 1px solid var(--border);">
+                            <h4
+                                style="margin: 0 0 15px 0; color: var(--text-primary); display: flex; align-items: center; gap: 8px;">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"
+                                    fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                    stroke-linejoin="round">
+                                    <path
+                                        d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z">
+                                    </path>
                                     <polyline points="22,6 12,13 2,6"></polyline>
                                 </svg>
                                 Email Notifications
                             </h4>
 
                             <div class="email-input-group" style="display: flex; gap: 10px; margin-bottom: 15px;">
-                                <input type="email" id="user-notification-email" placeholder="Enter your email for instant alerts" value="mohdaibad04@gmail.com"
+                                <input type="email" id="user-notification-email"
+                                    placeholder="Enter your email for instant alerts" value="mohdaibad04@gmail.com"
                                     style="flex: 1; padding: 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); color: var(--text-primary); font-size: 14px;">
                                 <button onclick="saveUserNotificationEmail()" class="btn-primary"
                                     style="padding: 12px 20px; white-space: nowrap;">
@@ -327,16 +447,20 @@
                                 </button>
                             </div>
 
-                            <div class="email-settings-info" style="font-size: 13px; color: var(--text-secondary); line-height: 1.5;">
+                            <div class="email-settings-info"
+                                style="font-size: 13px; color: var(--text-secondary); line-height: 1.5;">
                                 <p style="margin: 0 0 8px 0;">
-                                    <strong>💡 How it works:</strong> Enter your email above to receive instant notifications when your tracking rules find new content.
+                                    <strong>💡 How it works:</strong> Enter your email above to receive instant
+                                    notifications when your tracking rules find new content.
                                 </p>
                                 <p style="margin: 0;">
-                                    <strong>⚡ Instant alerts:</strong> You'll get an email as soon as new matches are found, keeping you updated in real-time.
+                                    <strong>⚡ Instant alerts:</strong> You'll get an email as soon as new matches are
+                                    found, keeping you updated in real-time.
                                 </p>
                             </div>
 
-                            <div id="email-save-status" class="status-message" style="margin-top: 15px; padding: 10px; border-radius: 6px; display: none;"></div>
+                            <div id="email-save-status" class="status-message"
+                                style="margin-top: 15px; padding: 10px; border-radius: 6px; display: none;"></div>
                         </div>
                     </div>
 
@@ -352,67 +476,106 @@
                                 </select>
                             </div>
                         </div>
+
+                        <!-- Analytics Grid -->
                         <div class="analytics-grid">
-                            <!-- Sentiment Overview -->
+                            <!-- Total Posts Card -->
+                            <div class="analytics-card stat-card">
+                                <div class="stat-card-header">
+                                    <span class="stat-label">Total Posts</span>
+                                    <div class="stat-icon">
+                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+                                            stroke="currentColor" stroke-width="2">
+                                            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z">
+                                            </path>
+                                        </svg>
+                                    </div>
+                                </div>
+                                <div class="stat-value" id="total-posts-count">0</div>
+                                <div class="stat-subtitle">Monitored content</div>
+                            </div>
+
+                            <!-- Active Rules Card -->
+                            <div class="analytics-card stat-card">
+                                <div class="stat-card-header">
+                                    <span class="stat-label">Active Rules</span>
+                                    <div class="stat-icon">
+                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+                                            stroke="currentColor" stroke-width="2">
+                                            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                                            <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                                        </svg>
+                                    </div>
+                                </div>
+                                <div class="stat-value" id="active-rules-count">0</div>
+                                <div class="stat-subtitle">Tracking rules</div>
+                            </div>
+
+                            <!-- Sentiment Distribution -->
                             <div class="analytics-card">
-                                <h4>Sentiment Distribution</h4>
+                                <div class="analytics-card-header">
+                                    <h4>Sentiment Distribution</h4>
+                                </div>
                                 <div id="sentiment-chart" class="chart-container">
                                     <div class="sentiment-bars">
-                                        <div class="sentiment-bar positive" style="height: 0%;">
+                                        <div class="sentiment-bar-wrapper">
+                                            <div class="sentiment-bar positive" style="height: 0%;">
+                                                <span class="sentiment-value">0%</span>
+                                            </div>
                                             <span class="sentiment-label">Positive</span>
-                                            <span class="sentiment-value">0%</span>
                                         </div>
-                                        <div class="sentiment-bar neutral" style="height: 0%;">
+                                        <div class="sentiment-bar-wrapper">
+                                            <div class="sentiment-bar neutral" style="height: 0%;">
+                                                <span class="sentiment-value">0%</span>
+                                            </div>
                                             <span class="sentiment-label">Neutral</span>
-                                            <span class="sentiment-value">0%</span>
                                         </div>
-                                        <div class="sentiment-bar negative" style="height: 0%;">
+                                        <div class="sentiment-bar-wrapper">
+                                            <div class="sentiment-bar negative" style="height: 0%;">
+                                                <span class="sentiment-value">0%</span>
+                                            </div>
                                             <span class="sentiment-label">Negative</span>
-                                            <span class="sentiment-value">0%</span>
                                         </div>
                                     </div>
                                 </div>
                             </div>
+
                             <!-- Platform Activity -->
                             <div class="analytics-card">
-                                <h4>Platform Activity</h4>
+                                <div class="analytics-card-header">
+                                    <h4>Platform Activity</h4>
+                                </div>
                                 <div id="platform-chart" class="chart-container">
                                     <div class="platform-stats">
                                         <div class="platform-stat">
-                                            <span class="platform-icon twitter">𝕏</span>
-                                            <span class="platform-name">Twitter/X</span>
+                                            <div class="platform-stat-left">
+                                                <span class="platform-icon twitter">X</span>
+                                                <span class="platform-name">Twitter</span>
+                                            </div>
                                             <span class="platform-count">0</span>
                                         </div>
                                         <div class="platform-stat">
-                                            <span class="platform-icon linkedin">in</span>
-                                            <span class="platform-name">LinkedIn</span>
+                                            <div class="platform-stat-left">
+                                                <span class="platform-icon linkedin">in</span>
+                                                <span class="platform-name">LinkedIn</span>
+                                            </div>
                                             <span class="platform-count">0</span>
                                         </div>
                                         <div class="platform-stat">
-                                            <span class="platform-icon reddit">r/</span>
-                                            <span class="platform-name">Reddit</span>
+                                            <div class="platform-stat-left">
+                                                <span class="platform-icon reddit">r</span>
+                                                <span class="platform-name">Reddit</span>
+                                            </div>
                                             <span class="platform-count">0</span>
                                         </div>
                                         <div class="platform-stat">
-                                            <span class="platform-icon news">📰</span>
-                                            <span class="platform-name">News</span>
+                                            <div class="platform-stat-left">
+                                                <span class="platform-icon news">N</span>
+                                                <span class="platform-name">News</span>
+                                            </div>
                                             <span class="platform-count">0</span>
                                         </div>
                                     </div>
-                                </div>
-                            </div>
-                            <!-- Trending Keywords -->
-                            <div class="analytics-card wide">
-                                <h4>Trending Keywords</h4>
-                                <div id="keywords-cloud" class="keywords-container">
-                                    <p class="empty-text">No keyword data available yet.</p>
-                                </div>
-                            </div>
-                            <!-- Volume Over Time -->
-                            <div class="analytics-card wide">
-                                <h4>Content Volume</h4>
-                                <div id="volume-chart" class="chart-container volume-chart">
-                                    <p class="empty-text">No volume data available yet.</p>
                                 </div>
                             </div>
                         </div>
@@ -423,39 +586,88 @@
                         <div class="section-toolbar">
                             <h2>Export Reports</h2>
                         </div>
-                        <div class="reports-config">
-                            <div class="report-form">
-                                <div class="form-group">
-                                    <label>Report Type</label>
-                                    <select id="report-type" class="form-select">
-                                        <option value="summary">Summary Report</option>
-                                        <option value="detailed">Detailed Analysis</option>
-                                        <option value="sentiment">Sentiment Report</option>
-                                    </select>
+
+                        <div class="reports-container">
+                            <!-- Report Configuration Card -->
+                            <div class="report-config-card">
+                                <div class="config-card-header">
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                        stroke-width="2">
+                                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                                        <polyline points="14 2 14 8 20 8"></polyline>
+                                        <line x1="16" y1="13" x2="8" y2="13"></line>
+                                        <line x1="16" y1="17" x2="8" y2="17"></line>
+                                    </svg>
+                                    <h3>Report Configuration</h3>
                                 </div>
-                                <div class="form-group">
-                                    <label>Date Range</label>
-                                    <div class="date-range-inputs">
-                                        <input type="date" id="report-start-date" class="form-input">
-                                        <span>to</span>
-                                        <input type="date" id="report-end-date" class="form-input">
+
+                                <div class="report-form">
+                                    <div class="form-group">
+                                        <label class="form-label">Report Type</label>
+                                        <select id="report-type" class="form-select">
+                                            <option value="summary">Summary Report</option>
+                                            <option value="detailed">Detailed Analysis</option>
+                                            <option value="sentiment">Sentiment Report</option>
+                                        </select>
+                                        <span class="form-hint">Choose the type of report to generate</span>
+                                    </div>
+
+                                    <div class="form-group">
+                                        <label class="form-label">Date Range</label>
+                                        <div class="date-range-inputs">
+                                            <input type="date" id="report-start-date" class="form-input"
+                                                placeholder="Start date">
+                                            <span class="date-separator">to</span>
+                                            <input type="date" id="report-end-date" class="form-input"
+                                                placeholder="End date">
+                                        </div>
+                                        <span class="form-hint">Select the time period for your report</span>
+                                    </div>
+
+                                    <div class="form-group">
+                                        <label class="form-label">Include Rules</label>
+                                        <select id="report-rules" class="form-select" multiple>
+                                            <option value="all" selected>All Rules</option>
+                                        </select>
+                                        <span class="form-hint">Select specific rules or include all</span>
+                                    </div>
+
+                                    <button class="btn-generate-report" onclick="SocialListening.generateReport()">
+                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+                                            stroke="currentColor" stroke-width="2">
+                                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                            <polyline points="7 10 12 15 17 10"></polyline>
+                                            <line x1="12" y1="15" x2="12" y2="3"></line>
+                                        </svg>
+                                        Generate Report
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Report Preview Card -->
+                            <div class="report-preview-card">
+                                <div class="preview-card-header">
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                        stroke-width="2">
+                                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                                        <circle cx="12" cy="12" r="3"></circle>
+                                    </svg>
+                                    <h3>Report Preview</h3>
+                                </div>
+
+                                <div id="report-preview" class="report-preview-content">
+                                    <div class="preview-empty-state">
+                                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none"
+                                            stroke="currentColor" stroke-width="1.5">
+                                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                                            <polyline points="14 2 14 8 20 8"></polyline>
+                                            <line x1="16" y1="13" x2="8" y2="13"></line>
+                                            <line x1="16" y1="17" x2="8" y2="17"></line>
+                                            <polyline points="10 9 9 9 8 9"></polyline>
+                                        </svg>
+                                        <p>Configure your report settings and click Generate Report to preview</p>
                                     </div>
                                 </div>
-                                <div class="form-group">
-                                    <label>Include Rules</label>
-                                    <select id="report-rules" class="form-select" multiple>
-                                        <option value="all" selected>All Rules</option>
-                                    </select>
-                                </div>
-                                <button class="btn-primary" onclick="SocialListening.generateReport()">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                        <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
-                                    </svg>
-                                    Generate Report
-                                </button>
-                            </div>
-                            <div id="report-preview" class="report-preview">
-                                <p class="empty-text">Configure report settings and click generate to preview.</p>
                             </div>
                         </div>
                     </div>
@@ -466,9 +678,10 @@
             <div id="rule-builder-modal" class="modal hidden">
                 <div class="modal-overlay"></div>
                 <div class="modal-content wide">
-                    <button class="close-modal-btn" onclick="document.getElementById('rule-builder-modal').classList.add('hidden')">&times;</button>
+                    <button class="close-modal-btn"
+                        onclick="document.getElementById('rule-builder-modal').classList.add('hidden')">&times;</button>
                     <h2>Create Tracking Rule</h2>
-                    
+
                     <div class="form-group">
                         <label>Rule Name</label>
                         <input type="text" id="rule-name" placeholder="e.g. AI Startup Monitor">
@@ -477,7 +690,8 @@
                     <div class="form-row">
                         <div class="form-group flex-1">
                             <label>Keywords (comma separated)</label>
-                            <textarea id="rule-keywords" placeholder="AI, machine learning, startup funding" rows="3"></textarea>
+                            <textarea id="rule-keywords" placeholder="AI, machine learning, startup funding"
+                                rows="3"></textarea>
                         </div>
                         <div class="form-group flex-1">
                             <label>Social Handles (comma separated)</label>
@@ -542,7 +756,8 @@
                     </div>
 
                     <div class="modal-actions">
-                        <button class="btn-secondary" onclick="document.getElementById('rule-builder-modal').classList.add('hidden')">Cancel</button>
+                        <button class="btn-secondary"
+                            onclick="document.getElementById('rule-builder-modal').classList.add('hidden')">Cancel</button>
                         <button class="btn-primary" onclick="SocialListening.saveRule()">Save Rule</button>
                     </div>
                 </div>
@@ -552,9 +767,10 @@
             <div id="ai-response-modal" class="modal hidden">
                 <div class="modal-overlay"></div>
                 <div class="modal-content wide">
-                    <button class="close-modal-btn" onclick="document.getElementById('ai-response-modal').classList.add('hidden')">&times;</button>
+                    <button class="close-modal-btn"
+                        onclick="document.getElementById('ai-response-modal').classList.add('hidden')">&times;</button>
                     <h2>Generate AI Response</h2>
-                    
+
                     <div class="original-content-preview">
                         <label>Original Content</label>
                         <div id="original-content-box" class="content-preview-box"></div>
@@ -598,13 +814,19 @@
 
                     <div class="form-group">
                         <label>Generated Response</label>
-                        <textarea id="generated-response" rows="6" placeholder="Click 'Generate' to create a response..."></textarea>
+                        <textarea id="generated-response" rows="6"
+                            placeholder="Click 'Generate' to create a response..."></textarea>
                     </div>
 
                     <div class="modal-actions">
-                        <button class="btn-secondary" onclick="document.getElementById('ai-response-modal').classList.add('hidden')">Close</button>
+                        <button class="btn-secondary"
+                            onclick="document.getElementById('ai-response-modal').classList.add('hidden')">Close</button>
                         <button class="btn-secondary" onclick="SocialListening.generateResponse()">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
+                                fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                stroke-linejoin="round">
+                                <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+                            </svg>
                             Generate
                         </button>
                         <button class="btn-primary" onclick="SocialListening.copyResponse()">Copy Response</button>
@@ -922,13 +1144,17 @@
                     <button class="close-modal-btn">&times;</button>
                     <div class="modal-header-with-nav">
                         <button class="nav-btn prev-btn" id="prev-post-btn" title="Previous post">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"
+                                fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                stroke-linejoin="round">
                                 <polyline points="15,18 9,12 15,6"></polyline>
                             </svg>
                         </button>
                         <h2 id="result-modal-title">Your Curated Post</h2>
                         <button class="nav-btn next-btn" id="next-post-btn" title="Next post">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"
+                                fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                stroke-linejoin="round">
                                 <polyline points="9,18 15,12 9,6"></polyline>
                             </svg>
                         </button>
