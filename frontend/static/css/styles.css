@@ -3133,8 +3133,11 @@ textarea:focus {
     border-radius: 12px;
     border: 1px solid var(--border);
     min-height: 600px;
+    max-height: 80vh;
     position: relative;
     overflow: hidden;
+    display: flex;
+    flex-direction: column;
 }
 
 .report-loading {
@@ -3176,6 +3179,7 @@ textarea:focus {
     height: 100%;
     display: flex;
     flex-direction: column;
+    min-height: 0; /* Allow flex item to shrink below content size */
 }
 
 /* Report Header */
@@ -3232,6 +3236,13 @@ textarea:focus {
     overflow-y: auto;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
     line-height: 1.6;
+    scroll-behavior: smooth;
+    border-radius: 8px;
+    background: var(--bg);
+    margin: 16px;
+    margin-top: 8px;
+    margin-bottom: 8px;
+    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 /* Report Footer */
@@ -3329,54 +3340,76 @@ textarea:focus {
     position: relative;
 }
 
-.image-comparison-buttons {
+.image-comparison-slider {
+    position: relative;
+    margin-bottom: 12px;
+}
+
+.comparison-labels {
     display: flex;
-    gap: 12px;
-    justify-content: center;
-    align-items: center;
+    justify-content: space-between;
     margin-bottom: 8px;
-}
-
-.comparison-toggle-btn {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 10px 16px;
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    background: var(--bg);
+    font-size: 12px;
     color: var(--text-secondary);
-    font-size: 14px;
     font-weight: 500;
+}
+
+.previous-label {
+    color: #ef4444;
+}
+
+.current-label {
+    color: #10b981;
+}
+
+.comparison-slider {
+    width: 100%;
+    height: 6px;
+    border-radius: 3px;
+    background: var(--border);
+    outline: none;
+    appearance: none;
     cursor: pointer;
-    transition: all 0.2s ease;
-    white-space: nowrap;
+    position: relative;
 }
 
-.comparison-toggle-btn:hover {
-    background: var(--bg-hover);
-    border-color: var(--accent);
-    color: var(--accent);
-    transform: translateY(-1px);
-}
-
-.comparison-toggle-btn.active {
+.comparison-slider::-webkit-slider-thumb {
+    appearance: none;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
     background: var(--accent);
-    border-color: var(--accent);
-    color: white;
-    box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
+    cursor: pointer;
+    border: 2px solid var(--bg);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    transition: all 0.2s ease;
 }
 
-.comparison-toggle-btn.active:hover {
-    background: var(--accent-hover);
-    border-color: var(--accent-hover);
-    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+.comparison-slider::-webkit-slider-thumb:hover {
+    transform: scale(1.1);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.3);
 }
 
-.comparison-toggle-btn svg {
-    flex-shrink: 0;
-    width: 16px;
-    height: 16px;
+.comparison-slider::-moz-range-thumb {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: var(--accent);
+    cursor: pointer;
+    border: 2px solid var(--bg);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+.slider-track {
+    position: absolute;
+    top: 50%;
+    left: 0;
+    height: 6px;
+    background: var(--accent);
+    border-radius: 3px;
+    transform: translateY(-50%);
+    pointer-events: none;
+    transition: width 0.1s ease;
 }
 
 .comparison-instruction {
@@ -3387,6 +3420,47 @@ textarea:focus {
     font-style: italic;
 }
 
+.comparison-images {
+    display: none; /* Hidden - we use the main image element */
+}
+
+/* Responsive adjustments for report preview */
+@media (max-width: 768px) {
+    .report-preview {
+        min-height: 500px;
+        max-height: 70vh;
+    }
+
+    .report-content {
+        padding: 16px;
+        margin: 8px;
+        font-size: 14px;
+    }
+
+    .report-header {
+        padding: 16px;
+        flex-direction: column;
+        gap: 12px;
+        align-items: stretch;
+    }
+
+    .report-actions {
+        justify-content: center;
+    }
+
+    .report-footer {
+        padding: 12px 16px;
+    }
+
+    .report-content::-webkit-scrollbar {
+        width: 8px;
+    }
+
+    .report-content::-webkit-scrollbar-thumb {
+        min-height: 30px;
+    }
+}
+
 /* Responsive adjustments for image comparison */
 @media (max-width: 768px) {
     .image-comparison-container {
@@ -3394,15 +3468,13 @@ textarea:focus {
         margin-top: 12px;
     }
 
-    .image-comparison-buttons {
-        flex-direction: column;
-        gap: 8px;
+    .comparison-slider {
+        height: 8px;
     }
 
-    .comparison-toggle-btn {
-        width: 100%;
-        justify-content: center;
-        padding: 12px 16px;
+    .comparison-slider::-webkit-slider-thumb {
+        width: 24px;
+        height: 24px;
     }
 }
 
@@ -3440,21 +3512,33 @@ textarea:focus {
 
 /* Scrollbar styling for report content */
 .report-content::-webkit-scrollbar {
-    width: 8px;
+    width: 12px;
 }
 
 .report-content::-webkit-scrollbar-track {
     background: var(--bg-secondary);
-    border-radius: 4px;
+    border-radius: 6px;
+    margin: 2px;
 }
 
 .report-content::-webkit-scrollbar-thumb {
     background: var(--border);
-    border-radius: 4px;
+    border-radius: 6px;
+    border: 2px solid var(--bg-secondary);
+    min-height: 40px;
 }
 
 .report-content::-webkit-scrollbar-thumb:hover {
-    background: var(--text-secondary);
+    background: var(--accent);
+    border-color: var(--bg-secondary);
+}
+
+.report-content::-webkit-scrollbar-thumb:active {
+    background: var(--accent-hover);
+}
+
+.report-content::-webkit-scrollbar-corner {
+    background: var(--bg-secondary);
 }
 
 /* Report content styling */

@@ -449,13 +449,15 @@ const SocialListening = {
                     <div class="report-content-container">
                         <div class="report-header">
                             <div class="report-actions">
-                                <button onclick="downloadReportText('${response.report_id}')" class="btn-primary btn-download" title="Download report as text file">
+                                <button onclick="downloadReportText('${response.report_id}')" class="btn-primary btn-download" title="Download report as PDF file">
                                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                                        <polyline points="7 10 12 15 17 10"></polyline>
-                                        <line x1="12" y1="15" x2="12" y2="3"></line>
+                                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                                        <polyline points="14,2 14,8 20,8"></polyline>
+                                        <line x1="16" y1="13" x2="8" y2="13"></line>
+                                        <line x1="16" y1="17" x2="8" y2="17"></line>
+                                        <polyline points="10,9 9,9 8,9"></polyline>
                                     </svg>
-                                    Download Report
+                                    Download PDF
                                 </button>
                                 <button onclick="printReport()" class="btn-secondary" title="Print report">
                                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -476,13 +478,13 @@ const SocialListening = {
                         </div>
                         <div class="report-footer">
                             <p style="margin: 0; font-size: 12px; color: var(--text-secondary); text-align: center;">
-                                Report generated successfully • Ready for download
+                                Report generated successfully • Ready for PDF download
                             </p>
                         </div>
                     </div>
                 `;
 
-                this.showToast('Report generated successfully! Check the preview and download options.', 'success');
+                this.showToast('Report generated successfully! Check the preview and download PDF options.', 'success');
             }
         } catch (error) {
             console.error('[SocialListening] Error generating report:', error);
@@ -952,46 +954,91 @@ function showEmailStatus(message, type) {
 }
 
 /**
- * Download report as text file
+/**
+ * Download report as PDF file
  */
+ 
 function downloadReportText(reportId) {
     const reportContent = document.querySelector('.report-content');
     if (!reportContent) return;
 
-    // Get the text content and format it properly
-    let textContent = reportContent.textContent || reportContent.innerText;
-
-    // Clean up and format the text
-    const cleanText = textContent
-        .replace(/\s+/g, ' ')  // Replace multiple spaces with single space
-        .replace(/•/g, '-')    // Replace bullets if any
-        .replace(/\n\s*\n/g, '\n\n')  // Ensure double line breaks between sections
-        .trim();
-
-    // Add report header
-    const reportType = document.querySelector('.report-type-badge')?.textContent || 'Report';
+    // Get report metadata
+    const reportType = document.querySelector('.report-type-badge')?.textContent || 'Social Media Report';
     const reportDate = document.querySelector('.report-date')?.textContent || '';
-    const header = `${reportType}\n${reportDate}\n${'='.repeat(50)}\n\n`;
 
-    const finalText = header + cleanText;
+    // Create a clean HTML version for PDF generation
+    const pdfContent = `
+        <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; line-height: 1.6;">
+            <div style="text-align: center; border-bottom: 2px solid #3b82f6; padding-bottom: 20px; margin-bottom: 30px;">
+                <h1 style="color: #1f2937; margin: 0; font-size: 28px;">${reportType}</h1>
+                <p style="color: #6b7280; margin: 10px 0 0 0; font-size: 14px;">${reportDate}</p>
+            </div>
+            <div style="color: #1f2937;">
+                ${reportContent.innerHTML
+                    .replace(/style="[^"]*color:[^"]*"/g, '') // Remove inline color styles
+                    .replace(/class="[^"]*"/g, '') // Remove classes
+                    .replace(/<br\s*\/?>/g, '<br>') // Normalize br tags
+                }
+            </div>
+        </div>
+    `;
 
-    // Create blob and download
-    const blob = new Blob([finalText], { type: 'text/plain;charset=utf-8' });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `social_monitoring_report_${reportId}.txt`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    window.URL.revokeObjectURL(url);
+    // PDF generation options
+    const options = {
+        margin: [0.5, 0.5, 0.5, 0.5], // top, left, bottom, right in inches
+        filename: `social_monitoring_report_${reportId}.pdf`,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: {
+            scale: 2,
+            useCORS: true,
+            letterRendering: true
+        },
+        jsPDF: {
+            unit: 'in',
+            format: 'a4',
+            orientation: 'portrait'
+        }
+    };
 
-    // Show success message with download confirmation
-    if (window.SocialListening && window.SocialListening.showToast) {
-        window.SocialListening.showToast('Report downloaded successfully! Check your downloads folder.', 'success');
-    }
+    // Create a temporary element for PDF generation
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = pdfContent;
+    tempDiv.style.position = 'absolute';
+    tempDiv.style.left = '-9999px';
+    tempDiv.style.top = '-9999px';
+    document.body.appendChild(tempDiv);
 
-    // Also show a visual confirmation in the download button
+    // Generate and download PDF
+    html2pdf()
+        .set(options)
+        .from(tempDiv)
+        .save()
+        .then(() => {
+            // Clean up
+            document.body.removeChild(tempDiv);
+
+            // Show success message
+            if (window.SocialListening && window.SocialListening.showToast) {
+                window.SocialListening.showToast('PDF report downloaded successfully! Check your downloads folder.', 'success');
+            }
+
+            // Visual confirmation in download button
+            const downloadBtn = document.querySelector('.btn-download');
+            if (downloadBtn) {
+                downloadBtn.classList.add('success');
+                setTimeout(() => {
+                    downloadBtn.classList.remove('success');
+                }, 2000);
+            }
+        })
+        .catch((error) => {
+            console.error('PDF generation failed:', error);
+            document.body.removeChild(tempDiv);
+
+            if (window.SocialListening && window.SocialListening.showToast) {
+                window.SocialListening.showToast('Failed to generate PDF. Please try again.', 'error');
+            }
+        });
     const downloadBtn = document.querySelector('.btn-download');
     if (downloadBtn) {
         const originalText = downloadBtn.innerHTML;
