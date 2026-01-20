@@ -55,11 +55,11 @@ const SocialListening = {
         try {
             const ruleFilter = document.getElementById('feed-rule-filter')?.value || 'all';
             const platformFilter = document.getElementById('feed-platform-filter')?.value || 'all';
-            
+
             const params = new URLSearchParams();
             if (ruleFilter !== 'all') params.append('rule_id', ruleFilter);
             if (platformFilter !== 'all') params.append('platform', platformFilter);
-            
+
             const response = await getAPI().get(`/api/social-listening/feed?${params.toString()}`);
             if (response.items) {
                 this.feedItems = response.items;
@@ -116,21 +116,21 @@ const SocialListening = {
             refreshBtn.innerHTML = '<div class="mini-spinner"></div> Fetching...';
             refreshBtn.disabled = true;
         }
-        
+
         try {
             // First, trigger the backend to fetch new content from DuckDuckGo
             console.log('[SocialListening] Triggering fetch from DuckDuckGo...');
             const fetchResponse = await getAPI().post('/api/social-listening/fetch');
             console.log('[SocialListening] Fetch response:', fetchResponse);
-            
+
             if (fetchResponse.stats) {
                 const stats = fetchResponse.stats;
                 this.showToast(
-                    `Fetched ${stats.posts_fetched} new posts from ${stats.rules_processed} rules`, 
+                    `Fetched ${stats.posts_fetched} new posts from ${stats.rules_processed} rules`,
                     'success'
                 );
             }
-            
+
             // Then reload the feed and alerts
             await this.loadFeed();
             await this.loadAlerts();
@@ -151,7 +151,7 @@ const SocialListening = {
      */
     showRuleModal(ruleId = null) {
         const modal = document.getElementById('rule-builder-modal');
-        
+
         // Reset form
         document.getElementById('rule-name').value = '';
         document.getElementById('rule-keywords').value = '';
@@ -160,13 +160,13 @@ const SocialListening = {
         document.getElementById('rule-frequency').value = 'hourly';
         document.getElementById('alert-email').checked = false;
         document.getElementById('alert-inapp').checked = true;
-        
+
         // Reset platform checkboxes
         document.getElementById('platform-twitter').checked = true;
         document.getElementById('platform-linkedin').checked = true;
         document.getElementById('platform-reddit').checked = false;
         document.getElementById('platform-news').checked = true;
-        
+
         // If editing, populate form
         if (ruleId) {
             const rule = this.rules.find(r => r.id === ruleId);
@@ -178,7 +178,7 @@ const SocialListening = {
                 document.getElementById('rule-frequency').value = rule.frequency || 'hourly';
                 document.getElementById('alert-email').checked = rule.alert_email || false;
                 document.getElementById('alert-inapp').checked = rule.alert_in_app !== false;
-                
+
                 // Platforms
                 const platforms = rule.platforms || [];
                 document.getElementById('platform-twitter').checked = platforms.includes('twitter');
@@ -187,7 +187,7 @@ const SocialListening = {
                 document.getElementById('platform-news').checked = platforms.includes('news');
             }
         }
-        
+
         modal.classList.remove('hidden');
     },
 
@@ -208,14 +208,14 @@ const SocialListening = {
         const frequency = document.getElementById('rule-frequency').value;
         const alertEmail = document.getElementById('alert-email').checked;
         const alertInApp = document.getElementById('alert-inapp').checked;
-        
+
         // Get selected platforms
         const platforms = [];
         if (document.getElementById('platform-twitter').checked) platforms.push('twitter');
         if (document.getElementById('platform-linkedin').checked) platforms.push('linkedin');
         if (document.getElementById('platform-reddit').checked) platforms.push('reddit');
         if (document.getElementById('platform-news').checked) platforms.push('news');
-        
+
         // Validation
         if (!name) {
             alert('Please enter a rule name');
@@ -229,7 +229,7 @@ const SocialListening = {
             alert('Please select at least one platform');
             return;
         }
-        
+
         const ruleData = {
             name,
             keywords,
@@ -241,7 +241,7 @@ const SocialListening = {
             alert_in_app: alertInApp,
             status: 'active'
         };
-        
+
         try {
             const response = await getAPI().post('/api/social-listening/rules', ruleData);
             if (response.rule) {
@@ -250,7 +250,7 @@ const SocialListening = {
                 this.updateRuleFilters();
                 document.getElementById('rule-builder-modal').classList.add('hidden');
                 this.showToast('Rule created! Fetching content...', 'success');
-                
+
                 // Auto-fetch content for the new rule
                 setTimeout(() => this.refreshFeed(), 500);
             }
@@ -293,9 +293,9 @@ const SocialListening = {
     async toggleRuleStatus(ruleId) {
         const rule = this.rules.find(r => r.id === ruleId);
         if (!rule) return;
-        
+
         const newStatus = rule.status === 'active' ? 'paused' : 'active';
-        
+
         try {
             await getAPI().patch(`/api/social-listening/rules/${ruleId}`, { status: newStatus });
             rule.status = newStatus;
@@ -326,13 +326,13 @@ const SocialListening = {
     showResponseModal(itemId) {
         const item = this.feedItems.find(i => i.id === itemId);
         if (!item) return;
-        
+
         this.currentPostForResponse = item;
-        
+
         // Populate original content
         document.getElementById('original-content-box').textContent = item.content;
         document.getElementById('generated-response').value = '';
-        
+
         document.getElementById('ai-response-modal').classList.remove('hidden');
     },
 
@@ -341,17 +341,17 @@ const SocialListening = {
      */
     async generateResponse() {
         if (!this.currentPostForResponse) return;
-        
+
         const intent = document.getElementById('response-intent').value;
         const tone = document.getElementById('response-tone').value;
         const length = document.getElementById('response-length').value;
-        
+
         const statusEl = document.getElementById('ai-response-status');
         const responseTextarea = document.getElementById('generated-response');
-        
+
         statusEl.classList.remove('hidden');
         responseTextarea.value = '';
-        
+
         try {
             const response = await getAPI().post('/api/social-listening/generate-response', {
                 original_content: this.currentPostForResponse.content,
@@ -360,7 +360,7 @@ const SocialListening = {
                 tone,
                 length
             });
-            
+
             if (response.response) {
                 responseTextarea.value = response.response;
             }
@@ -378,7 +378,7 @@ const SocialListening = {
     copyResponse() {
         const responseText = document.getElementById('generated-response').value;
         if (!responseText) return;
-        
+
         navigator.clipboard.writeText(responseText).then(() => {
             this.showToast('Response copied to clipboard!', 'success');
         });
@@ -549,7 +549,7 @@ const SocialListening = {
     renderRules() {
         const container = document.getElementById('rules-list');
         if (!container) return;
-        
+
         if (this.rules.length === 0) {
             container.innerHTML = `
                 <div class="rules-empty-state">
@@ -560,7 +560,7 @@ const SocialListening = {
             `;
             return;
         }
-        
+
         container.innerHTML = this.rules.map(rule => `
             <div class="rule-card" data-rule-id="${rule.id}">
                 <div class="rule-card-info">
@@ -594,7 +594,7 @@ const SocialListening = {
     renderFeed() {
         const container = document.getElementById('feed-content');
         if (!container) return;
-        
+
         if (this.feedItems.length === 0) {
             container.innerHTML = `
                 <div class="feed-empty-state">
@@ -606,10 +606,15 @@ const SocialListening = {
             `;
             return;
         }
-        
+
         container.innerHTML = this.feedItems.map(item => {
             const qualityScore = item.quality_score || 5;
             const qualityClass = qualityScore >= 8 ? 'high' : qualityScore >= 6 ? 'medium' : 'low';
+
+            // Handle longer authentic content with truncation
+            const content = item.content || '';
+            const isLongContent = content.length > 300;
+            const truncatedContent = isLongContent ? content.substring(0, 300) + '...' : content;
 
             return `
             <div class="feed-card ${item.important ? 'important' : ''}" data-item-id="${item.id}">
@@ -623,7 +628,10 @@ const SocialListening = {
                         </span>
                     </div>
                 </div>
-                <div class="feed-card-content">${this.escapeHtml(item.content)}</div>
+                <div class="feed-card-content ${isLongContent ? 'truncated' : ''}" data-full-content="${this.escapeHtml(content)}" data-truncated="${isLongContent}">
+                    <span class="content-text">${this.escapeHtml(truncatedContent)}</span>
+                    ${isLongContent ? `<button class="expand-content-btn" onclick="SocialListening.toggleContentExpand(this)">Show more</button>` : ''}
+                </div>
                 <div class="feed-card-meta">
                     <span class="feed-card-rule">${this.escapeHtml(item.rule_name || 'Manual')}</span>
                     <span>${this.formatDate(item.posted_at)}</span>
@@ -647,7 +655,7 @@ const SocialListening = {
     renderAlerts() {
         const container = document.getElementById('alerts-list');
         if (!container) return;
-        
+
         if (this.alerts.length === 0) {
             container.innerHTML = `
                 <div class="alerts-empty-state">
@@ -658,7 +666,7 @@ const SocialListening = {
             `;
             return;
         }
-        
+
         container.innerHTML = this.alerts.map(alert => `
             <div class="alert-item ${alert.read ? '' : 'unread'}" data-alert-id="${alert.id}">
                 <div class="alert-content">
@@ -677,11 +685,11 @@ const SocialListening = {
         // Sentiment chart
         const { positive, neutral, negative } = this.analytics.sentiment;
         const total = positive + neutral + negative || 1;
-        
+
         const positiveBar = document.querySelector('.sentiment-bar.positive');
         const neutralBar = document.querySelector('.sentiment-bar.neutral');
         const negativeBar = document.querySelector('.sentiment-bar.negative');
-        
+
         if (positiveBar) {
             positiveBar.style.height = `${Math.max(40, (positive / total) * 120)}px`;
             positiveBar.querySelector('.sentiment-value').textContent = `${Math.round((positive / total) * 100)}%`;
@@ -694,7 +702,7 @@ const SocialListening = {
             negativeBar.style.height = `${Math.max(40, (negative / total) * 120)}px`;
             negativeBar.querySelector('.sentiment-value').textContent = `${Math.round((negative / total) * 100)}%`;
         }
-        
+
         // Platform stats
         const platforms = this.analytics.platforms;
         document.querySelectorAll('.platform-stat').forEach(stat => {
@@ -703,7 +711,7 @@ const SocialListening = {
                 stat.querySelector('.platform-count').textContent = platforms[platform];
             }
         });
-        
+
         // Keywords cloud
         const keywordsContainer = document.getElementById('keywords-cloud');
         if (keywordsContainer && this.analytics.keywords.length > 0) {
@@ -719,12 +727,12 @@ const SocialListening = {
     updateRuleFilters() {
         const ruleFilter = document.getElementById('feed-rule-filter');
         const reportRules = document.getElementById('report-rules');
-        
+
         if (ruleFilter) {
             ruleFilter.innerHTML = '<option value="all">All Rules</option>' +
                 this.rules.map(r => `<option value="${r.id}">${this.escapeHtml(r.name)}</option>`).join('');
         }
-        
+
         if (reportRules) {
             reportRules.innerHTML = '<option value="all" selected>All Rules</option>' +
                 this.rules.map(r => `<option value="${r.id}">${this.escapeHtml(r.name)}</option>`).join('');
@@ -737,7 +745,7 @@ const SocialListening = {
     updateAlertBadge() {
         const badge = document.getElementById('alert-badge');
         if (!badge) return;
-        
+
         const unreadCount = this.alerts.filter(a => !a.read).length;
         if (unreadCount > 0) {
             badge.textContent = unreadCount;
@@ -787,12 +795,12 @@ const SocialListening = {
         const diffMins = Math.floor(diffMs / 60000);
         const diffHours = Math.floor(diffMs / 3600000);
         const diffDays = Math.floor(diffMs / 86400000);
-        
+
         if (diffMins < 1) return 'Just now';
         if (diffMins < 60) return `${diffMins}m ago`;
         if (diffHours < 24) return `${diffHours}h ago`;
         if (diffDays < 7) return `${diffDays}d ago`;
-        
+
         return date.toLocaleDateString();
     },
 
@@ -807,6 +815,33 @@ const SocialListening = {
     },
 
     /**
+     * Toggle expand/collapse for long content in feed cards
+     */
+    toggleContentExpand(button) {
+        const contentDiv = button.parentElement;
+        const contentSpan = contentDiv.querySelector('.content-text');
+        const fullContent = contentDiv.getAttribute('data-full-content');
+        const isTruncated = contentDiv.getAttribute('data-truncated') === 'true';
+
+        if (!isTruncated) return;
+
+        const isExpanded = contentDiv.classList.contains('expanded');
+
+        if (isExpanded) {
+            // Collapse: show truncated content
+            const truncated = fullContent.substring(0, 300) + '...';
+            contentSpan.textContent = truncated;
+            contentDiv.classList.remove('expanded');
+            button.textContent = 'Show more';
+        } else {
+            // Expand: show full content
+            contentSpan.textContent = fullContent;
+            contentDiv.classList.add('expanded');
+            button.textContent = 'Show less';
+        }
+    },
+
+    /**
      * Show toast notification
      */
     showToast(message, type = 'success') {
@@ -815,7 +850,7 @@ const SocialListening = {
             window.showToast(message, type);
             return;
         }
-        
+
         // Fallback toast
         let container = document.querySelector('.toast-container');
         if (!container) {
@@ -823,12 +858,12 @@ const SocialListening = {
             container.className = 'toast-container';
             document.body.appendChild(container);
         }
-        
+
         const toast = document.createElement('div');
         toast.className = `toast ${type}`;
         toast.textContent = message;
         container.appendChild(toast);
-        
+
         setTimeout(() => toast.classList.add('visible'), 10);
         setTimeout(() => {
             toast.classList.remove('visible');
@@ -842,7 +877,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const ruleFilter = document.getElementById('feed-rule-filter');
     const platformFilter = document.getElementById('feed-platform-filter');
     const analyticsTimeframe = document.getElementById('analytics-timeframe');
-    
+
     if (ruleFilter) {
         ruleFilter.addEventListener('change', () => SocialListening.loadFeed());
     }
@@ -894,14 +929,12 @@ async function saveUserNotificationEmail() {
     try {
         showEmailStatus('Saving email...', 'info');
 
-        const response = await getAPI().post('/api/user/notification-email', { email });
+        const response = await getAPI().post('/api/social-listening/user/notification-email', { email });
 
         if (response.success) {
             showEmailStatus('✅ Email saved successfully! You will now receive instant notifications.', 'success');
-            emailInput.value = ''; // Clear the input
-
-            // Reload the user's notification email to update the UI
-            await loadUserNotificationEmail();
+            // Keep the email visible and update placeholder to show it's saved
+            emailInput.placeholder = `Current: ${email} - Enter new email to update`;
 
             // Optional: Refresh alerts to show updated status
             setTimeout(() => {
@@ -957,7 +990,7 @@ function showEmailStatus(message, type) {
 /**
  * Download report as PDF file
  */
- 
+
 function downloadReportText(reportId) {
     const reportContent = document.querySelector('.report-content');
     if (!reportContent) return;
@@ -975,10 +1008,10 @@ function downloadReportText(reportId) {
             </div>
             <div style="color: #1f2937;">
                 ${reportContent.innerHTML
-                    .replace(/style="[^"]*color:[^"]*"/g, '') // Remove inline color styles
-                    .replace(/class="[^"]*"/g, '') // Remove classes
-                    .replace(/<br\s*\/?>/g, '<br>') // Normalize br tags
-                }
+            .replace(/style="[^"]*color:[^"]*"/g, '') // Remove inline color styles
+            .replace(/class="[^"]*"/g, '') // Remove classes
+            .replace(/<br\s*\/?>/g, '<br>') // Normalize br tags
+        }
             </div>
         </div>
     `;

@@ -11,6 +11,8 @@ from datetime import datetime, timedelta
 from ddgs import DDGS
 import hashlib
 import re
+import requests
+from bs4 import BeautifulSoup
 
 # Import social ingestion services
 from backend.services.ingestion_service import get_ingestion_service
@@ -170,6 +172,394 @@ class SocialListeningAgent:
         except Exception as e:
             print(f"[SocialListening] DuckDuckGo search error: {e}")
         return results
+    
+    def fetch_authentic_content(self, url: str, platform: str, original_title: str = "", original_body: str = "") -> str:
+        """
+        Fetch authentic full content from a social media URL.
+        This goes beyond the search snippet to get the actual post content.
+        
+        Args:
+            url: The URL of the social media post
+            platform: The platform type (twitter, linkedin, reddit, news)
+            original_title: The title from search (fallback)
+            original_body: The body from search (fallback)
+            
+        Returns:
+            The full authentic content of the post
+        """
+        try:
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+                'Accept-Language': 'en-US,en;q=0.5',
+                'Connection': 'keep-alive',
+                'Upgrade-Insecure-Requests': '1'
+            }
+            
+            # Set a reasonable timeout
+            response = requests.get(url, headers=headers, timeout=8, allow_redirects=True)
+            
+            if response.status_code != 200:
+                print(f"[SocialListening] URL fetch failed ({response.status_code}): {url}")
+                # Return combination of title and body as fallback
+                return self._format_fallback_content(original_title, original_body, platform)
+            
+            soup = BeautifulSoup(response.text, 'html.parser')
+            
+            # Extract content based on platform
+            content = ""
+            
+            if platform == "twitter":
+                content = self._extract_twitter_content(soup, url)
+            elif platform == "linkedin":
+                content = self._extract_linkedin_content(soup, url)
+            elif platform == "reddit":
+                content = self._extract_reddit_content(soup, url)
+            else:  # news
+                content = self._extract_news_content(soup, url)
+            
+            # If extraction failed, use the fallback
+            if not content or len(content.strip()) < 30:
+                content = self._format_fallback_content(original_title, original_body, platform)
+            
+            # Clean and limit content length
+            content = self._clean_extracted_content(content)
+            
+            return content
+            
+        except requests.Timeout:
+            print(f"[SocialListening] URL fetch timeout: {url}")
+            return self._format_fallback_content(original_title, original_body, platform)
+        except Exception as e:
+            print(f"[SocialListening] Error fetching authentic content from {url}: {e}")
+            return self._format_fallback_content(original_title, original_body, platform)
+    
+    def _extract_twitter_content(self, soup: BeautifulSoup, url: str) -> str:
+        """Extract tweet content from Twitter/X page"""
+        content = ""
+        
+        # Try multiple selectors for tweet content
+        # Twitter uses article tags for tweets
+        tweet_selectors = [
+            'article[data-testid="tweet"]',
+            'div[data-testid="tweetText"]',
+            'div[lang]',  # Tweet text usually has a lang attribute
+            'article div[dir="auto"]',
+            '.tweet-text'
+        ]
+        
+        for selector in tweet_selectors:
+            elements = soup.select(selector)
+            if elements:
+                # Get text from the first matching element
+                for elem in elements[:1]:  # Take first tweet
+                    text = elem.get_text(separator=' ', strip=True)
+                    if text and len(text) > 20:
+                        content = text
+                        break
+            if content:
+                break
+        
+        # Also try meta tags for Twitter cards
+        if not content:
+            meta_desc = soup.find('meta', attrs={'name': 'description'})
+            if meta_desc and meta_desc.get('content'):
+                content = meta_desc.get('content')
+            
+            # Try og:description
+            og_desc = soup.find('meta', attrs={'property': 'og:description'})
+            if og_desc and og_desc.get('content'):
+                desc = og_desc.get('content')
+                if len(desc) > len(content or ''):
+                    content = desc
+        
+        return content
+    
+    def _extract_linkedin_content(self, soup: BeautifulSoup, url: str) -> str:
+        """Extract post content from LinkedIn"""
+        content = ""
+        
+        # LinkedIn post selectors
+        linkedin_selectors = [
+            'div.feed-shared-update-v2__description',
+            'div.feed-shared-inline-show-more-text',
+            'span.break-words',
+            'div[data-id] .feed-shared-text',
+            '.share-update-card__update-text',
+            'div.attributed-text-segment-list__content'
+        ]
+        
+        for selector in linkedin_selectors:
+            elements = soup.select(selector)
+            if elements:
+                for elem in elements[:1]:
+                    text = elem.get_text(separator=' ', strip=True)
+                    if text and len(text) > 30:
+                        content = text
+                        break
+            if content:
+                break
+        
+        # Try meta description
+        if not content:
+            meta_desc = soup.find('meta', attrs={'name': 'description'})
+            if meta_desc and meta_desc.get('content'):
+                content = meta_desc.get('content')
+            
+            og_desc = soup.find('meta', attrs={'property': 'og:description'})
+            if og_desc and og_desc.get('content'):
+                desc = og_desc.get('content')
+                if len(desc) > len(content or ''):
+                    content = desc
+        
+        return content
+    
+    def _extract_reddit_content(self, soup: BeautifulSoup, url: str) -> str:
+        """Extract post content from Reddit"""
+        content = ""
+        
+        # Reddit post selectors
+        reddit_selectors = [
+            'div[data-test-id="post-content"]',
+            'div[slot="text-body"]',
+            'div.md',  # Markdown content
+            '[data-click-id="text"] .RichTextJSON-root',
+            'shreddit-post .md',
+            '.Post .RichTextJSON-root'
+        ]
+        
+        for selector in reddit_selectors:
+            elements = soup.select(selector)
+            if elements:
+                for elem in elements[:1]:
+                    text = elem.get_text(separator=' ', strip=True)
+                    if text and len(text) > 30:
+                        content = text
+                        break
+            if content:
+                break
+        
+        # Also try post title for Reddit (sometimes the title IS the content)
+        if not content or len(content) < 50:
+            title_elem = soup.select_one('h1, shreddit-post h1, [slot="title"]')
+            if title_elem:
+                title_text = title_elem.get_text(strip=True)
+                if title_text:
+                    if content:
+                        content = f"{title_text}\n\n{content}"
+                    else:
+                        content = title_text
+        
+        # Try meta description
+        if not content:
+            og_desc = soup.find('meta', attrs={'property': 'og:description'})
+            if og_desc and og_desc.get('content'):
+                content = og_desc.get('content')
+        
+        return content
+    
+    def _extract_news_content(self, soup: BeautifulSoup, url: str) -> str:
+        """Extract article content from news sites"""
+        content = ""
+        
+        # Remove script, style, and navigation elements
+        for element in soup(['script', 'style', 'nav', 'header', 'footer', 'aside', 'form', 'button']):
+            element.decompose()
+        
+        # News article selectors (ordered by priority)
+        news_selectors = [
+            'article .article-body',
+            'article .story-body',
+            'div.article-content',
+            'div.story-content',
+            'div.entry-content',
+            'div.post-content',
+            'main article',
+            'article',
+            '.article-text',
+            '.story-text',
+            '[itemprop="articleBody"]'
+        ]
+        
+        for selector in news_selectors:
+            elements = soup.select(selector)
+            if elements:
+                for elem in elements[:1]:
+                    # Get all paragraphs within the article
+                    paragraphs = elem.find_all('p')
+                    if paragraphs:
+                        texts = [p.get_text(strip=True) for p in paragraphs if p.get_text(strip=True)]
+                        # Take first 3-5 paragraphs to get the gist
+                        content = ' '.join(texts[:4])
+                        if len(content) > 100:
+                            break
+            if content and len(content) > 100:
+                break
+        
+        # If no article content, try to get page title + description
+        if not content or len(content) < 100:
+            # Get title
+            title = ""
+            title_elem = soup.find('h1') or soup.find('title')
+            if title_elem:
+                title = title_elem.get_text(strip=True)
+            
+            # Get description
+            desc = ""
+            meta_desc = soup.find('meta', attrs={'name': 'description'})
+            if meta_desc:
+                desc = meta_desc.get('content', '')
+            if not desc:
+                og_desc = soup.find('meta', attrs={'property': 'og:description'})
+                if og_desc:
+                    desc = og_desc.get('content', '')
+            
+            if title or desc:
+                content = f"{title}\n\n{desc}" if title and desc else (title or desc)
+        
+        return content
+    
+    def _format_fallback_content(self, title: str, body: str, platform: str) -> str:
+        """Format fallback content when URL fetch fails"""
+        if body and len(body) > len(title or ''):
+            return body.strip()
+        elif title and body:
+            return f"{title.strip()}\n\n{body.strip()}"
+        elif title:
+            return title.strip()
+        elif body:
+            return body.strip()
+        return ""
+    
+    def _clean_extracted_content(self, content: str) -> str:
+        """Clean and format extracted content"""
+        if not content:
+            return ""
+        
+        # Remove excessive whitespace
+        content = re.sub(r'\s+', ' ', content)
+        content = content.strip()
+        
+        # Remove common clutter phrases
+        clutter_phrases = [
+            'Sign in to continue',
+            'Sign up',
+            'Login to',
+            'Create an account',
+            'Already have an account',
+            'Terms of Service',
+            'Privacy Policy',
+            'Cookie Policy',
+            'Subscribe now',
+            'Read more...',
+            'Continue reading'
+        ]
+        
+        for phrase in clutter_phrases:
+            content = content.replace(phrase, '')
+        
+        # Limit to reasonable length (keep first ~1500 chars for comprehensive content)
+        if len(content) > 1500:
+            content = content[:1500] + '...'
+        
+        # Ensure minimum quality
+        if len(content) < 30:
+            return ""
+        
+        return content.strip()
+    
+    def clean_url(self, url: str) -> str:
+        """
+        Clean and resolve URL to get the direct link to the post.
+        Removes tracking parameters and ensures it's a direct link.
+        """
+        if not url:
+            return ""
+        
+        try:
+            # Remove common tracking parameters
+            tracking_params = [
+                'utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term',
+                'ref', 'src', 'source', 'via', 'from', 'fbclid', 'gclid', 'dclid',
+                'mc_cid', 'mc_eid', 'trk', 'trkInfo', 'share', 'refId'
+            ]
+            
+            from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
+            
+            parsed = urlparse(url)
+            
+            # Parse query params and remove tracking ones
+            if parsed.query:
+                params = parse_qs(parsed.query)
+                clean_params = {k: v for k, v in params.items() 
+                               if k.lower() not in tracking_params}
+                clean_query = urlencode(clean_params, doseq=True)
+                url = urlunparse((
+                    parsed.scheme, parsed.netloc, parsed.path,
+                    parsed.params, clean_query, parsed.fragment
+                ))
+            
+            return url
+            
+        except Exception as e:
+            print(f"[SocialListening] Error cleaning URL: {e}")
+            return url
+    
+    def is_direct_post_url(self, url: str, platform: str) -> bool:
+        """
+        Check if the URL is a direct link to a post/status, not a search or profile page.
+        """
+        url_lower = url.lower()
+        
+        if platform == "twitter":
+            # Twitter direct post URLs contain /status/ 
+            # Good: twitter.com/user/status/123456
+            # Bad: twitter.com/search?q=keyword, twitter.com/user (profile only)
+            if "/status/" in url_lower:
+                return True
+            # Also allow individual tweet links from x.com
+            if "x.com/" in url_lower and "/status/" in url_lower:
+                return True
+            # Profile pages can be useful for monitoring handles
+            if "/search" not in url_lower and "/hashtag/" not in url_lower:
+                # Check if it's a profile with potential posts
+                parts = url_lower.split("/")
+                # twitter.com/username format (could be profile with recent tweets)
+                if len(parts) >= 4 and parts[-1] and parts[-1] not in ['followers', 'following', 'likes', 'lists']:
+                    return True
+            return False
+            
+        elif platform == "linkedin":
+            # LinkedIn post URLs contain /posts/, /pulse/, /feed/update/
+            # Good: linkedin.com/posts/username-activity-123456
+            # Bad: linkedin.com/search/results/, linkedin.com/company/ (profile only)
+            direct_patterns = ['/posts/', '/pulse/', '/feed/update/', '/in/']
+            excluded_patterns = ['/search/', '/jobs/', '/learning/', '/premium/']
+            
+            if any(pattern in url_lower for pattern in excluded_patterns):
+                return False
+            if any(pattern in url_lower for pattern in direct_patterns):
+                return True
+            return False
+            
+        elif platform == "reddit":
+            # Reddit post URLs contain /comments/
+            # Good: reddit.com/r/subreddit/comments/123456/
+            # Bad: reddit.com/search?q=, reddit.com/r/subreddit (just subreddit page)
+            if "/comments/" in url_lower:
+                return True
+            # Allow subreddit top-level for monitoring subreddit mentions
+            if "/r/" in url_lower and "/search" not in url_lower:
+                return True
+            return False
+            
+        else:  # news
+            # For news, most article URLs are direct
+            # Exclude search result pages
+            excluded = ['/search', '/tag/', '/category/', '/author/', '/page/']
+            if any(ex in url_lower for ex in excluded):
+                return False
+            return True
     
     def generate_external_id(self, url: str, title: str) -> str:
         """Generate a unique ID for deduplication"""
@@ -666,6 +1056,14 @@ class SocialListeningAgent:
                         # For platform-specific searches, only accept results from that platform
                         if platform != "news" and actual_platform != platform:
                             continue
+                        
+                        # Clean the URL - remove tracking parameters
+                        url = self.clean_url(url)
+                        
+                        # Validate URL is a direct link to a post, not a search page
+                        if not self.is_direct_post_url(url, actual_platform):
+                            print(f"[SocialListening] Skipping non-direct URL: {url[:60]}...")
+                            continue
 
                         # Skip if this is from API and we already have it from search (avoid duplicates)
                         if item.get("from_api") and url in seen_urls:
@@ -679,14 +1077,30 @@ class SocialListeningAgent:
                             author, handle_extracted = self.extract_author_from_url(url, actual_platform)
 
                         # Clean and format content - API results may have better content
+                        # For non-API results, fetch authentic content from the URL
                         if item.get("from_api") and item.get("body"):
                             content = item.get("body", "").strip()
                         else:
-                            content = self.clean_content(
-                                item.get("title", ""),
-                                item.get("body", ""),
-                                actual_platform
+                            # Fetch authentic full content from the actual URL
+                            # This gets the real post content, not just search snippets
+                            original_title = item.get("title", "")
+                            original_body = item.get("body", "")
+                            
+                            # Try to get authentic content from the URL
+                            content = self.fetch_authentic_content(
+                                url, 
+                                actual_platform, 
+                                original_title, 
+                                original_body
                             )
+                            
+                            # If authentic fetch didn't work well, fall back to clean_content
+                            if not content or len(content) < 50:
+                                content = self.clean_content(
+                                    original_title,
+                                    original_body,
+                                    actual_platform
+                                )
 
                         # Skip if content is too short or empty
                         if not content or len(content) < 20:
