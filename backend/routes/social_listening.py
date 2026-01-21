@@ -546,6 +546,8 @@ async def get_feed(
     end_date: Optional[str] = Query(None, description="End date for custom range (YYYY-MM-DD)"),
     rule_id: Optional[str] = Query(None, description="Filter by specific rule ID"),
     platform: Optional[str] = Query(None, description="Filter by platform"),
+    only_important: bool = Query(False),
+    only_saved: bool = Query(False),
     sort_order: str = Query("newest", description="Sort order: newest or oldest"),
     limit: int = Query(default=50, le=100),
     db: AsyncSession = Depends(get_db),
@@ -561,6 +563,19 @@ async def get_feed(
         ).where(
             MatchedResult.user_id == user.id
         )
+
+        # Apply important/saved filters
+        if only_important or only_saved:
+            conditions = []
+            if only_important:
+                conditions.append(MatchedResult.important == True)
+            if only_saved:
+                conditions.append(MatchedResult.saved == True)
+            
+            if len(conditions) > 1:
+                stmt = stmt.where(or_(*conditions))
+            else:
+                stmt = stmt.where(conditions[0])
 
         # Apply time range filtering
         now = datetime.utcnow()

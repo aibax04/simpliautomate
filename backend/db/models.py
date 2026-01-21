@@ -130,7 +130,7 @@ class TrackingRule(Base):
     __tablename__ = "tracking_rules"
 
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
     name = Column(String, nullable=False)
     keywords = Column(JSONB, default=[])  # List of keywords to track
     handles = Column(JSONB, default=[])   # List of social handles to track
@@ -139,7 +139,7 @@ class TrackingRule(Base):
     frequency = Column(String, default="hourly")  # realtime, hourly, daily, weekly
     alert_email = Column(Boolean, default=False)
     alert_in_app = Column(Boolean, default=True)
-    status = Column(String, default="active")  # active, paused
+    status = Column(String, default="active", index=True)  # active, paused
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
@@ -159,7 +159,7 @@ class FetchedPost(Base):
     handle = Column(String, nullable=True)
     content = Column(String, nullable=False)
     url = Column(String, nullable=True)
-    posted_at = Column(DateTime(timezone=True), nullable=True)
+    posted_at = Column(DateTime(timezone=True), nullable=True, index=True)
     fetched_at = Column(DateTime(timezone=True), server_default=func.now())
     quality_score = Column(Integer, default=5)  # Content quality score 0-10
     timestamp_source = Column(String, nullable=True)  # metadata, json-ld, rss, dom, gemini
@@ -172,11 +172,11 @@ class MatchedResult(Base):
     __tablename__ = "matched_results"
     
     id = Column(Integer, primary_key=True, index=True)
-    rule_id = Column(Integer, ForeignKey("tracking_rules.id"), nullable=False)
-    post_id = Column(Integer, ForeignKey("fetched_posts.id"), nullable=False)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    important = Column(Boolean, default=False)
-    saved = Column(Boolean, default=False)
+    rule_id = Column(Integer, ForeignKey("tracking_rules.id"), nullable=False, index=True)
+    post_id = Column(Integer, ForeignKey("fetched_posts.id"), nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    important = Column(Boolean, default=False, index=True)
+    saved = Column(Boolean, default=False, index=True)
     # Gemini analysis fields
     sentiment = Column(String, default="neutral")  # positive, negative, neutral
     sentiment_score = Column(Float, default=0.5)  # 0.0 to 1.0
@@ -206,13 +206,13 @@ class SocialAlert(Base):
     __tablename__ = "social_alerts"
     
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    rule_id = Column(Integer, ForeignKey("tracking_rules.id"), nullable=True)
-    post_id = Column(Integer, ForeignKey("fetched_posts.id"), nullable=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    rule_id = Column(Integer, ForeignKey("tracking_rules.id"), nullable=True, index=True)
+    post_id = Column(Integer, ForeignKey("fetched_posts.id"), nullable=True, index=True)
     title = Column(String, nullable=False)
     message = Column(String, nullable=True)
-    read = Column(Boolean, default=False)
-    alert_type = Column(String, default="match")  # match, summary, system
+    read = Column(Boolean, default=False, index=True)
+    alert_type = Column(String, default="match", index=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
 

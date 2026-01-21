@@ -825,11 +825,10 @@ const SocialListening = {
      */
     async loadSavedPosts() {
         try {
-            // Load posts that are marked as important or saved
-            const response = await getAPI().get('/api/social-listening/feed?limit=100');
+            // Load posts that are marked as important or saved via server-side filter
+            const response = await getAPI().get('/api/social-listening/feed?only_important=true&only_saved=true&limit=100');
 
-            // Filter for saved or important posts
-            this.savedPosts = response.items.filter(item => item.important || item.saved);
+            this.savedPosts = response.items || [];
 
             this.renderSavedPosts();
         } catch (error) {
