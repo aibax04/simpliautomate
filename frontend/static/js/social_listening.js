@@ -29,6 +29,226 @@ const SocialListening = {
         await this.loadAnalytics();
         await this.loadUserNotificationEmail(); // Load user's notification email
         this.updateRuleFilters();
+
+        // Initialize filter controls
+        this.initFilterControls();
+    },
+
+    /**
+     * Initialize filter controls and event listeners
+     */
+    initFilterControls() {
+        console.log('[SocialListening] Initializing filter controls...');
+
+        // Time range filter
+        const timeRangeFilter = document.getElementById('feed-time-range-filter');
+        if (timeRangeFilter) {
+            timeRangeFilter.addEventListener('change', (e) => {
+                this.handleTimeRangeChange(e.target.value);
+                this.applyFilters();
+            });
+        }
+
+        // Custom date inputs
+        const startDateInput = document.getElementById('feed-start-date');
+        const endDateInput = document.getElementById('feed-end-date');
+
+        if (startDateInput) {
+            startDateInput.addEventListener('change', () => this.applyFilters());
+        }
+        if (endDateInput) {
+            endDateInput.addEventListener('change', () => this.applyFilters());
+        }
+
+        // Rule filter
+        const ruleFilter = document.getElementById('feed-rule-filter');
+        if (ruleFilter) {
+            ruleFilter.addEventListener('change', () => this.applyFilters());
+        }
+
+        // Platform filter
+        const platformFilter = document.getElementById('feed-platform-filter');
+        if (platformFilter) {
+            platformFilter.addEventListener('change', () => this.applyFilters());
+        }
+
+        // Sort filter
+        const sortFilter = document.getElementById('feed-sort-filter');
+        if (sortFilter) {
+            sortFilter.addEventListener('change', () => this.applyFilters());
+        }
+
+        // Reset filters button
+        const resetBtn = document.getElementById('reset-filters-btn');
+        if (resetBtn) {
+            resetBtn.addEventListener('click', () => this.resetFilters());
+        }
+
+        // Load saved filter state
+        this.loadFilterState();
+
+        console.log('[SocialListening] Filter controls initialized');
+    },
+
+    /**
+     * Handle time range filter change
+     */
+    handleTimeRangeChange(timeRange) {
+        const customDateGroup = document.getElementById('custom-date-group');
+        if (customDateGroup) {
+            customDateGroup.style.display = timeRange === 'custom' ? 'flex' : 'none';
+        }
+
+        // Set default dates for custom range
+        if (timeRange === 'custom') {
+            const startDateInput = document.getElementById('feed-start-date');
+            const endDateInput = document.getElementById('feed-end-date');
+
+            if (startDateInput && !startDateInput.value) {
+                const lastWeek = new Date();
+                lastWeek.setDate(lastWeek.getDate() - 7);
+                startDateInput.value = lastWeek.toISOString().split('T')[0];
+            }
+
+            if (endDateInput && !endDateInput.value) {
+                const today = new Date();
+                endDateInput.value = today.toISOString().split('T')[0];
+            }
+        }
+    },
+
+    /**
+     * Debounced load feed to prevent excessive API calls
+     */
+    debouncedLoadFeed() {
+        if (this.feedDebounceTimer) {
+            clearTimeout(this.feedDebounceTimer);
+        }
+
+        this.feedDebounceTimer = setTimeout(() => {
+            this.applyFilters();
+        }, 500); // 500ms debounce
+    },
+
+    /**
+     * Apply filters immediately
+     */
+    applyFilters() {
+        console.log('[SocialListening] Applying filters immediately...');
+        if (this.feedDebounceTimer) {
+            clearTimeout(this.feedDebounceTimer);
+        }
+        this.saveFilterState();
+        this.loadFeed();
+    },
+
+    /**
+     * Reset all filters to default values
+     */
+    resetFilters() {
+        console.log('[SocialListening] Resetting filters...');
+
+        // Reset time range
+        const timeRangeFilter = document.getElementById('feed-time-range-filter');
+        if (timeRangeFilter) {
+            timeRangeFilter.value = '7d';
+            this.handleTimeRangeChange('7d');
+        }
+
+        // Clear custom dates
+        const startDateInput = document.getElementById('feed-start-date');
+        const endDateInput = document.getElementById('feed-end-date');
+        if (startDateInput) startDateInput.value = '';
+        if (endDateInput) endDateInput.value = '';
+
+        // Reset rule filter
+        const ruleFilter = document.getElementById('feed-rule-filter');
+        if (ruleFilter) ruleFilter.value = 'all';
+
+        // Reset platform filter
+        const platformFilter = document.getElementById('feed-platform-filter');
+        if (platformFilter) platformFilter.value = 'all';
+
+        // Reset sort filter
+        const sortFilter = document.getElementById('feed-sort-filter');
+        if (sortFilter) sortFilter.value = 'newest';
+
+        // Clear saved state
+        localStorage.removeItem('feedFilters');
+
+        // Reload feed
+        this.loadFeed();
+
+        this.showToast('Filters reset to defaults', 'info');
+    },
+
+    /**
+     * Save current filter state to localStorage
+     */
+    saveFilterState() {
+        try {
+            const filterState = {
+                timeRange: document.getElementById('feed-time-range-filter')?.value || '7d',
+                startDate: document.getElementById('feed-start-date')?.value || '',
+                endDate: document.getElementById('feed-end-date')?.value || '',
+                ruleId: document.getElementById('feed-rule-filter')?.value || 'all',
+                platform: document.getElementById('feed-platform-filter')?.value || 'all',
+                sortOrder: document.getElementById('feed-sort-filter')?.value || 'newest'
+            };
+
+            localStorage.setItem('feedFilters', JSON.stringify(filterState));
+        } catch (error) {
+            console.warn('[SocialListening] Failed to save filter state:', error);
+        }
+    },
+
+    /**
+     * Load saved filter state from localStorage
+     */
+    loadFilterState() {
+        try {
+            const savedState = localStorage.getItem('feedFilters');
+            if (savedState) {
+                const filterState = JSON.parse(savedState);
+
+                // Apply saved values
+                const timeRangeFilter = document.getElementById('feed-time-range-filter');
+                const startDateInput = document.getElementById('feed-start-date');
+                const endDateInput = document.getElementById('feed-end-date');
+                const ruleFilter = document.getElementById('feed-rule-filter');
+                const platformFilter = document.getElementById('feed-platform-filter');
+                const sortFilter = document.getElementById('feed-sort-filter');
+
+                if (timeRangeFilter && filterState.timeRange) {
+                    timeRangeFilter.value = filterState.timeRange;
+                    this.handleTimeRangeChange(filterState.timeRange);
+                }
+
+                if (startDateInput && filterState.startDate) {
+                    startDateInput.value = filterState.startDate;
+                }
+
+                if (endDateInput && filterState.endDate) {
+                    endDateInput.value = filterState.endDate;
+                }
+
+                if (ruleFilter && filterState.ruleId) {
+                    ruleFilter.value = filterState.ruleId;
+                }
+
+                if (platformFilter && filterState.platform) {
+                    platformFilter.value = filterState.platform;
+                }
+
+                if (sortFilter && filterState.sortOrder) {
+                    sortFilter.value = filterState.sortOrder;
+                }
+
+                console.log('[SocialListening] Restored filter state from localStorage');
+            }
+        } catch (error) {
+            console.warn('[SocialListening] Failed to load filter state:', error);
+        }
     },
 
     /**
@@ -49,24 +269,49 @@ const SocialListening = {
     },
 
     /**
-     * Load feed items from backend
+     * Load feed items from backend with advanced filtering
      */
     async loadFeed() {
         try {
+            // Get all filter values
+            const timeRange = document.getElementById('feed-time-range-filter')?.value || '7d';
+            const startDate = document.getElementById('feed-start-date')?.value || '';
+            const endDate = document.getElementById('feed-end-date')?.value || '';
             const ruleFilter = document.getElementById('feed-rule-filter')?.value || 'all';
             const platformFilter = document.getElementById('feed-platform-filter')?.value || 'all';
+            const sortOrder = document.getElementById('feed-sort-filter')?.value || 'newest';
 
             const params = new URLSearchParams();
+
+            // Add time range filters
+            if (timeRange && timeRange !== 'all') {
+                params.append('time_range', timeRange);
+                if (timeRange === 'custom') {
+                    if (startDate) params.append('start_date', startDate);
+                    if (endDate) params.append('end_date', endDate);
+                }
+            }
+
+            // Add rule and platform filters
             if (ruleFilter !== 'all') params.append('rule_id', ruleFilter);
             if (platformFilter !== 'all') params.append('platform', platformFilter);
+
+            // Add sorting
+            params.append('sort_order', sortOrder);
+
+            console.log('[SocialListening] Loading feed with params:', Object.fromEntries(params));
 
             const response = await getAPI().get(`/api/social-listening/feed?${params.toString()}`);
             if (response.items) {
                 this.feedItems = response.items;
+                console.log(`[SocialListening] Loaded ${this.feedItems.length} feed items`);
+                this.renderFeed();
+            } else {
+                this.feedItems = [];
                 this.renderFeed();
             }
         } catch (error) {
-            console.log('[SocialListening] No feed items:', error.message);
+            console.error('[SocialListening] Error loading feed:', error);
             this.feedItems = [];
             this.renderFeed();
         }
@@ -725,6 +970,20 @@ const SocialListening = {
             const isLongContent = content.length > 300;
             const truncatedContent = isLongContent ? content.substring(0, 300) + '...' : content;
 
+            // Format the posted date for prominent display
+            const postedDate = item.posted_at ? this.formatPostedDate(item.posted_at) : '';
+            const fullDate = item.posted_at ? new Date(item.posted_at).toLocaleDateString('en-US', {
+                year: 'numeric', month: 'short', day: 'numeric'
+            }) : '';
+
+            // Gemini analysis data
+            const sentiment = item.sentiment || 'neutral';
+            const sentimentClass = sentiment === 'positive' ? 'sentiment-positive' :
+                sentiment === 'negative' ? 'sentiment-negative' : 'sentiment-neutral';
+            const relevanceScore = Math.round((item.relevance_score || 0.5) * 100);
+            const matchedKeywords = item.matched_keywords || [];
+            const explanation = item.explanation || '';
+
             return `
             <div class="feed-card ${item.important ? 'important' : ''}" data-item-id="${item.id}">
                 <div class="feed-card-header">
@@ -733,14 +992,44 @@ const SocialListening = {
                         <strong>${this.escapeHtml(item.author || 'Unknown')}</strong>
                         <span>${this.escapeHtml(item.handle || '')}</span>
                     </div>
+                    <div class="posted-date-badge ${fullDate ? '' : 'date-unknown'} ${item.confidence_level ? 'conf-' + item.confidence_level.toLowerCase() : ''}" 
+                         title="${fullDate ? `Verified Date (Source: ${item.timestamp_source}, Confidence: ${item.confidence_level})` : 'No date found in content'}">
+                        <span class="date-label">📅</span>
+                        <span class="date-value">${fullDate || 'Date not found'}</span>
+                        ${item.confidence_level === 'HIGH' ? '<span class="conf-tick">✓</span>' : ''}
+                    </div>
                 </div>
+
+                <!-- Gemini Analysis Row -->
+                <div class="gemini-analysis-row">
+                    <div class="sentiment-badge ${sentimentClass}">
+                        ${sentiment === 'positive' ? '😊' : sentiment === 'negative' ? '😟' : '😐'} ${sentiment.charAt(0).toUpperCase() + sentiment.slice(1)}
+                    </div>
+                    <div class="relevance-badge" title="Relevance to your keywords">
+                        <span class="relevance-score">${relevanceScore}%</span> Match
+                    </div>
+                </div>
+
+                ${matchedKeywords.length > 0 ? `
+                <div class="matched-keywords-row">
+                    <span class="keywords-label">Keywords:</span>
+                    ${matchedKeywords.slice(0, 5).map(kw => `<span class="keyword-pill">${this.escapeHtml(kw)}</span>`).join('')}
+                </div>
+                ` : ''}
+
+                ${explanation ? `
+                <div class="explanation-row">
+                    <span class="explanation-text">💡 ${this.escapeHtml(explanation)}</span>
+                </div>
+                ` : ''}
+
                 <div class="feed-card-content ${isLongContent ? 'truncated' : ''}" data-full-content="${this.escapeHtml(content)}" data-truncated="${isLongContent}">
                     <span class="content-text">${this.escapeHtml(truncatedContent)}</span>
                     ${isLongContent ? `<button class="expand-content-btn" onclick="SocialListening.toggleContentExpand(this)">Show more</button>` : ''}
                 </div>
                 <div class="feed-card-meta">
                     <span class="feed-card-rule">${this.escapeHtml(item.rule_name || 'Manual')}</span>
-                    <span>${this.formatDate(item.posted_at)}</span>
+                    <span class="full-date-text">${fullDate}</span>
                 </div>
                 <div class="feed-card-actions">
                     <button class="feed-action-btn primary" onclick="SocialListening.showResponseModal('${item.id}')">
@@ -919,6 +1208,38 @@ const SocialListening = {
         if (diffDays < 7) return `${diffDays}d ago`;
 
         return date.toLocaleDateString();
+    },
+
+    /**
+     * Format posted date for prominent display in card header
+     * Returns a clean, readable date format
+     */
+    formatPostedDate(dateString) {
+        if (!dateString) return 'Unknown';
+        const date = new Date(dateString);
+        const now = new Date();
+        const diffMs = now - date;
+        const diffDays = Math.floor(diffMs / 86400000);
+
+        // For today
+        if (diffDays === 0) {
+            const diffHours = Math.floor(diffMs / 3600000);
+            if (diffHours < 1) return 'Just now';
+            return `${diffHours}h ago`;
+        }
+
+        // For yesterday
+        if (diffDays === 1) return 'Yesterday';
+
+        // For this week
+        if (diffDays < 7) return `${diffDays} days ago`;
+
+        // For older dates, show the actual date
+        const options = { month: 'short', day: 'numeric' };
+        if (date.getFullYear() !== now.getFullYear()) {
+            options.year = 'numeric';
+        }
+        return date.toLocaleDateString('en-US', options);
     },
 
     /**

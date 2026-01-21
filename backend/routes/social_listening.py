@@ -541,13 +541,17 @@ async def fetch_content(
 
 @router.get("/feed")
 async def get_feed(
-    rule_id: Optional[str] = None,
-    platform: Optional[str] = None,
+    time_range: Optional[str] = Query(None, description="Time range filter: today, 24h, 7d, 30d, custom"),
+    start_date: Optional[str] = Query(None, description="Start date for custom range (YYYY-MM-DD)"),
+    end_date: Optional[str] = Query(None, description="End date for custom range (YYYY-MM-DD)"),
+    rule_id: Optional[str] = Query(None, description="Filter by specific rule ID"),
+    platform: Optional[str] = Query(None, description="Filter by platform"),
+    sort_order: str = Query("newest", description="Sort order: newest or oldest"),
     limit: int = Query(default=50, le=100),
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user)
 ):
-    """Get matched content feed for the current user"""
+    """Get matched content feed for the current user with advanced filtering"""
     try:
         # Build query - using outerjoin to handle missing data gracefully
         stmt = select(MatchedResult, FetchedPost, TrackingRule).outerjoin(
@@ -557,21 +561,66 @@ async def get_feed(
         ).where(
             MatchedResult.user_id == user.id
         )
-        
+
+        # Apply time range filtering
+        now = datetime.utcnow()
+        if time_range:
+            if time_range == "today":
+                # Posted today (from start of day)
+                today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+                stmt = stmt.where(FetchedPost.posted_at >= today_start)
+            elif time_range == "24h":
+                # Last 24 hours
+                last_24h = now - timedelta(hours=24)
+                stmt = stmt.where(FetchedPost.posted_at >= last_24h)
+            elif time_range == "7d":
+                # Last 7 days
+                last_7d = now - timedelta(days=7)
+                stmt = stmt.where(FetchedPost.posted_at >= last_7d)
+            elif time_range == "30d":
+                # Last 30 days
+                last_30d = now - timedelta(days=30)
+                stmt = stmt.where(FetchedPost.posted_at >= last_30d)
+            elif time_range == "custom" and start_date and end_date:
+                # Custom date range
+                try:
+                    start_dt = datetime.fromisoformat(start_date)
+                    end_dt = datetime.fromisoformat(end_date)
+                    # Set end date to end of day
+                    end_dt = end_dt.replace(hour=23, minute=59, second=59, microsecond=999999)
+                    stmt = stmt.where(and_(
+                        FetchedPost.posted_at >= start_dt,
+                        FetchedPost.posted_at <= end_dt
+                    ))
+                except ValueError:
+                    # Invalid date format, ignore custom range
+                    pass
+
+        # Apply rule filtering
         if rule_id and rule_id != "all":
             try:
                 stmt = stmt.where(MatchedResult.rule_id == int(rule_id))
             except ValueError:
                 pass
-        
+
+        # Apply platform filtering
         if platform and platform != "all":
             stmt = stmt.where(FetchedPost.platform == platform)
-        
-        stmt = stmt.order_by(desc(MatchedResult.created_at)).limit(limit)
-        
+
+        # Apply sorting
+        if sort_order == "newest":
+            stmt = stmt.order_by(desc(FetchedPost.posted_at))
+        elif sort_order == "oldest":
+            stmt = stmt.order_by(FetchedPost.posted_at)
+        else:
+            # Default to newest
+            stmt = stmt.order_by(desc(FetchedPost.posted_at))
+
+        stmt = stmt.limit(limit)
+
         result = await db.execute(stmt)
         items = result.all()
-        
+
         return {
             "items": [
                 {
@@ -586,11 +635,27 @@ async def get_feed(
                     "rule_id": str(rule.id) if rule else "",
                     "important": match.important,
                     "saved": match.saved,
-                    "quality_score": post.quality_score if post else 5
+                    "quality_score": post.quality_score if post else 5,
+                    # Gemini analysis data
+                    "sentiment": match.sentiment or "neutral",
+                    "sentiment_score": match.sentiment_score or 0.5,
+                    "relevance_score": match.relevance_score or 0.5,
+                    "matched_keywords": match.matched_keywords or [],
+                    "explanation": match.explanation or "",
+                    "timestamp_source": match.timestamp_source or post.timestamp_source if post else "unknown",
+                    "confidence_level": match.confidence_level or post.confidence_level if post else "unknown"
                 }
                 for match, post, rule in items
                 if post is not None  # Only include items with valid posts
-            ]
+            ],
+            "filters_applied": {
+                "time_range": time_range,
+                "start_date": start_date,
+                "end_date": end_date,
+                "rule_id": rule_id,
+                "platform": platform,
+                "sort_order": sort_order
+            }
         }
     except Exception as e:
         print(f"[SocialListening] Error fetching feed: {e}")

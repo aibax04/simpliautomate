@@ -199,14 +199,8 @@ async def post_scheduler():
 
 @app.on_event("startup")
 async def startup_event():
-    # 1. Create tables if they don't exist (Production Safety)
-    try:
-        from backend.db.database import engine, Base
-        async with engine.begin() as conn:
-            await conn.run_sync(Base.metadata.create_all)
-        print("[DB] Schema verification complete.")
-    except Exception as e:
-        print(f"[DB WARNING] Could not verify schema: {e}")
+    # 1. Skip schema verification in production to avoid conflicts
+    print("[DB] Skipping schema verification - using existing database structure")
 
     # 2. Verify DB connection on startup
     await check_db_connection()

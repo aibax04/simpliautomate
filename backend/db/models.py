@@ -162,6 +162,8 @@ class FetchedPost(Base):
     posted_at = Column(DateTime(timezone=True), nullable=True)
     fetched_at = Column(DateTime(timezone=True), server_default=func.now())
     quality_score = Column(Integer, default=5)  # Content quality score 0-10
+    timestamp_source = Column(String, nullable=True)  # metadata, json-ld, rss, dom, gemini
+    confidence_level = Column(String, nullable=True)  # high, medium, low
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
 
@@ -175,6 +177,14 @@ class MatchedResult(Base):
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     important = Column(Boolean, default=False)
     saved = Column(Boolean, default=False)
+    # Gemini analysis fields
+    sentiment = Column(String, default="neutral")  # positive, negative, neutral
+    sentiment_score = Column(Float, default=0.5)  # 0.0 to 1.0
+    relevance_score = Column(Float, default=0.5)  # 0.0 to 1.0
+    matched_keywords = Column(JSONB, default=[])  # List of matched keywords
+    explanation = Column(String, nullable=True)  # Brief explanation of relevance
+    timestamp_source = Column(String, nullable=True)
+    confidence_level = Column(String, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
 

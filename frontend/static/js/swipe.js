@@ -914,7 +914,6 @@ class SwipeApp {
     }
 
     async handleCaptionRegeneration() {
-        alert("Caption regeneration button clicked! Method called.");
         const finalPostId = this.currentPostId || (this.generatedPost ? this.generatedPost.post_id || this.generatedPost.id : null);
         console.log("[DEBUG] Starting caption regeneration. Job ID:", this.currentJobId, "Post ID:", finalPostId);
 
@@ -965,6 +964,11 @@ class SwipeApp {
             }
 
             if (window.Toast) window.Toast.show("Caption regenerated successfully!", "success");
+
+            // NEW: Automatically update DB with the new caption
+            console.log("[DEBUG] Persisting regenerated caption to DB...");
+            await window.Api.updatePostCaption(data.caption, finalPostId, data.hashtags, data.caption_data);
+            console.log("[DEBUG] Caption persisted successfully");
 
         } catch (e) {
             console.error("Caption Regeneration Error:", e);
@@ -1113,7 +1117,7 @@ class SwipeApp {
         console.log("[DEBUG] Image URL:", result.image_url);
         this.generatedPost = result;
         this.currentJobId = job.id || job.job_id || null;
-        this.currentPostId = result.post_id || null;
+        this.currentPostId = result.post_id || result.id || null;
         this.originalImageUrl = result.image_url;
 
         console.log("[DEBUG] Opening result. Job ID:", this.currentJobId, "Post ID:", this.currentPostId);
@@ -1584,7 +1588,7 @@ class SwipeApp {
         this.bindNavigationEvents();
 
         // Show the post in the modal (existing functionality)
-        this.openResult({ result: postData, id: this.currentJobId });
+        this.openResult({ result: postData, id: null });
     }
 
     updateNavigationButtons() {

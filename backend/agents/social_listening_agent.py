@@ -13,6 +13,90 @@ import hashlib
 import re
 import requests
 from bs4 import BeautifulSoup
+import google.generativeai as genai
+import json
+import os
+
+# Configure Gemini
+genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+
+from backend.utils.timestamp_extractor import get_timestamp_extractor
+
+
+class GeminiPostAnalyzer:
+    """Uses Gemini to analyze sentiment, relevance, and extract matched keywords from posts."""
+    
+    def __init__(self):
+        self.model = genai.GenerativeModel('models/gemini-2.0-flash')
+    
+    async def analyze_post(self, content: str, keywords: List[str], rule_name: str = "") -> Dict:
+        """
+        Analyze a post for sentiment, relevance to keywords, and extract insights.
+        Returns dict with sentiment, relevance_score, matched_keywords, and explanation.
+        """
+        if not content or len(content) < 20:
+            return {
+                "sentiment": "neutral",
+                "sentiment_score": 0.5,
+                "relevance_score": 0.5,
+                "matched_keywords": [],
+                "explanation": "Content too short to analyze"
+            }
+            
+        try:
+            keywords_str = ", ".join(keywords) if keywords else "general industry topics"
+            
+            prompt = f"""You are an expert Social Media Analyst. Analyze this post for sentiment and keyword relevance.
+
+POST CONTENT:
+{content[:2000]}
+
+TRACKING KEYWORDS: {keywords_str}
+RULE NAME: {rule_name}
+
+ANALYSIS TASKS:
+1. SENTIMENT: Determine if the post sentiment is positive, negative, or neutral toward the topic/keywords
+2. RELEVANCE: Rate how relevant this post is to the tracking keywords (0.0 to 1.0)
+3. MATCHED KEYWORDS: List which keywords from the tracking list are actually mentioned or discussed
+4. EXPLANATION: Provide a 1-sentence summary of why this post is relevant
+
+RETURN ONLY THIS JSON FORMAT:
+{{
+    "sentiment": "positive" or "negative" or "neutral",
+    "sentiment_score": 0.0 to 1.0 (0=very negative, 0.5=neutral, 1=very positive),
+    "relevance_score": 0.0 to 1.0,
+    "matched_keywords": ["keyword1", "keyword2"],
+    "explanation": "Brief explanation of relevance and key insight"
+}}
+"""
+            response = self.model.generate_content(prompt)
+            text = response.text.strip()
+            
+            # Parse JSON response
+            if text.startswith("```"):
+                text = text.split("```")[1]
+                if text.startswith("json"):
+                    text = text[4:]
+            
+            data = json.loads(text)
+            
+            return {
+                "sentiment": data.get("sentiment", "neutral"),
+                "sentiment_score": float(data.get("sentiment_score", 0.5)),
+                "relevance_score": float(data.get("relevance_score", 0.5)),
+                "matched_keywords": data.get("matched_keywords", []),
+                "explanation": data.get("explanation", "Analyzed by Gemini")
+            }
+                
+        except Exception as e:
+            print(f"[GeminiPostAnalyzer] Error: {e}")
+            return {
+                "sentiment": "neutral",
+                "sentiment_score": 0.5,
+                "relevance_score": 0.5,
+                "matched_keywords": [],
+                "explanation": "Analysis error"
+            }
 
 # Import social ingestion services
 from backend.services.ingestion_service import get_ingestion_service
@@ -54,6 +138,8 @@ class SocialListeningAgent:
     
     def __init__(self):
         self.search_delay = 1.5  # Seconds between searches to avoid rate limiting
+        self.timestamp_extractor = get_timestamp_extractor()
+        self.post_analyzer = GeminiPostAnalyzer()  # Gemini-powered sentiment & relevance analysis
 
     def get_frequency_limit(self, frequency: str) -> int:
         """
@@ -1128,6 +1214,31 @@ class SocialListeningAgent:
                             item.get("title", "")
                         )
 
+                        # Use high-accuracy multi-layer timestamp extraction
+                        ts_result = await self.timestamp_extractor.extract(url)
+                        posted_at = ts_result["posted_at"]
+                        ts_source = ts_result["source"]
+                        ts_confidence = ts_result["confidence"]
+
+                        if posted_at:
+                            try:
+                                from datetime import datetime
+                                posted_at_dt = datetime.fromisoformat(posted_at)
+                                print(f"[TimestampTracker] Extracted {posted_at} via {ts_source} (Confidence: {ts_confidence})")
+                            except:
+                                posted_at_dt = datetime.now(timezone.utc)
+                        else:
+                            posted_at_dt = datetime.now(timezone.utc)
+                            ts_source = "fallback:now"
+                            ts_confidence = "NONE"
+
+                        # Use Gemini to analyze sentiment and keyword relevance
+
+                        # Use Gemini to analyze sentiment and keyword relevance
+                        keywords = rule.get("keywords", [])
+                        analysis = await self.post_analyzer.analyze_post(content, keywords, rule.get("name", ""))
+                        print(f"[GeminiAnalysis] Sentiment: {analysis['sentiment']}, Relevance: {analysis['relevance_score']:.2f}")
+
                         results.append({
                             "external_id": self.generate_external_id(url, item.get("title", "")),
                             "platform": actual_platform,
@@ -1135,10 +1246,18 @@ class SocialListeningAgent:
                             "handle": handle_extracted,
                             "content": content,
                             "url": url,
-                            "posted_at": datetime.now(),
+                            "posted_at": posted_at_dt,
+                            "timestamp_source": ts_source,
+                            "confidence_level": ts_confidence,
                             "rule_id": rule.get("id"),
                             "rule_name": rule.get("name"),
-                            "quality_score": quality_score
+                            "quality_score": quality_score,
+                            # Gemini analysis data
+                            "sentiment": analysis["sentiment"],
+                            "sentiment_score": analysis["sentiment_score"],
+                            "relevance_score": analysis["relevance_score"],
+                            "matched_keywords": analysis["matched_keywords"],
+                            "explanation": analysis["explanation"]
                         })
                     
                     # Rate limiting between queries
@@ -1232,6 +1351,8 @@ class SocialListeningAgent:
                                 content=item["content"],
                                 url=item["url"],
                                 posted_at=item["posted_at"],
+                                timestamp_source=item.get("timestamp_source"),
+                                confidence_level=item.get("confidence_level"),
                                 quality_score=item.get("quality_score", 5)
                             )
                             session.add(new_post)
@@ -1239,11 +1360,18 @@ class SocialListeningAgent:
                             post_id = new_post.id
                             stats["posts_fetched"] += 1
                         
-                        # Create matched result
+                        # Create matched result with Gemini analysis data
                         matched = MatchedResult(
                             rule_id=rule.id,
                             post_id=post_id,
-                            user_id=user_id
+                            user_id=user_id,
+                            sentiment=item.get("sentiment", "neutral"),
+                            sentiment_score=item.get("sentiment_score", 0.5),
+                            relevance_score=item.get("relevance_score", 0.5),
+                            matched_keywords=item.get("matched_keywords", []),
+                            explanation=item.get("explanation", ""),
+                            timestamp_source=item.get("timestamp_source"),
+                            confidence_level=item.get("confidence_level")
                         )
                         session.add(matched)
                         new_matches += 1
