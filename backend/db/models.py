@@ -27,6 +27,18 @@ class LinkedInAccount(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
+class GoogleAccount(Base):
+    __tablename__ = "google_accounts"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    email = Column(String, index=True, nullable=True) # Gmail address
+    access_token = Column(String, nullable=False) # Encrypted
+    refresh_token = Column(String, nullable=True) # Encrypted
+    token_expires_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
 from sqlalchemy.orm import relationship
 
 class Product(Base):
