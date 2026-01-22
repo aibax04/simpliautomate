@@ -297,6 +297,7 @@ class RuleCreate(BaseModel):
     platforms: List[str] = []
     logic_type: str = "keywords_or_handles"
     frequency: str = "hourly"
+    sentiment_filter: str = "all"  # all, positive, negative, neutral
     alert_email: bool = False
     alert_in_app: bool = True
     status: str = "active"
@@ -309,6 +310,7 @@ class RuleUpdate(BaseModel):
     platforms: Optional[List[str]] = None
     logic_type: Optional[str] = None
     frequency: Optional[str] = None
+    sentiment_filter: Optional[str] = None
     alert_email: Optional[bool] = None
     alert_in_app: Optional[bool] = None
     status: Optional[str] = None
@@ -355,6 +357,7 @@ async def get_rules(
                     "platforms": rule.platforms or [],
                     "logic_type": rule.logic_type,
                     "frequency": rule.frequency,
+                    "sentiment_filter": getattr(rule, "sentiment_filter", "all"),
                     "alert_email": rule.alert_email,
                     "alert_in_app": rule.alert_in_app,
                     "status": rule.status,
@@ -385,6 +388,7 @@ async def create_rule(
             platforms=rule_data.platforms,
             logic_type=rule_data.logic_type,
             frequency=rule_data.frequency,
+            sentiment_filter=rule_data.sentiment_filter,
             alert_email=rule_data.alert_email,
             alert_in_app=rule_data.alert_in_app,
             status=rule_data.status
@@ -963,8 +967,12 @@ async def get_analytics(
             if post.platform in platform_counts:
                 platform_counts[post.platform] += 1
             
-            # Default to neutral sentiment (sentiment analysis not yet implemented)
-            sentiment_counts["neutral"] += 1
+            # Use actual sentiment if available
+            sentiment = (match.sentiment or "neutral").lower()
+            if sentiment in sentiment_counts:
+                sentiment_counts[sentiment] += 1
+            else:
+                sentiment_counts["neutral"] += 1
             
             # Keyword frequency (extract from content)
             if post.content:

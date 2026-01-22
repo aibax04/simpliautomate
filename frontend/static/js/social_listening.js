@@ -421,17 +421,15 @@ const SocialListening = {
         // Reset form
         document.getElementById('rule-name').value = '';
         document.getElementById('rule-keywords').value = '';
-        document.getElementById('rule-handles').value = '';
+        document.getElementById('rule-handle-input').value = '';
+        document.getElementById('rule-platform-select').value = 'all';
+        document.getElementById('rule-sentiment').value = 'all';
+
+        // Reset hidden fields
         document.getElementById('rule-logic').value = 'keywords_or_handles';
         document.getElementById('rule-frequency').value = 'hourly';
         document.getElementById('alert-email').checked = false;
         document.getElementById('alert-inapp').checked = true;
-
-        // Reset platform checkboxes
-        document.getElementById('platform-twitter').checked = true;
-        document.getElementById('platform-linkedin').checked = true;
-        document.getElementById('platform-reddit').checked = false;
-        document.getElementById('platform-news').checked = true;
 
         // If editing, populate form
         if (ruleId) {
@@ -439,18 +437,28 @@ const SocialListening = {
             if (rule) {
                 document.getElementById('rule-name').value = rule.name || '';
                 document.getElementById('rule-keywords').value = (rule.keywords || []).join(', ');
-                document.getElementById('rule-handles').value = (rule.handles || []).join(', ');
+
+                // Populate handle and platform
+                // Since we now support one handle input but multiple in DB, just take the first one or join them
+                document.getElementById('rule-handle-input').value = (rule.handles || []).join(', ');
+
+                // Populate platform select
+                const platforms = rule.platforms || [];
+                if (platforms.length === 0 || platforms.length === 4) { // All or none
+                    document.getElementById('rule-platform-select').value = 'all';
+                } else if (platforms.length === 1) {
+                    document.getElementById('rule-platform-select').value = platforms[0];
+                } else {
+                    document.getElementById('rule-platform-select').value = 'all'; // Multiple selected, default to all/any for simplicity
+                }
+
+                document.getElementById('rule-sentiment').value = rule.sentiment_filter || 'all';
+
+                // Hidden fields
                 document.getElementById('rule-logic').value = rule.logic_type || 'keywords_or_handles';
                 document.getElementById('rule-frequency').value = rule.frequency || 'hourly';
                 document.getElementById('alert-email').checked = rule.alert_email || false;
                 document.getElementById('alert-inapp').checked = rule.alert_in_app !== false;
-
-                // Platforms
-                const platforms = rule.platforms || [];
-                document.getElementById('platform-twitter').checked = platforms.includes('twitter');
-                document.getElementById('platform-linkedin').checked = platforms.includes('linkedin');
-                document.getElementById('platform-reddit').checked = platforms.includes('reddit');
-                document.getElementById('platform-news').checked = platforms.includes('news');
             }
         }
 
@@ -466,21 +474,26 @@ const SocialListening = {
             .split(',')
             .map(k => k.trim())
             .filter(k => k.length > 0);
-        const handles = document.getElementById('rule-handles').value
-            .split(',')
-            .map(h => h.trim())
-            .filter(h => h.length > 0);
+
+        // Get handle input
+        const handleInput = document.getElementById('rule-handle-input').value.trim();
+        const handles = handleInput ? handleInput.split(',').map(h => h.trim()).filter(h => h.length > 0) : [];
+
+        const sentimentFilter = document.getElementById('rule-sentiment').value;
+        const selectedPlatform = document.getElementById('rule-platform-select').value;
+
         const logicType = document.getElementById('rule-logic').value;
         const frequency = document.getElementById('rule-frequency').value;
         const alertEmail = document.getElementById('alert-email').checked;
         const alertInApp = document.getElementById('alert-inapp').checked;
 
-        // Get selected platforms
-        const platforms = [];
-        if (document.getElementById('platform-twitter').checked) platforms.push('twitter');
-        if (document.getElementById('platform-linkedin').checked) platforms.push('linkedin');
-        if (document.getElementById('platform-reddit').checked) platforms.push('reddit');
-        if (document.getElementById('platform-news').checked) platforms.push('news');
+        // Determine platforms
+        let platforms = [];
+        if (selectedPlatform === 'all') {
+            platforms = ['twitter', 'linkedin', 'reddit', 'news'];
+        } else {
+            platforms = [selectedPlatform];
+        }
 
         // Validation
         if (!name) {
@@ -491,10 +504,6 @@ const SocialListening = {
             alert('Please enter at least one keyword or handle');
             return;
         }
-        if (platforms.length === 0) {
-            alert('Please select at least one platform');
-            return;
-        }
 
         const ruleData = {
             name,
@@ -503,6 +512,7 @@ const SocialListening = {
             platforms,
             logic_type: logicType,
             frequency,
+            sentiment_filter: sentimentFilter,
             alert_email: alertEmail,
             alert_in_app: alertInApp,
             status: 'active'

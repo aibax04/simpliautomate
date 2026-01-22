@@ -35,6 +35,16 @@
                 if (window.Toast) window.Toast.show('Gmail connection failed.', 'error');
                 window.history.replaceState({}, document.title, "/");
             });
+        } else if (statusParam === 'microsoft_connected') {
+            window.addEventListener('load', () => {
+                if (window.Toast) window.Toast.show('Microsoft connected successfully!', 'success');
+                window.history.replaceState({}, document.title, "/");
+            });
+        } else if (statusParam === 'microsoft_failed') {
+            window.addEventListener('load', () => {
+                if (window.Toast) window.Toast.show('Microsoft connection failed.', 'error');
+                window.history.replaceState({}, document.title, "/");
+            });
         }
 
         // View Toggle - Content Automation vs Monitoring
@@ -757,72 +767,65 @@
                         <input type="text" id="rule-name" placeholder="e.g. AI Startup Monitor">
                     </div>
 
-                    <div class="form-row">
-                        <div class="form-group flex-1">
-                            <label>Keywords (comma separated)</label>
-                            <textarea id="rule-keywords" placeholder="AI, machine learning, startup funding"
-                                rows="3"></textarea>
-                        </div>
-                        <div class="form-group flex-1">
-                            <label>Social Handles (comma separated)</label>
-                            <textarea id="rule-handles" placeholder="@sequoia, @a16z, @ycombinator" rows="3"></textarea>
-                        </div>
-                    </div>
+                    <div class="form-divider">Rule Criteria</div>
 
+                    <!-- Social Media Handle Section -->
                     <div class="form-group">
-                        <label>Platforms</label>
-                        <div class="checkbox-group">
-                            <label class="checkbox-label">
-                                <input type="checkbox" id="platform-twitter" value="twitter" checked>
-                                <span>Twitter/X</span>
-                            </label>
-                            <label class="checkbox-label">
-                                <input type="checkbox" id="platform-linkedin" value="linkedin" checked>
-                                <span>LinkedIn</span>
-                            </label>
-                            <label class="checkbox-label">
-                                <input type="checkbox" id="platform-reddit" value="reddit">
-                                <span>Reddit</span>
-                            </label>
-                            <label class="checkbox-label">
-                                <input type="checkbox" id="platform-news" value="news" checked>
-                                <span>News Sites</span>
-                            </label>
+                        <label>Social Media Handle (Optional)</label>
+                        <div class="social-handle-input-group" style="display: flex; gap: 10px;">
+                            <select id="rule-platform-select" style="width: 140px; flex-shrink: 0;" class="form-select">
+                                <option value="twitter">Twitter / X</option>
+                                <option value="linkedin">LinkedIn</option>
+                                <option value="reddit">Reddit</option>
+                                <option value="news">News Site</option>
+                                <option value="all">Any Platform</option>
+                            </select>
+                            <input type="text" id="rule-handle-input" placeholder="e.g. @username or company"
+                                style="flex: 1;">
                         </div>
+                        <p style="font-size: 11px; color: var(--text-secondary); margin-top: 5px;">
+                            Monitors posts from or mentioning this specific handle/source.
+                        </p>
                     </div>
 
-                    <div class="form-row">
-                        <div class="form-group flex-1">
-                            <label>Logic Type</label>
-                            <select id="rule-logic">
-                                <option value="keywords_only">Keywords Only</option>
-                                <option value="handles_only">Handles Only</option>
-                                <option value="keywords_and_handles">Keywords AND Handles</option>
-                                <option value="keywords_or_handles" selected>Keywords OR Handles</option>
-                                <option value="exclude_keywords">Exclude Keywords</option>
-                            </select>
-                        </div>
-                        <div class="form-group flex-1">
-                            <label>Monitoring Frequency</label>
-                            <select id="rule-frequency">
-                                <option value="realtime">Real-time</option>
-                                <option value="hourly" selected>Hourly</option>
-                                <option value="daily">Daily</option>
-                                <option value="weekly">Weekly</option>
-                            </select>
-                        </div>
+                    <!-- Keywords Section -->
+                    <div class="form-group">
+                        <label>Keywords and Phrases</label>
+                        <textarea id="rule-keywords"
+                            placeholder="e.g. artificial intelligence, machine learning, startup funding, 'generative ai'"
+                            rows="3"></textarea>
+                        <p style="font-size: 11px; color: var(--text-secondary); margin-top: 5px;">
+                            Separate multiple keywords with commas. Sentences in quotes.
+                        </p>
                     </div>
 
-                    <div class="form-divider">Alert Settings</div>
-                    <div class="checkbox-group">
-                        <label class="checkbox-label">
-                            <input type="checkbox" id="alert-email">
-                            <span>Email Alerts</span>
-                        </label>
-                        <label class="checkbox-label">
-                            <input type="checkbox" id="alert-inapp" checked>
-                            <span>In-App Notifications</span>
-                        </label>
+                    <!-- Sentiment Conditions Section -->
+                    <div class="form-group">
+                        <label>Sentiment Conditions (Optional)</label>
+                        <select id="rule-sentiment" class="form-select">
+                            <option value="all" selected>All Sentiments</option>
+                            <option value="positive">Positive Only</option>
+                            <option value="negative">Negative Only</option>
+                            <option value="neutral">Neutral Only</option>
+                        </select>
+                        <p style="font-size: 11px; color: var(--text-secondary); margin-top: 5px;">
+                            Filter matches based on the AI-detected sentiment of the post.
+                        </p>
+                    </div>
+
+                    <!-- Hidden fields for compatibility -->
+                    <input type="hidden" id="rule-frequency" value="hourly">
+                    <input type="hidden" id="rule-logic" value="keywords_or_handles">
+                    <input type="checkbox" id="alert-email" class="hidden">
+                    <input type="checkbox" id="alert-inapp" checked class="hidden">
+
+                    <!-- Hidden legacy fields -->
+                    <div class="hidden">
+                        <input type="checkbox" id="platform-twitter" checked>
+                        <input type="checkbox" id="platform-linkedin" checked>
+                        <input type="checkbox" id="platform-reddit" checked>
+                        <input type="checkbox" id="platform-news" checked>
+                        <textarea id="rule-handles"></textarea>
                     </div>
 
                     <div class="modal-actions">
@@ -1428,7 +1431,29 @@
                                     d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
                                     fill="#EA4335" />
                             </svg>
-                            Sign in with Google
+                            Connect Gmail
+                        </button>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Microsoft Integration</label>
+                        <p style="font-size: 12px; color: var(--text-secondary); margin-bottom: 10px;">
+                            Connect your Microsoft account for Outlook automation.
+                        </p>
+                        <button
+                            onclick="window.location.href='/api/auth/microsoft/login?token=' + localStorage.getItem('simplii_token')"
+                            class="btn-primary"
+                            style="display: flex; align-items: center; gap: 8px; width: fit-content; background-color: #2F2F2F;">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
+                                fill="currentColor">
+                                <path d="M0 0h11v11H0V0zm13 0h11v11H13V0zm0 13h11v11H13V13zM0 13h11v11H0V13z"
+                                    fill="#f35325" />
+                                <path d="M0 0h11v11H0V0z" fill="#f35325" />
+                                <path d="M13 0h11v11H13V0z" fill="#81bc06" />
+                                <path d="M13 13h11v11H13V13z" fill="#ffba08" />
+                                <path d="M0 13h11v11H0V13z" fill="#05a6f0" />
+                            </svg>
+                            Connect Microsoft
                         </button>
                     </div>
 

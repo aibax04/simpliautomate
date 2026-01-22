@@ -334,3 +334,153 @@ async def google_callback(request: Request, db: AsyncSession = Depends(get_db)):
         import traceback
         traceback.print_exc()
         return RedirectResponse(url="/?status=gmail_failed")
+
+# ==================== MICROSOFT AUTH ====================
+
+# Microsoft OAuth Config
+MICROSOFT_CLIENT_ID = os.getenv("MICROSOFT_CLIENT_ID", "your-microsoft-client-id")
+MICROSOFT_CLIENT_SECRET = os.getenv("MICROSOFT_CLIENT_SECRET", "your-microsoft-client-secret")
+MICROSOFT_REDIRECT_URI = "http://127.0.0.1:8001/api/auth/microsoft/callback"
+MICROSOFT_AUTH_URL = "https://login.microsoftonline.com/common/oauth2/v2.0/authorize"
+MICROSOFT_TOKEN_URL = "https://login.microsoftonline.com/common/oauth2/v2.0/token"
+MICROSOFT_SCOPE = ["User.Read", "Mail.Read"]
+
+@router.get("/microsoft/login")
+async def microsoft_login(request: Request, token: str = None):
+    """Initiate Microsoft OAuth login"""
+    oauth = OAuth2Session(MICROSOFT_CLIENT_ID, redirect_uri=MICROSOFT_REDIRECT_URI, scope=MICROSOFT_SCOPE)
+    authorization_url, state = oauth.authorization_url(MICROSOFT_AUTH_URL)
+    
+    response = RedirectResponse(authorization_url)
+    if token:
+         response.set_cookie(key="simplii_temp_token", value=token, max_age=300)
+    
+    return response
+
+@router.get("/microsoft/callback")
+async def microsoft_callback(request: Request, db: AsyncSession = Depends(get_db)):
+    """Handle Microsoft OAuth callback"""
+    try:
+        oauth = OAuth2Session(MICROSOFT_CLIENT_ID, redirect_uri=MICROSOFT_REDIRECT_URI, scope=MICROSOFT_SCOPE)
+        token = oauth.fetch_token(MICROSOFT_TOKEN_URL, client_secret=MICROSOFT_CLIENT_SECRET, authorization_response=str(request.url))
+        
+        # Get user info
+        user_info = oauth.get("https://graph.microsoft.com/v1.0/me").json()
+        ms_email = user_info.get("mail") or user_info.get("userPrincipalName")
+        
+        # Retrieve the user token from cookie to identify the user
+        app_token = request.cookies.get("simplii_temp_token")
+        
+        if not app_token:
+            # === LOGIN FLOW ===
+            print(f"[MICROSOFT AUTH] Login flow initiated for {ms_email}")
+            # 1. Check if user with this email exists
+            stmt = select(User).where((User.email == ms_email))
+            result = await db.execute(stmt)
+            user = result.scalar_one_or_none()
+            
+            if not user:
+                 # === AUTO SIGNUP ===
+                 print(f"[MICROSOFT AUTH] User not found. Creating new account for {ms_email}")
+                 
+                 import secrets
+                 random_password = secrets.token_urlsafe(16)
+                 hashed_pw = get_password_hash(random_password)
+                 
+                 base_username = ms_email.split("@")[0]
+                 
+                 new_user = User(
+                     username=base_username,
+                     email=ms_email,
+                     hashed_password=hashed_pw
+                 )
+                 db.add(new_user)
+                 await db.flush()
+                 await db.refresh(new_user)
+                 user = new_user
+                 print(f"[MICROSOFT AUTH] Created new user: {user.username}")
+
+            # User is now guaranteed to exist
+            access_token = create_access_token(data={"sub": user.email})
+            
+            # Update/Link Microsoft Account
+            from backend.db.models import MicrosoftAccount
+            stmt_acc = select(MicrosoftAccount).where(MicrosoftAccount.user_id == user.id)
+            res_acc = await db.execute(stmt_acc)
+            ms_acc = res_acc.scalar_one_or_none()
+            
+            if not ms_acc:
+                    ms_acc = MicrosoftAccount(
+                    user_id=user.id,
+                    email=ms_email,
+                    access_token=token.get("access_token"),
+                    refresh_token=token.get("refresh_token")
+                )
+                    expires_in = token.get("expires_in")
+                    if expires_in:
+                        from datetime import timedelta
+                        ms_acc.token_expires_at = datetime.now(timezone.utc) + timedelta(seconds=expires_in)
+                    db.add(ms_acc)
+            else:
+                ms_acc.access_token = token.get("access_token")
+                if token.get("refresh_token"):
+                    ms_acc.refresh_token = token.get("refresh_token")
+                
+            await db.commit()
+            
+            return RedirectResponse(url=f"/login.html?status=microsoft_connected&token={access_token}")
+
+        # === LINKING FLOW ===
+        payload = decode_access_token(app_token)
+        if not payload or not payload.get("sub"):
+            print("[MICROSOFT AUTH ERROR] Invalid user token")
+            return RedirectResponse(url="/?status=microsoft_failed")
+            
+        user_email = payload.get("sub")
+        
+        stmt = select(User).where(User.email == user_email)
+        result = await db.execute(stmt)
+        user = result.scalar_one_or_none()
+        
+        if not user:
+            print(f"[MICROSOFT AUTH ERROR] User not found for email {user_email}")
+            return RedirectResponse(url="/?status=microsoft_failed")
+
+        from backend.db.models import MicrosoftAccount
+        stmt = select(MicrosoftAccount).where(MicrosoftAccount.user_id == user.id)
+        result = await db.execute(stmt)
+        ms_account = result.scalar_one_or_none()
+        
+        if ms_account:
+            ms_account.email = ms_email
+            ms_account.access_token = token.get("access_token")
+            ms_account.refresh_token = token.get("refresh_token")
+            expires_in = token.get("expires_in")
+            if expires_in:
+                 from datetime import timedelta
+                 ms_account.token_expires_at = datetime.now(timezone.utc) + timedelta(seconds=expires_in)
+            print(f"[MICROSOFT AUTH] Updated Microsoft Account for user {user.username}")
+        else:
+            ms_account = MicrosoftAccount(
+                user_id=user.id,
+                email=ms_email,
+                access_token=token.get("access_token"),
+                refresh_token=token.get("refresh_token")
+            )
+            expires_in = token.get("expires_in")
+            if expires_in:
+                 from datetime import timedelta
+                 ms_account.token_expires_at = datetime.now(timezone.utc) + timedelta(seconds=expires_in)
+            
+            db.add(ms_account)
+            print(f"[MICROSOFT AUTH] Linked new Microsoft Account for user {user.username}")
+            
+        await db.commit()
+        
+        return RedirectResponse(url="/?status=microsoft_connected")
+        
+    except Exception as e:
+        print(f"[MICROSOFT AUTH ERROR] {e}")
+        import traceback
+        traceback.print_exc()
+        return RedirectResponse(url="/?status=microsoft_failed")
