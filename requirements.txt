@@ -24,6 +24,9 @@ pypdf
 python-docx
 beautifulsoup4
 ddgs
+python-dateutil
 # Social Media Connectors
 newsapi-python
 tweepy
+feedparser
+
