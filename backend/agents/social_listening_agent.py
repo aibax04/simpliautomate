@@ -146,12 +146,12 @@ class SocialListeningAgent:
         Get the maximum number of results to return based on frequency
         """
         limits = {
-            "realtime": 10,  # Focus on breaking news, fewer but more urgent
-            "hourly": 18,    # Balanced - 15-20 range, settled on 18
-            "daily": 25,     # More comprehensive for daily digests
+            "realtime": 20,  # Focus on breaking news, fewer but more urgent
+            "hourly": 20,    # Balanced - 15-20 range, settled on 18
+            "daily": 30,     # More comprehensive for daily digests
             "weekly": 50     # Most comprehensive for weekly reports
         }
-        return limits.get(frequency, 18)  # Default to hourly limit
+        return limits.get(frequency, 20)  # Default to hourly limit
     
     async def search_official_apis(self, platform: str, keywords: List[str], handles: List[str], max_results: int = 15) -> List[Dict]:
         """
@@ -1048,10 +1048,11 @@ class SocialListeningAgent:
 
         return queries
     
-    async def fetch_for_rule(self, rule: Dict) -> List[Dict]:
+    async def fetch_for_rule(self, rule: Dict, on_result=None) -> List[Dict]:
         """
         Fetch content matching a single tracking rule
         Now with platform-specific search for Twitter, LinkedIn, Reddit
+        on_result: Optional async callback function(item) called for each valid result found
         """
         results = []
         keywords = rule.get("keywords", [])
@@ -1093,12 +1094,27 @@ class SocialListeningAgent:
                 # Default: search keywords
                 platform_queries = self.build_platform_queries(keywords or [""], handles, platform, frequency)
             
-            # Execute searches for this platform - try official APIs first, then DuckDuckGo
+            # Execute searches for this platform - Prioritize DuckDuckGo
             for query in platform_queries[:5]:  # Limit queries per platform
                 try:
                     search_results = []
+                    
+                    # 1. Start searching from DuckDuckGo (Primary)
+                    # Increased max_results to ensure we get enough content from the start
+                    print(f"[SocialListeningDebugging] Searching DDG for: '{query}'")
+                    duck_results = self.search_duckduckgo(query, max_results=12)
+                    print(f"[SocialListeningDebugging] DDG returned {len(duck_results)} raw results")
+                    
+                    # Fallback Logic: If 0 results and query contains future years, try relaxing it
+                    if len(duck_results) == 0 and any(y in query for y in ["2026", "2027", "2028"]):
+                        fallback_query = query.replace("2026", "").replace("2027", "").replace("2028", "").strip()
+                        print(f"[SocialListeningDebugging] 0 results, retrying with fallback: '{fallback_query}'")
+                        duck_results = self.search_duckduckgo(fallback_query, max_results=12)
+                        print(f"[SocialListeningDebugging] Fallback returned {len(duck_results)} results")
 
-                    # First, try official APIs for supported platforms
+                    search_results.extend(duck_results)
+
+                    # 2. Supplement with Official APIs for supported platforms
                     if platform in self.API_SUPPORTED_PLATFORMS:
                         try:
                             # Extract keywords and handles from the query for API calls
@@ -1113,20 +1129,12 @@ class SocialListeningAgent:
                                 if handle_matches:
                                     api_handles.extend([f"@{h}" for h in handle_matches])
 
+                            # Call API as supplement
                             api_results = await self.search_official_apis(platform, api_keywords, api_handles, max_results=8)
                             search_results.extend(api_results)
-
-                            # If we got good results from API, reduce DuckDuckGo search
-                            max_duck_results = 4 if len(api_results) >= 4 else 8
+                            
                         except Exception as api_e:
-                            print(f"[SocialListening] Official API failed for {platform}, falling back to DuckDuckGo: {api_e}")
-                            max_duck_results = 8
-                    else:
-                        max_duck_results = 8
-
-                    # Always do DuckDuckGo search as backup/supplement
-                    duck_results = self.search_duckduckgo(query, max_results=max_duck_results)
-                    search_results.extend(duck_results)
+                            print(f"[SocialListening] Official API failed for {platform}, continuing with DDG results: {api_e}")
                     
                     for item in search_results:
                         url = item.get("href", "")
@@ -1239,7 +1247,7 @@ class SocialListeningAgent:
                         analysis = await self.post_analyzer.analyze_post(content, keywords, rule.get("name", ""))
                         print(f"[GeminiAnalysis] Sentiment: {analysis['sentiment']}, Relevance: {analysis['relevance_score']:.2f}")
 
-                        results.append({
+                        result_item = {
                             "external_id": self.generate_external_id(url, item.get("title", "")),
                             "platform": actual_platform,
                             "author": author if author != "Unknown" else item.get("source", "Unknown"),
@@ -1258,7 +1266,15 @@ class SocialListeningAgent:
                             "relevance_score": analysis["relevance_score"],
                             "matched_keywords": analysis["matched_keywords"],
                             "explanation": analysis["explanation"]
-                        })
+                        }
+                        results.append(result_item)
+                        
+                        # Streaming update: Notify callback immediately
+                        if on_result:
+                            try:
+                                await on_result(result_item)
+                            except Exception as cb_e:
+                                print(f"[SocialListening] Error in on_result callback: {cb_e}")
                     
                     # Rate limiting between queries
                     await asyncio.sleep(self.search_delay)
@@ -1287,7 +1303,7 @@ class SocialListeningAgent:
         from backend.db.models import TrackingRule, FetchedPost, MatchedResult, SocialAlert, User
         from sqlalchemy import select
         
-        stats = {"rules_processed": 0, "posts_fetched": 0, "alerts_created": 0}
+        stats = {"rules_processed": 0, "posts_fetched": 0, "alerts_created": 0, "email_alerts_sent": 0}
         
         async with AsyncSessionLocal() as session:
             try:
@@ -1317,19 +1333,22 @@ class SocialListeningAgent:
                         "alert_email": rule.alert_email
                     }
                     
-                    # Fetch content for this rule
-                    fetched_items = await self.fetch_for_rule(rule_dict)
-                    stats["rules_processed"] += 1
-                    
-                    new_matches = 0
-                    
-                    for item in fetched_items:
+                    # Callback to save items as they are found
+                    async def save_result_callback(item):
+                        # Skip low relevance items (below 50%)
+                        relevance = item.get("relevance_score", 0.5)
+                        if relevance < 0.5:
+                            print(f"[SocialListening] Skipping low relevance item ({relevance:.2f}): {item.get('title', '')[:30]}...")
+                            return
+
                         # Check if post already exists
                         existing_stmt = select(FetchedPost).where(
                             FetchedPost.external_id == item["external_id"]
                         )
                         existing = await session.execute(existing_stmt)
                         existing_post = existing.scalar_one_or_none()
+                        
+                        current_post_id = None
                         
                         if existing_post:
                             # Check if this rule already matched this post
@@ -1339,8 +1358,8 @@ class SocialListeningAgent:
                             )
                             match_exists = await session.execute(match_stmt)
                             if match_exists.scalar_one_or_none():
-                                continue  # Already matched
-                            post_id = existing_post.id
+                                return # Already matched
+                            current_post_id = existing_post.id
                         else:
                             # Create new post
                             new_post = FetchedPost(
@@ -1357,13 +1376,13 @@ class SocialListeningAgent:
                             )
                             session.add(new_post)
                             await session.flush()
-                            post_id = new_post.id
+                            current_post_id = new_post.id
                             stats["posts_fetched"] += 1
                         
                         # Create matched result with Gemini analysis data
                         matched = MatchedResult(
                             rule_id=rule.id,
-                            post_id=post_id,
+                            post_id=current_post_id,
                             user_id=user_id,
                             sentiment=item.get("sentiment", "neutral"),
                             sentiment_score=item.get("sentiment_score", 0.5),
@@ -1374,23 +1393,21 @@ class SocialListeningAgent:
                             confidence_level=item.get("confidence_level")
                         )
                         session.add(matched)
-                        new_matches += 1
-                    
-                    # Create alert if there are new matches and alerts are enabled
-                    if new_matches > 0:
+                        
+                        # Handle Alerts
                         # Create in-app alert if enabled
                         if rule.alert_in_app:
                             alert = SocialAlert(
                                 user_id=user_id,
                                 rule_id=rule.id,
-                                title=f"New matches for '{rule.name}'",
-                                message=f"Found {new_matches} new posts matching your rule.",
+                                title=f"New match: {rule.name}",
+                                message=f"Found: {item.get('title', '') or item.get('content', '')[:50]}...",
                                 alert_type="match"
                             )
                             session.add(alert)
                             stats["alerts_created"] += 1
 
-                        # Send email notification if enabled
+                        # Send email notification if enabled (per item, might be spammy, but follows immediate pattern)
                         if rule.alert_email:
                             try:
                                 # Get user email for notification (use notification_email if set, otherwise regular email)
@@ -1404,33 +1421,43 @@ class SocialListeningAgent:
                                 if user and notification_email:
                                     subject = f"🚨 Social Media Alert: {rule.name}"
                                     body = f"""
-                                    <h2>New Social Media Matches Found</h2>
+                                    <h2>New Social Media Match Found</h2>
                                     <p>Hi {user.username},</p>
-                                    <p>Your tracking rule "<strong>{rule.name}</strong>" has found <strong>{new_matches}</strong> new matching posts.</p>
-                                    <p><strong>Platforms monitored:</strong> {', '.join(rule.platforms or ['news'])}</p>
-                                    <p><strong>Keywords:</strong> {', '.join(rule.keywords or [])}</p>
-                                    {f'<p><strong>Handles:</strong> {', '.join(rule.handles or [])}</p>' if rule.handles else ''}
-                                    <p>Check your Simplii dashboard for details and take action on these opportunities.</p>
+                                    <p>Your tracking rule "<strong>{rule.name}</strong>" has found a new matching post:</p>
+                                    <p><strong>Content:</strong> {item.get('content', '')[:200]}...</p>
+                                    <p><strong>URL:</strong> <a href="{item.get('url', '')}">{item.get('url', '')}</a></p>
+                                    <p>Check your Simplii dashboard for details and take action on this opportunity.</p>
                                     <br>
                                     <p>Best regards,<br>Your Simplii Team</p>
                                     """
 
                                     # Send email asynchronously to avoid blocking
+                                    from backend.services.email_service import send_email_async
                                     asyncio.create_task(
                                         send_email_async(notification_email, subject, body)
                                     )
-
-                                    print(f"[SocialListening] Email alert sent to {notification_email} for rule '{rule.name}'")
+                                    stats["email_alerts_sent"] += 1
+                                    print(f"[SocialListening] Email alert sent to {notification_email} for rule '{rule.name}' (item: {item.get('url', '')[:30]}...)")
 
                             except Exception as email_e:
-                                print(f"[SocialListening] Failed to send email alert: {email_e}")
+                                print(f"[SocialListening] Failed to send email alert for item: {email_e}")
                                 # Don't fail the entire process if email fails
-                
-                await session.commit()
-                print(f"[SocialListening] Processing complete: {stats}")
-                
+                        
+                        # Commit immediately so frontend sees it
+                        await session.commit()
+
+                    # Fetch content for this rule with streaming callback
+                    print(f"[SocialListening] Starting streaming fetch for rule: {rule.name}")
+                    await self.fetch_for_rule(rule_dict, on_result=save_result_callback)
+                    stats["rules_processed"] += 1
+                    
+                    # The previous logic counted `new_matches` and committed once per rule.
+                    # With the streaming callback, each item is processed and committed immediately.
+                    # The email alert logic has been moved into the callback to reflect this immediate processing.
+                    # If batch email alerts are desired, a separate mechanism would be needed to collect matches
+                    # and send a single email after fetch_for_rule completes. For now, it's per-item.
+            
             except Exception as e:
-                await session.rollback()
                 logger.error(f"[SocialListening] Error processing rules: {e}")
                 import traceback
                 traceback.print_exc()

@@ -27,7 +27,14 @@ const SocialListening = {
         await this.loadFeed();
         await this.loadAlerts();
         await this.loadAnalytics();
-        await this.loadUserNotificationEmail(); // Load user's notification email
+
+        // Load user's notification email (global function)
+        try {
+            await loadUserNotificationEmail();
+        } catch (e) {
+            console.warn('[SocialListening] Failed to load notification email:', e);
+        }
+
         this.updateRuleFilters();
 
         // Initialize filter controls
@@ -45,7 +52,7 @@ const SocialListening = {
         if (timeRangeFilter) {
             timeRangeFilter.addEventListener('change', (e) => {
                 this.handleTimeRangeChange(e.target.value);
-                this.applyFilters();
+                this.debouncedLoadFeed();
             });
         }
 
@@ -54,28 +61,28 @@ const SocialListening = {
         const endDateInput = document.getElementById('feed-end-date');
 
         if (startDateInput) {
-            startDateInput.addEventListener('change', () => this.applyFilters());
+            startDateInput.addEventListener('change', () => this.debouncedLoadFeed());
         }
         if (endDateInput) {
-            endDateInput.addEventListener('change', () => this.applyFilters());
+            endDateInput.addEventListener('change', () => this.debouncedLoadFeed());
         }
 
         // Rule filter
         const ruleFilter = document.getElementById('feed-rule-filter');
         if (ruleFilter) {
-            ruleFilter.addEventListener('change', () => this.applyFilters());
+            ruleFilter.addEventListener('change', () => this.debouncedLoadFeed());
         }
 
         // Platform filter
         const platformFilter = document.getElementById('feed-platform-filter');
         if (platformFilter) {
-            platformFilter.addEventListener('change', () => this.applyFilters());
+            platformFilter.addEventListener('change', () => this.debouncedLoadFeed());
         }
 
         // Sort filter
         const sortFilter = document.getElementById('feed-sort-filter');
         if (sortFilter) {
-            sortFilter.addEventListener('change', () => this.applyFilters());
+            sortFilter.addEventListener('change', () => this.debouncedLoadFeed());
         }
 
         // Reset filters button
@@ -126,20 +133,10 @@ const SocialListening = {
         }
 
         this.feedDebounceTimer = setTimeout(() => {
-            this.applyFilters();
+            console.log('[SocialListening] Debounced feed load triggered');
+            this.saveFilterState();
+            this.loadFeed();
         }, 500); // 500ms debounce
-    },
-
-    /**
-     * Apply filters immediately
-     */
-    applyFilters() {
-        console.log('[SocialListening] Applying filters immediately...');
-        if (this.feedDebounceTimer) {
-            clearTimeout(this.feedDebounceTimer);
-        }
-        this.saveFilterState();
-        this.loadFeed();
     },
 
     /**
@@ -271,8 +268,22 @@ const SocialListening = {
     /**
      * Load feed items from backend with advanced filtering
      */
-    async loadFeed() {
+    async loadFeed(silent = false) {
         try {
+            // Show loading state immediately to indicate fetching is in progress
+            const container = document.getElementById('feed-content');
+            if (container && !silent) {
+                container.innerHTML = `
+                    <div class="feed-loading-state" style="padding: 60px 20px; text-align: center; color: var(--text-secondary); display: flex; flex-direction: column; align-items: center;">
+                        <div class="spinner" style="border: 3px solid rgba(255,255,255,0.1); border-top: 3px solid var(--accent); border-radius: 50%; width: 30px; height: 30px; animation: spin 1s linear infinite; margin-bottom: 15px;"></div>
+                        <p style="margin: 0; font-weight: 500;">Fetching similar posts...</p>
+                        <p style="margin-top: 5px; font-size: 0.85em; opacity: 0.7;">Scanning social platforms for matches</p>
+                    </div>
+                    <style>
+                        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+                    </style>
+                `;
+            }
             // Get all filter values
             const timeRange = document.getElementById('feed-time-range-filter')?.value || '7d';
             const startDate = document.getElementById('feed-start-date')?.value || '';
@@ -283,21 +294,25 @@ const SocialListening = {
 
             const params = new URLSearchParams();
 
-            // Add time range filters
-            if (timeRange && timeRange !== 'all') {
-                params.append('time_range', timeRange);
-                if (timeRange === 'custom') {
-                    if (startDate) params.append('start_date', startDate);
-                    if (endDate) params.append('end_date', endDate);
-                }
+            // Always add time_range parameter with default
+            params.append('time_range', timeRange || 'all');
+
+            // Add custom date range if applicable
+            if (timeRange === 'custom') {
+                if (startDate) params.append('start_date', startDate);
+                if (endDate) params.append('end_date', endDate);
             }
 
-            // Add rule and platform filters
-            if (ruleFilter !== 'all') params.append('rule_id', ruleFilter);
-            if (platformFilter !== 'all') params.append('platform', platformFilter);
+            // Always add rule and platform filters with defaults
+            params.append('rule_id', ruleFilter || 'all');
+            params.append('platform', platformFilter || 'all');
 
-            // Add sorting
-            params.append('sort_order', sortOrder);
+            // Always add sorting with default
+            params.append('sort_order', sortOrder || 'newest');
+
+            // Always add limit with default (ensure it's within backend limits)
+            const feedLimit = Math.min(parseInt(this.feedLimit) || 20, 100);
+            params.append('limit', feedLimit.toString());
 
             console.log('[SocialListening] Loading feed with params:', Object.fromEntries(params));
 
@@ -353,36 +368,42 @@ const SocialListening = {
     },
 
     /**
-     * Refresh the feed - fetches new content from DuckDuckGo based on rules
+     * Refresh the feed display - reloads current feed data from database
+     * Note: Does NOT trigger new content ingestion (use background scheduler for that)
      */
     async refreshFeed() {
         const refreshBtn = document.querySelector('.btn-refresh');
         if (refreshBtn) {
-            refreshBtn.innerHTML = '<div class="mini-spinner"></div> Fetching...';
+            refreshBtn.innerHTML = '<div class="mini-spinner"></div> Fetching new content...';
             refreshBtn.disabled = true;
         }
 
         try {
-            // First, trigger the backend to fetch new content from DuckDuckGo
-            console.log('[SocialListening] Triggering fetch from DuckDuckGo...');
-            const fetchResponse = await getAPI().post('/api/social-listening/fetch');
-            console.log('[SocialListening] Fetch response:', fetchResponse);
+            console.log('[SocialListening] Refreshing feed display...');
 
-            if (fetchResponse.stats) {
-                const stats = fetchResponse.stats;
-                this.showToast(
-                    `Fetched ${stats.posts_fetched} new posts from ${stats.rules_processed} rules`,
-                    'success'
-                );
+            // Trigger backend fetch first to get latest content
+            try {
+                await getAPI().post('/api/social-listening/fetch');
+                // Start polling instead of waiting blindly
+                this.pollForNewContent();
+            } catch (err) {
+                console.warn('[SocialListening] Fetch trigger failed, reloading existing data', err);
             }
 
-            // Then reload the feed and alerts
-            await this.loadFeed();
-            await this.loadAlerts();
-            await this.loadAnalytics();
+            console.log('[SocialListening] Reloading data...');
+
+            // Reload the feed, alerts, and analytics data
+            // We do this immediately regardless of polling to ensure UI is responsive
+            await Promise.all([
+                this.loadFeed(),
+                this.loadAlerts(),
+                this.loadAnalytics()
+            ]);
+
+            this.showToast('Feed refreshed', 'success');
         } catch (error) {
             console.error('[SocialListening] Refresh error:', error);
-            this.showToast('Error fetching content: ' + error.message, 'error');
+            this.showToast('Error refreshing feed: ' + error.message, 'error');
         } finally {
             if (refreshBtn) {
                 refreshBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg> Refresh`;
@@ -494,10 +515,17 @@ const SocialListening = {
                 this.renderRules();
                 this.updateRuleFilters();
                 document.getElementById('rule-builder-modal').classList.add('hidden');
-                this.showToast('Rule created! Fetching content...', 'success');
+                // Trigger immediate backend fetch
+                try {
+                    this.showToast('Rule created! Fetching content...', 'success');
+                    await getAPI().post('/api/social-listening/fetch');
+                    console.log('[SocialListening] Triggered background fetch for new rule');
 
-                // Auto-fetch content for the new rule
-                setTimeout(() => this.refreshFeed(), 500);
+                    // Start polling for new content
+                    this.pollForNewContent();
+                } catch (fetchError) {
+                    console.error('[SocialListening] Error triggering fetch:', fetchError);
+                }
             }
         } catch (error) {
             console.error('[SocialListening] Error saving rule:', error);
@@ -825,10 +853,11 @@ const SocialListening = {
      */
     async loadSavedPosts() {
         try {
-            // Load posts that are marked as important or saved via server-side filter
-            const response = await getAPI().get('/api/social-listening/feed?only_important=true&only_saved=true&limit=100');
+            // Load posts that are marked as important or saved
+            const response = await getAPI().get('/api/social-listening/feed?limit=100');
 
-            this.savedPosts = response.items || [];
+            // Filter for saved or important posts
+            this.savedPosts = response.items.filter(item => item.important || item.saved);
 
             this.renderSavedPosts();
         } catch (error) {
@@ -949,6 +978,18 @@ const SocialListening = {
         if (!container) return;
 
         if (this.feedItems.length === 0) {
+            // If we are currently polling for new content, show loading state instead of empty state
+            if (this.isPolling) {
+                container.innerHTML = `
+                    <div class="feed-loading-state" style="padding: 60px 20px; text-align: center; color: var(--text-secondary); display: flex; flex-direction: column; align-items: center;">
+                        <div class="spinner" style="border: 3px solid rgba(255,255,255,0.1); border-top: 3px solid var(--accent); border-radius: 50%; width: 30px; height: 30px; animation: spin 1s linear infinite; margin-bottom: 15px;"></div>
+                        <p style="margin: 0; font-weight: 500;">Searching active sources...</p>
+                        <p style="margin-top: 5px; font-size: 0.85em; opacity: 0.7;">This may take up to 30 seconds</p>
+                    </div>
+                `;
+                return;
+            }
+
             container.innerHTML = `
                 <div class="feed-empty-state">
                     <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
@@ -1276,6 +1317,43 @@ const SocialListening = {
             contentDiv.classList.add('expanded');
             button.textContent = 'Show less';
         }
+    },
+
+    /**
+     * Poll for new content
+     */
+    async pollForNewContent(attempts = 15) {
+        console.log('[SocialListening] Starting polling for new content...');
+        this.isPolling = true;
+
+        // Force immediate render if empty to show loading state
+        if (this.feedItems.length === 0) {
+            this.renderFeed();
+        }
+
+        const initialCount = this.feedItems.length;
+
+        for (let i = 0; i < attempts; i++) {
+            // Adaptive polling: Check frequent initially (1s), then back off (3s)
+            // This ensures instant feedback when the first streaming result hits the DB
+            const delay = i < 6 ? 1500 : 3000;
+
+            await new Promise(resolve => setTimeout(resolve, delay));
+
+            // Silently reload feed data
+            await this.loadFeed(true);
+
+            if (this.feedItems.length > initialCount) {
+                const newCount = this.feedItems.length - initialCount;
+                this.showToast(`Found ${newCount} new items!`, 'success');
+                this.isPolling = false;
+                this.renderFeed(); // Re-render to clear loading state if any
+                return;
+            }
+        }
+        console.log('[SocialListening] Polling complete, no new items found yet.');
+        this.isPolling = false;
+        this.renderFeed(); // Re-render to clear loading state
     },
 
     /**
@@ -1614,6 +1692,9 @@ function printReport() {
         printWindow.print();
     }, 500);
 }
+
+// Export for global access
+window.SocialListening = SocialListening;
 
 // Export for global access
 window.SocialListening = SocialListening;

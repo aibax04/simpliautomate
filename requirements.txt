@@ -27,4 +27,3 @@ ddgs
 # Social Media Connectors
 newsapi-python
 tweepy
-feedparser

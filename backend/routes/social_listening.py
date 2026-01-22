@@ -5,10 +5,11 @@ Handles tracking rules, feed, alerts, analytics, and AI response generation
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, desc, func, and_, or_
+from sqlalchemy import select, desc, func, and_, or_, text
 from datetime import datetime, timedelta
 from typing import Optional, List
 import uuid
+import time
 
 from backend.db.database import get_db
 from backend.db.models import (
@@ -518,20 +519,40 @@ async def fetch_content(
     user: User = Depends(get_current_user)
 ):
     """
-    Manually trigger fetching content for all active rules.
-    This searches DuckDuckGo for keywords/handles and stores matches.
+    Trigger background content fetching for all active rules.
+
+    ⚠️  WARNING: This endpoint triggers synchronous ingestion and may take 30+ seconds.
+    For production use, rely on background schedulers instead of manual API calls.
+
+    Returns immediately after starting background processing.
+    Check server logs for completion status.
     """
     try:
-        agent = get_social_listening_agent()
-        stats = await agent.process_all_rules(user.id)
-        
+        # Import required modules for background processing
+        import asyncio
+        from backend.agents.social_listening_agent import get_social_listening_agent
+
+        # Start background ingestion (fire and forget)
+        async def background_ingestion():
+            try:
+                print(f"[SocialListening] Starting background ingestion for user {user.id}")
+                agent = get_social_listening_agent()
+                stats = await agent.process_all_rules(user.id)
+                print(f"[SocialListening] Background ingestion completed: {stats}")
+            except Exception as e:
+                print(f"[SocialListening] Background ingestion failed: {e}")
+
+        # Fire and forget - don't wait for completion
+        asyncio.create_task(background_ingestion())
+
         return {
-            "status": "success",
-            "message": f"Fetched content for {stats['rules_processed']} rules",
-            "stats": stats
+            "status": "accepted",
+            "message": "Background content fetching started. Check server logs for completion.",
+            "note": "⚠️  This endpoint is deprecated. Use background schedulers for production ingestion."
         }
+
     except Exception as e:
-        print(f"[SocialListening] Error in fetch: {e}")
+        print(f"[SocialListening] Error starting background fetch: {e}")
         import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
@@ -541,22 +562,68 @@ async def fetch_content(
 
 @router.get("/feed")
 async def get_feed(
-    time_range: Optional[str] = Query(None, description="Time range filter: today, 24h, 7d, 30d, custom"),
+    time_range: Optional[str] = Query(None, description="Time range filter: all, today, 24h, 7d, 30d, custom"),
     start_date: Optional[str] = Query(None, description="Start date for custom range (YYYY-MM-DD)"),
     end_date: Optional[str] = Query(None, description="End date for custom range (YYYY-MM-DD)"),
-    rule_id: Optional[str] = Query(None, description="Filter by specific rule ID"),
-    platform: Optional[str] = Query(None, description="Filter by platform"),
-    only_important: bool = Query(False),
-    only_saved: bool = Query(False),
-    sort_order: str = Query("newest", description="Sort order: newest or oldest"),
-    limit: int = Query(default=50, le=100),
+    rule_id: Optional[str] = Query(None, description="Filter by specific rule ID (all for no filter)"),
+    platform: Optional[str] = Query(None, description="Filter by platform (all for no filter)"),
+    sort_order: Optional[str] = Query(None, description="Sort order: newest or oldest"),
+    limit: Optional[int] = Query(None, description="Items per page (1-100)"),
+    offset: Optional[int] = Query(None, description="Pagination offset"),
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user)
 ):
-    """Get matched content feed for the current user with advanced filtering"""
+    """
+    Get optimized live feed for the current user with pagination.
+
+    PERFORMANCE TARGET: <500ms response time
+    READ-ONLY: Never triggers ingestion or external API calls
+    """
+    start_time = time.time()
+
+    # Apply safe defaults for all parameters
+    time_range = time_range or "all"
+    platform = platform or "all"
+    rule_id = rule_id or "all"
+    sort_order = sort_order or "newest"
+    limit = min(max(limit or 20, 1), 100)  # Ensure limit is between 1-100
+    offset = max(offset or 0, 0)  # Ensure offset is non-negative
+
+    # Log incoming parameters for debugging
+    print(f"[FeedAPI] Request params: time_range={time_range}, platform={platform}, rule_id={rule_id}, "
+          f"sort_order={sort_order}, limit={limit}, offset={offset}")
+
     try:
-        # Build query - using outerjoin to handle missing data gracefully
-        stmt = select(MatchedResult, FetchedPost, TrackingRule).outerjoin(
+        # Build optimized query with field projection (not full objects)
+        # Use indexed columns for filtering and sorting
+        stmt = select(
+            # MatchedResult fields
+            MatchedResult.id,
+            MatchedResult.post_id,
+            MatchedResult.rule_id,
+            MatchedResult.sentiment,
+            MatchedResult.sentiment_score,
+            MatchedResult.relevance_score,
+            MatchedResult.matched_keywords,
+            MatchedResult.important,
+            MatchedResult.saved,
+            MatchedResult.created_at,
+            MatchedResult.explanation,
+            MatchedResult.timestamp_source,
+            MatchedResult.confidence_level,
+            # FetchedPost fields
+            FetchedPost.platform,
+            FetchedPost.author,
+            FetchedPost.handle,
+            FetchedPost.content,
+            FetchedPost.url,
+            FetchedPost.posted_at,
+            FetchedPost.quality_score,
+            # TrackingRule fields
+            TrackingRule.name.label("rule_name")
+        ).select_from(
+            MatchedResult
+        ).outerjoin(
             FetchedPost, MatchedResult.post_id == FetchedPost.id
         ).outerjoin(
             TrackingRule, MatchedResult.rule_id == TrackingRule.id
@@ -564,105 +631,109 @@ async def get_feed(
             MatchedResult.user_id == user.id
         )
 
-        # Apply important/saved filters
-        if only_important or only_saved:
-            conditions = []
-            if only_important:
-                conditions.append(MatchedResult.important == True)
-            if only_saved:
-                conditions.append(MatchedResult.saved == True)
-            
-            if len(conditions) > 1:
-                stmt = stmt.where(or_(*conditions))
-            else:
-                stmt = stmt.where(conditions[0])
-
-        # Apply time range filtering
+        # Apply time range filtering (uses indexed posted_at column)
         now = datetime.utcnow()
-        if time_range:
+        if time_range and time_range != "all":
             if time_range == "today":
-                # Posted today (from start of day)
                 today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
                 stmt = stmt.where(FetchedPost.posted_at >= today_start)
+                print(f"[FeedAPI] Applied time filter: today (since {today_start})")
             elif time_range == "24h":
-                # Last 24 hours
                 last_24h = now - timedelta(hours=24)
                 stmt = stmt.where(FetchedPost.posted_at >= last_24h)
+                print(f"[FeedAPI] Applied time filter: 24h (since {last_24h})")
             elif time_range == "7d":
-                # Last 7 days
                 last_7d = now - timedelta(days=7)
                 stmt = stmt.where(FetchedPost.posted_at >= last_7d)
+                print(f"[FeedAPI] Applied time filter: 7d (since {last_7d})")
             elif time_range == "30d":
-                # Last 30 days
                 last_30d = now - timedelta(days=30)
                 stmt = stmt.where(FetchedPost.posted_at >= last_30d)
+                print(f"[FeedAPI] Applied time filter: 30d (since {last_30d})")
             elif time_range == "custom" and start_date and end_date:
-                # Custom date range
                 try:
                     start_dt = datetime.fromisoformat(start_date)
-                    end_dt = datetime.fromisoformat(end_date)
-                    # Set end date to end of day
-                    end_dt = end_dt.replace(hour=23, minute=59, second=59, microsecond=999999)
-                    stmt = stmt.where(and_(
-                        FetchedPost.posted_at >= start_dt,
-                        FetchedPost.posted_at <= end_dt
-                    ))
-                except ValueError:
-                    # Invalid date format, ignore custom range
-                    pass
+                    end_dt = datetime.fromisoformat(end_date).replace(hour=23, minute=59, second=59, microsecond=999999)
+                    stmt = stmt.where(FetchedPost.posted_at.between(start_dt, end_dt))
+                    print(f"[FeedAPI] Applied custom time filter: {start_dt} to {end_dt}")
+                except ValueError as e:
+                    print(f"[FeedAPI] Invalid custom date format: {e}, ignoring filter")
+                    pass  # Invalid date format, ignore
+            else:
+                print(f"[FeedAPI] Unknown time_range value: {time_range}, ignoring filter")
+        else:
+            print("[FeedAPI] No time range filter applied (all time)")
 
-        # Apply rule filtering
+        # Apply rule filtering (uses indexed rule_id column)
         if rule_id and rule_id != "all":
             try:
                 stmt = stmt.where(MatchedResult.rule_id == int(rule_id))
             except ValueError:
                 pass
 
-        # Apply platform filtering
+        # Apply platform filtering (uses indexed platform column)
         if platform and platform != "all":
             stmt = stmt.where(FetchedPost.platform == platform)
 
-        # Apply sorting
-        if sort_order == "newest":
-            stmt = stmt.order_by(desc(FetchedPost.posted_at))
-        elif sort_order == "oldest":
-            stmt = stmt.order_by(FetchedPost.posted_at)
+        # Apply sorting (uses indexed posted_at DESC)
+        if sort_order == "oldest":
+            stmt = stmt.order_by(FetchedPost.posted_at.asc())
+            print("[FeedAPI] Applied sorting: oldest first")
         else:
-            # Default to newest
-            stmt = stmt.order_by(desc(FetchedPost.posted_at))
+            # Default to newest for any other value
+            stmt = stmt.order_by(FetchedPost.posted_at.desc())
+            print("[FeedAPI] Applied sorting: newest first (default)")
 
-        stmt = stmt.limit(limit)
+        # Apply pagination (LIMIT + OFFSET)
+        stmt = stmt.limit(limit).offset(offset)
 
+        # Execute query with timing
+        query_start = time.time()
         result = await db.execute(stmt)
-        items = result.all()
+        rows = result.all()
+        query_time = time.time() - query_start
+
+        # Build lightweight response (no complex object construction)
+        items = []
+        for row in rows:
+            # Convert row to dict for lightweight JSON response
+            item = {
+                "id": str(row.id),
+                "platform": row.platform or "unknown",
+                "author": row.author or "Unknown",
+                "handle": row.handle or "",
+                "content": row.content or "",
+                "url": row.url or "",
+                "posted_at": row.posted_at.isoformat() if row.posted_at else None,
+                "rule_name": row.rule_name or "Unknown Rule",
+                "rule_id": str(row.rule_id) if row.rule_id else "",
+                "important": row.important or False,
+                "saved": row.saved or False,
+                "quality_score": row.quality_score or 5,
+                "sentiment": row.sentiment or "neutral",
+                "sentiment_score": row.sentiment_score or 0.5,
+                "relevance_score": row.relevance_score or 0.5,
+                "matched_keywords": row.matched_keywords or [],
+                "explanation": row.explanation or "",
+                "timestamp_source": row.timestamp_source or "unknown",
+                "confidence_level": row.confidence_level or "unknown"
+            }
+            items.append(item)
+
+        # Calculate total response time
+        total_time = time.time() - start_time
+
+        # Performance logging
+        if total_time > 0.5:
+            print(f"[PERFORMANCE] Slow feed query: {total_time:.2f}s (query: {query_time:.2f}s) - user: {user.id}")
 
         return {
-            "items": [
-                {
-                    "id": str(match.id),
-                    "platform": post.platform if post else "unknown",
-                    "author": post.author if post else "Unknown",
-                    "handle": post.handle if post else "",
-                    "content": post.content if post else "",
-                    "url": post.url if post else "",
-                    "posted_at": post.posted_at.isoformat() if post and post.posted_at else None,
-                    "rule_name": rule.name if rule else "Unknown Rule",
-                    "rule_id": str(rule.id) if rule else "",
-                    "important": match.important,
-                    "saved": match.saved,
-                    "quality_score": post.quality_score if post else 5,
-                    # Gemini analysis data
-                    "sentiment": match.sentiment or "neutral",
-                    "sentiment_score": match.sentiment_score or 0.5,
-                    "relevance_score": match.relevance_score or 0.5,
-                    "matched_keywords": match.matched_keywords or [],
-                    "explanation": match.explanation or "",
-                    "timestamp_source": match.timestamp_source or post.timestamp_source if post else "unknown",
-                    "confidence_level": match.confidence_level or post.confidence_level if post else "unknown"
-                }
-                for match, post, rule in items
-                if post is not None  # Only include items with valid posts
-            ],
+            "items": items,
+            "pagination": {
+                "limit": limit,
+                "offset": offset,
+                "has_more": len(items) == limit  # Simple has_more indicator
+            },
             "filters_applied": {
                 "time_range": time_range,
                 "start_date": start_date,
@@ -670,11 +741,29 @@ async def get_feed(
                 "rule_id": rule_id,
                 "platform": platform,
                 "sort_order": sort_order
+            },
+            "performance": {
+                "total_time_ms": round(total_time * 1000, 2),
+                "query_time_ms": round(query_time * 1000, 2),
+                "item_count": len(items)
             }
         }
+
     except Exception as e:
-        print(f"[SocialListening] Error fetching feed: {e}")
-        return {"items": []}
+        error_time = time.time() - start_time
+        print(f"[SocialListening] Feed error after {error_time:.2f}s: {e}")
+        import traceback
+        traceback.print_exc()
+
+        # Return structured error response
+        return {
+            "error": "Feed query failed",
+            "message": str(e),
+            "items": [],
+            "pagination": {"limit": 20, "offset": 0, "has_more": False},
+            "filters_applied": {},
+            "performance": {"total_time_ms": round(error_time * 1000, 2), "error": str(e)}
+        }
 
 
 @router.post("/feed/{item_id}/mark-important")

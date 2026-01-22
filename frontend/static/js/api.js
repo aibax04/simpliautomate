@@ -320,18 +320,6 @@ const Api = {
         return await this.handleResponse(response);
     },
 
-    async updatePostCaption(caption, postId, hashtags = null, captionData = null) {
-        const body = { caption: caption, post_id: postId };
-        if (hashtags) body.hashtags = hashtags;
-        if (captionData) body.caption_data = captionData;
-        const response = await fetch('/api/update-post-caption', {
-            method: 'POST',
-            headers: this.getHeaders(),
-            body: JSON.stringify(body)
-        });
-        return await this.handleResponse(response);
-    },
-
     async updatePostImage(imageUrl, postId, editPrompt = null) {
         const body = { image_url: imageUrl, post_id: postId };
         if (editPrompt) body.edit_prompt = editPrompt;
