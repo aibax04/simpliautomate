@@ -16,6 +16,7 @@ from backend.routes.scheduler import router as scheduler_router
 from backend.routes.media import setup_media_routes
 from backend.routes.social_listening import router as social_listening_router
 from backend.routes.social_ingestion import router as social_ingestion_router
+from backend.integrations.whatsapp import router as whatsapp_router
 from backend.auth.security import decode_access_token, get_current_user, decrypt_token
 from backend.db.models import User
 from fastapi.security import OAuth2PasswordBearer
@@ -42,6 +43,7 @@ app.include_router(ingest_router, prefix="/api", dependencies=[Depends(get_curre
 app.include_router(queue_router, prefix="/api", dependencies=[Depends(get_current_user)])
 app.include_router(social_listening_router, prefix="/api", dependencies=[Depends(get_current_user)])
 app.include_router(social_ingestion_router, prefix="/api", dependencies=[Depends(get_current_user)])
+app.include_router(whatsapp_router) # Webhook (Public)
 
 # Background task for daily morning news fetching and database saving with fallbacks
 async def background_news_fetcher():

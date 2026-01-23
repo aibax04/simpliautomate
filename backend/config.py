@@ -41,6 +41,11 @@ class Config:
     NEWS_PROVIDER = os.getenv("NEWS_PROVIDER", "newsapi")  # 'newsapi' or 'gnews'
     NEWSAPI_KEY = os.getenv("NEWSAPI_KEY")
     GNEWS_API_KEY = os.getenv("GNEWS_API_KEY")
+    
+    # WhatsApp Integration
+    WHATSAPP_PHONE_ID = os.getenv("WHATSAPP_PHONE_ID")
+    WHATSAPP_ACCESS_TOKEN = os.getenv("WHATSAPP_ACCESS_TOKEN")
+    WHATSAPP_VERIFY_TOKEN = os.getenv("WHATSAPP_VERIFY_TOKEN")
 
     @staticmethod
     def validate():
