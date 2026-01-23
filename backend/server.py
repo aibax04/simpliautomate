@@ -206,6 +206,22 @@ async def startup_event():
     await check_db_connection()
     asyncio.create_task(background_news_fetcher())  # ENABLED: Daily morning news generation
     asyncio.create_task(post_scheduler())
+    asyncio.create_task(social_listening_scheduler())
+
+async def social_listening_scheduler():
+    """Background task to fetch social listening content based on rule frequency."""
+    from backend.agents.social_listening_agent import get_social_listening_agent
+    
+    print("[SCHEDULER] Starting social listening scheduler...")
+    while True:
+        try:
+            agent = get_social_listening_agent()
+            await agent.process_due_rules()
+        except Exception as e:
+            print(f"[SCHEDULER ERROR] Social listening failure: {e}")
+        
+        # Check every minute (sufficient for 15m granularity)
+        await asyncio.sleep(60)
 
 # Setup Media Serving (Critical for Image Visibility)
 setup_media_routes(app)

@@ -7,7 +7,7 @@ Supports platform-specific searches for Twitter, LinkedIn, Reddit, and News APIs
 import asyncio
 import logging
 from typing import List, Dict, Optional
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from ddgs import DDGS
 import hashlib
 import re
@@ -147,7 +147,9 @@ class SocialListeningAgent:
         """
         limits = {
             "realtime": 20,  # Focus on breaking news, fewer but more urgent
+            "15m": 15,       # High frequency
             "hourly": 20,    # Balanced - 15-20 range, settled on 18
+            "6hr": 25,       # Medium frequency
             "daily": 30,     # More comprehensive for daily digests
             "weekly": 50     # Most comprehensive for weekly reports
         }
@@ -1459,6 +1461,156 @@ class SocialListeningAgent:
             
             except Exception as e:
                 logger.error(f"[SocialListening] Error processing rules: {e}")
+                import traceback
+                traceback.print_exc()
+        
+        return stats
+
+    async def process_due_rules(self) -> Dict:
+        """
+        Check all active rules across all users and process those that are due based on frequency
+        """
+        from backend.db.database import AsyncSessionLocal
+        from backend.db.models import TrackingRule, FetchedPost, MatchedResult, SocialAlert, User
+        from sqlalchemy import select
+        
+        stats = {"rules_processed": 0, "posts_fetched": 0, "alerts_created": 0}
+        
+        async with AsyncSessionLocal() as session:
+            try:
+                # Get ALL active rules across the system
+                stmt = select(TrackingRule).where(TrackingRule.status == "active")
+                result = await session.execute(stmt)
+                rules = result.scalars().all()
+                
+                print(f"[SocialListeningScheduler] Checking {len(rules)} active rules...")
+                
+                now = datetime.now(timezone.utc)
+                
+                for rule in rules:
+                    # Determine schedule interval
+                    td = timedelta(hours=1) # Default
+                    freq = rule.frequency or "hourly"
+                    
+                    if freq == "realtime":
+                        td = timedelta(minutes=10) # "Realtime" = check every 10 mins
+                    elif freq == "15m":
+                        td = timedelta(minutes=15)
+                    elif freq == "hourly":
+                        td = timedelta(hours=1)
+                    elif freq == "6hr":
+                        td = timedelta(hours=6)
+                    elif freq == "daily":
+                        td = timedelta(days=1)
+                    elif freq == "weekly":
+                        td = timedelta(weeks=1)
+                        
+                    # Check if due (last_run_at is None means never run, so run now)
+                    last_run = rule.last_run_at
+                    if last_run:
+                        # Ensure last_run has timezone
+                        if last_run.tzinfo is None:
+                            last_run = last_run.replace(tzinfo=timezone.utc)
+                            
+                        next_run = last_run + td
+                        if now < next_run:
+                            continue # Not due yet
+
+                    print(f"[SocialListeningScheduler] Rule '{rule.name}' (User {rule.user_id}) is due for {freq} check")
+                    
+                    # Prepare rule dict
+                    rule_dict = {
+                        "id": rule.id,
+                        "name": rule.name,
+                        "keywords": rule.keywords or [],
+                        "handles": rule.handles or [],
+                        "platforms": rule.platforms or [],
+                        "logic_type": rule.logic_type,
+                        "frequency": freq,
+                        "alert_in_app": rule.alert_in_app,
+                        "alert_email": rule.alert_email
+                    }
+
+                    # Define callback (similar to process_all_rules but simplified context)
+                    async def save_result_callback(item):
+                        # Skip low relevance
+                        if item.get("relevance_score", 0.5) < 0.5: return
+
+                        # Check existing
+                        existing_stmt = select(FetchedPost).where(FetchedPost.external_id == item["external_id"])
+                        existing = await session.execute(existing_stmt)
+                        existing_post = existing.scalar_one_or_none()
+                        
+                        current_post_id = None
+                        if existing_post:
+                            match_stmt = select(MatchedResult).where(
+                                MatchedResult.post_id == existing_post.id,
+                                MatchedResult.rule_id == rule.id
+                            )
+                            if (await session.execute(match_stmt)).scalar_one_or_none():
+                                return 
+                            current_post_id = existing_post.id
+                        else:
+                            new_post = FetchedPost(
+                                platform=item["platform"],
+                                external_id=item["external_id"],
+                                author=item["author"],
+                                handle=item["handle"],
+                                content=item["content"],
+                                url=item["url"],
+                                posted_at=item["posted_at"],
+                                timestamp_source=item.get("timestamp_source"),
+                                confidence_level=item.get("confidence_level"),
+                                quality_score=item.get("quality_score", 5)
+                            )
+                            session.add(new_post)
+                            await session.flush()
+                            current_post_id = new_post.id
+                            stats["posts_fetched"] += 1
+                        
+                        # Create match
+                        matched = MatchedResult(
+                            rule_id=rule.id,
+                            post_id=current_post_id,
+                            user_id=rule.user_id,
+                            sentiment=item.get("sentiment", "neutral"),
+                            sentiment_score=item.get("sentiment_score", 0.5),
+                            relevance_score=item.get("relevance_score", 0.5),
+                            matched_keywords=item.get("matched_keywords", []),
+                            explanation=item.get("explanation", ""),
+                            timestamp_source=item.get("timestamp_source"),
+                            confidence_level=item.get("confidence_level")
+                        )
+                        session.add(matched)
+                        
+                        # Alert
+                        if rule.alert_in_app:
+                            alert = SocialAlert(
+                                user_id=rule.user_id,
+                                rule_id=rule.id,
+                                title=f"New match: {rule.name}",
+                                message=f"Found: {item.get('title', '') or item.get('content', '')[:50]}...",
+                                alert_type="match"
+                            )
+                            session.add(alert)
+                            stats["alerts_created"] += 1
+                            
+                        await session.commit()
+
+                    # Run fetch
+                    try:
+                        await self.fetch_for_rule(rule_dict, on_result=save_result_callback)
+                        stats["rules_processed"] += 1
+                        
+                        # Update last_run_at
+                        rule.last_run_at = datetime.now(timezone.utc)
+                        await session.commit()
+                        
+                    except Exception as e:
+                        print(f"[SocialListeningScheduler] Failed to process rule {rule.id}: {e}")
+                        
+            except Exception as e:
+                print(f"[SocialListeningScheduler] Critical error: {e}")
                 import traceback
                 traceback.print_exc()
         

@@ -453,10 +453,10 @@ const SocialListening = {
                 }
 
                 document.getElementById('rule-sentiment').value = rule.sentiment_filter || 'all';
+                document.getElementById('rule-frequency').value = rule.frequency || 'hourly';
 
                 // Hidden fields
                 document.getElementById('rule-logic').value = rule.logic_type || 'keywords_or_handles';
-                document.getElementById('rule-frequency').value = rule.frequency || 'hourly';
                 document.getElementById('alert-email').checked = rule.alert_email || false;
                 document.getElementById('alert-inapp').checked = rule.alert_in_app !== false;
             }

@@ -160,11 +160,12 @@ class TrackingRule(Base):
     handles = Column(JSONB, default=[])   # List of social handles to track
     platforms = Column(JSONB, default=[]) # twitter, linkedin, reddit, news
     logic_type = Column(String, default="keywords_or_handles")  # keywords_only, handles_only, keywords_and_handles, keywords_or_handles, exclude_keywords
-    frequency = Column(String, default="hourly")  # realtime, hourly, daily, weekly
+    frequency = Column(String, default="hourly")  # realtime, 15m, hourly, 6hr, daily, weekly
     sentiment_filter = Column(String, default="all")  # all, positive, negative, neutral
     alert_email = Column(Boolean, default=False)
     alert_in_app = Column(Boolean, default=True)
     status = Column(String, default="active")  # active, paused
+    last_run_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 

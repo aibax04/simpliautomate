@@ -814,7 +814,19 @@
                     </div>
 
                     <!-- Hidden fields for compatibility -->
-                    <input type="hidden" id="rule-frequency" value="hourly">
+                    <div class="form-group">
+                        <label>Check Frequency</label>
+                        <select id="rule-frequency" class="form-select">
+                            <option value="15m">Every 15 Minutes</option>
+                            <option value="hourly" selected>Hourly</option>
+                            <option value="6hr">Every 6 Hours</option>
+                            <option value="daily">Daily</option>
+                            <option value="weekly">Weekly</option>
+                        </select>
+                        <p style="font-size: 11px; color: var(--text-secondary); margin-top: 5px;">
+                            How often to check for new content match.
+                        </p>
+                    </div>
                     <input type="hidden" id="rule-logic" value="keywords_or_handles">
                     <input type="checkbox" id="alert-email" class="hidden">
                     <input type="checkbox" id="alert-inapp" checked class="hidden">
