@@ -333,8 +333,10 @@ async def generate_sentiment_report(db: AsyncSession, user_id: int, start_date: 
     sentiment_data = sentiment_result.all()
 
     if sentiment_data:
-        lines.append("- Sentiment Distribution:")
         total = sum(count for _, count in sentiment_data)
+        lines.append(f"- Total Posts Analyzed: {total}")
+        lines.append("")
+        lines.append("- Sentiment Distribution:")
 
         for sentiment, count in sentiment_data:
             percentage = (count / total) * 100
@@ -409,6 +411,9 @@ async def generate_smart_analysis_report(db: AsyncSession, user_id: int, start_d
     if not posts:
         lines.append("- No posts found matching criteria for analysis")
         return lines
+
+    lines.append(f"- Total Posts Analyzed: {len(posts)}")
+    lines.append("")
         
     # Prepare context for Gemini
     posts_context = "Social Media Posts:\n\n"
@@ -418,7 +423,7 @@ async def generate_smart_analysis_report(db: AsyncSession, user_id: int, start_d
     try:
         import google.generativeai as genai
         genai.configure(api_key=Config.GEMINI_API_KEY)
-        model = genai.GenerativeModel("gemini-1.5-flash") # Use 1.5 flash for speed and context
+        model = genai.GenerativeModel("gemini-2.0-flash") # Use 2.0 flash for speed and context
         
         prompt = f"""
         Analyze the following social media posts and provide a comprehensive report segment.
