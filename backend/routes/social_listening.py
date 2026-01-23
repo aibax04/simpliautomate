@@ -3,6 +3,7 @@ Social Listening API Routes
 Handles tracking rules, feed, alerts, analytics, and AI response generation
 """
 
+# IMPORTS
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc, func, and_, or_, text
@@ -25,7 +26,8 @@ router = APIRouter(prefix="/social-listening", tags=["Social Listening"])
 
 
 async def generate_report_content(db: AsyncSession, user_id: int, report_type: str,
-                                start_date: datetime, end_date: datetime, rule_ids: List[str]):
+                                start_date: datetime, end_date: datetime, rule_ids: List[str],
+                                platform: str = "all", source: str = "all", min_relevance: int = 0):
     """Generate clean, readable report content with bullet points"""
 
     print(f"[Reports] Generating {report_type} report content for user {user_id}")
@@ -42,6 +44,9 @@ async def generate_report_content(db: AsyncSession, user_id: int, report_type: s
     report_lines.append("- Date Range: {} to {}".format(
         start_date.strftime("%Y-%m-%d"), end_date.strftime("%Y-%m-%d")
     ))
+    report_lines.append("- Filters: Platform={}, Source={}, Min Relevance={}".format(
+        platform.title(), source.title(), min_relevance
+    ))
     report_lines.append("- Generated: {}".format(datetime.now().strftime("%Y-%m-%d %H:%M")))
     report_lines.append("")
 
@@ -49,13 +54,16 @@ async def generate_report_content(db: AsyncSession, user_id: int, report_type: s
     try:
         if report_type == "summary":
             print("[Reports] Generating summary report...")
-            content = await generate_summary_report(db, user_id, start_date, end_date, rule_ids)
+            content = await generate_summary_report(db, user_id, start_date, end_date, rule_ids, platform, source, min_relevance)
         elif report_type == "detailed":
             print("[Reports] Generating detailed report...")
-            content = await generate_detailed_report(db, user_id, start_date, end_date, rule_ids)
+            content = await generate_detailed_report(db, user_id, start_date, end_date, rule_ids, platform, source, min_relevance)
         elif report_type == "sentiment":
             print("[Reports] Generating sentiment report...")
-            content = await generate_sentiment_report(db, user_id, start_date, end_date, rule_ids)
+            content = await generate_sentiment_report(db, user_id, start_date, end_date, rule_ids, platform, source, min_relevance)
+        elif report_type == "smart_analysis":
+            print("[Reports] Generating smart analysis report...")
+            content = await generate_smart_analysis_report(db, user_id, start_date, end_date, rule_ids, platform, source, min_relevance)
         else:
             print(f"[Reports] Invalid report type: {report_type}")
             content = ["- Invalid report type specified"]
@@ -77,8 +85,11 @@ async def generate_report_content(db: AsyncSession, user_id: int, report_type: s
     return "\n".join(report_lines)
 
 
+
+
 async def generate_summary_report(db: AsyncSession, user_id: int, start_date: datetime,
-                                end_date: datetime, rule_ids: List[str]):
+                                end_date: datetime, rule_ids: List[str],
+                                platform: str = "all", source: str = "all", min_relevance: int = 0):
     """Generate summary report with key metrics"""
 
     print(f"[Reports] Generating summary report for date range: {start_date} to {end_date}")
@@ -87,28 +98,54 @@ async def generate_summary_report(db: AsyncSession, user_id: int, start_date: da
     lines.append("-" * 20)
 
     try:
-        # Get total posts fetched in date range
-        stmt = select(func.count(FetchedPost.id)).where(
-            and_(
-                FetchedPost.created_at >= start_date,
-                FetchedPost.created_at <= end_date
-            )
-        )
+        # Base query for posts
+        base_stmt = select(func.count(FetchedPost.id))
+        
+        # Apply joins if needed based on filters
+        if rule_ids or min_relevance > 0 or source == "saved":
+            base_stmt = base_stmt.join(MatchedResult, FetchedPost.id == MatchedResult.post_id)
+        
+        # Build conditions
+        conditions = [
+            FetchedPost.posted_at >= start_date,
+            FetchedPost.posted_at <= end_date
+        ]
+        
+        # Add user filter via MatchedResult if joined, or implicit via rule owner? 
+        # Safest to check MatchedResult owner if we join it
+        if rule_ids or min_relevance > 0 or source == "saved":
+             conditions.append(MatchedResult.user_id == user_id)
+        
+        if platform and platform != "all":
+            conditions.append(FetchedPost.platform == platform)
+            
+        if rule_ids:
+             conditions.append(MatchedResult.rule_id.in_([int(rid) for rid in rule_ids]))
+             
+        if min_relevance > 0:
+            conditions.append(MatchedResult.relevance_score >= min_relevance)
+            
+        if source == "saved":
+            conditions.append(MatchedResult.saved == True)
+
+        stmt = base_stmt.where(and_(*conditions))
+        
         result = await db.execute(stmt)
         total_posts = result.scalar() or 0
         print(f"[Reports] Found {total_posts} total posts")
         lines.append("- Total Posts Monitored: {}".format(total_posts))
 
-        # Get posts by platform
+        # Get posts by platform (reuse conditions but group by)
         platform_stmt = select(
             FetchedPost.platform,
             func.count(FetchedPost.id).label('count')
-        ).where(
-            and_(
-                FetchedPost.created_at >= start_date,
-                FetchedPost.created_at <= end_date
-            )
-        ).group_by(FetchedPost.platform)
+        )
+        
+        if rule_ids or min_relevance > 0 or source == "saved":
+            platform_stmt = platform_stmt.join(MatchedResult, FetchedPost.id == MatchedResult.post_id)
+            
+        platform_stmt = platform_stmt.where(and_(*conditions)).group_by(FetchedPost.platform)
+        
         platform_result = await db.execute(platform_stmt)
         platform_counts = platform_result.all()
 
@@ -177,7 +214,8 @@ async def generate_summary_report(db: AsyncSession, user_id: int, start_date: da
 
 
 async def generate_detailed_report(db: AsyncSession, user_id: int, start_date: datetime,
-                                 end_date: datetime, rule_ids: List[str]):
+                                 end_date: datetime, rule_ids: List[str],
+                                 platform: str = "all", source: str = "all", min_relevance: int = 0):
     """Generate detailed report with post-by-post breakdown"""
 
     lines = []
@@ -195,11 +233,26 @@ async def generate_detailed_report(db: AsyncSession, user_id: int, start_date: d
         TrackingRule, MatchedResult.rule_id == TrackingRule.id
     ).where(
         and_(
-            FetchedPost.created_at >= start_date,
-            FetchedPost.created_at <= end_date,
+            FetchedPost.posted_at >= start_date,
+            FetchedPost.posted_at <= end_date,
             TrackingRule.user_id == user_id
         )
-    ).order_by(FetchedPost.created_at.desc()).limit(50)
+    )
+
+    # Apply filters
+    if platform and platform != "all":
+        stmt = stmt.where(FetchedPost.platform == platform)
+    
+    if rule_ids:
+        stmt = stmt.where(TrackingRule.id.in_([int(rid) for rid in rule_ids]))
+
+    if min_relevance > 0:
+        stmt = stmt.where(MatchedResult.relevance_score >= min_relevance)
+
+    if source == "saved":
+        stmt = stmt.where(MatchedResult.saved == True)
+
+    stmt = stmt.order_by(FetchedPost.created_at.desc()).limit(50)
 
     result = await db.execute(stmt)
     posts = result.all()
@@ -237,7 +290,8 @@ async def generate_detailed_report(db: AsyncSession, user_id: int, start_date: d
 
 
 async def generate_sentiment_report(db: AsyncSession, user_id: int, start_date: datetime,
-                                  end_date: datetime, rule_ids: List[str]):
+                                  end_date: datetime, rule_ids: List[str],
+                                  platform: str = "all", source: str = "all", min_relevance: int = 0):
     """Generate sentiment-focused report"""
 
     lines = []
@@ -252,10 +306,28 @@ async def generate_sentiment_report(db: AsyncSession, user_id: int, start_date: 
         FetchedPost, SentimentAnalysis.post_id == FetchedPost.id
     ).where(
         and_(
-            SentimentAnalysis.created_at >= start_date,
-            SentimentAnalysis.created_at <= end_date
+            FetchedPost.posted_at >= start_date,
+            FetchedPost.posted_at <= end_date
         )
-    ).group_by(SentimentAnalysis.sentiment)
+    )
+
+    # Apply filters to sentiment analysis
+    # We need to join with MatchedResult to filter by rule, relevance, etc.
+    sentiment_stmt = sentiment_stmt.join(MatchedResult, FetchedPost.id == MatchedResult.post_id)
+    
+    if platform and platform != "all":
+        sentiment_stmt = sentiment_stmt.where(FetchedPost.platform == platform)
+        
+    if rule_ids:
+        sentiment_stmt = sentiment_stmt.where(MatchedResult.rule_id.in_([int(rid) for rid in rule_ids]))
+        
+    if min_relevance > 0:
+        sentiment_stmt = sentiment_stmt.where(MatchedResult.relevance_score >= min_relevance)
+        
+    if source == "saved":
+        sentiment_stmt = sentiment_stmt.where(MatchedResult.saved == True)
+
+    sentiment_stmt = sentiment_stmt.group_by(SentimentAnalysis.sentiment)
 
     sentiment_result = await db.execute(sentiment_stmt)
     sentiment_data = sentiment_result.all()
@@ -287,7 +359,101 @@ async def generate_sentiment_report(db: AsyncSession, user_id: int, start_date: 
 
     return lines
 
+    return lines
 
+
+async def generate_smart_analysis_report(db: AsyncSession, user_id: int, start_date: datetime,
+                                       end_date: datetime, rule_ids: List[str],
+                                       platform: str = "all", source: str = "all", min_relevance: int = 0):
+    """Generate smart analysis report using Gemini for trends, topic brief, and sentiment"""
+    
+    lines = []
+    lines.append("SMART TREND & TOPIC ANALYSIS")
+    lines.append("-" * 25)
+    
+    # Fetch posts to analyze
+    stmt = select(
+        FetchedPost.content,
+        FetchedPost.platform,
+        FetchedPost.posted_at,
+        MatchedResult.sentiment,
+        TrackingRule.name
+    ).join(
+        MatchedResult, FetchedPost.id == MatchedResult.post_id
+    ).join(
+        TrackingRule, MatchedResult.rule_id == TrackingRule.id
+    ).where(
+        and_(
+            FetchedPost.posted_at >= start_date,
+            FetchedPost.posted_at <= end_date,
+            MatchedResult.user_id == user_id
+        )
+    )
+    
+    # Apply filters
+    if platform and platform != "all":
+        stmt = stmt.where(FetchedPost.platform == platform)
+    if rule_ids:
+        stmt = stmt.where(MatchedResult.rule_id.in_([int(rid) for rid in rule_ids]))
+    if min_relevance > 0:
+        stmt = stmt.where(MatchedResult.relevance_score >= min_relevance)
+    if source == "saved":
+        stmt = stmt.where(MatchedResult.saved == True)
+        
+    # Order by relevance and limit to top 30 for analysis context window
+    stmt = stmt.order_by(MatchedResult.relevance_score.desc()).limit(30)
+    
+    result = await db.execute(stmt)
+    posts = result.all()
+    
+    if not posts:
+        lines.append("- No posts found matching criteria for analysis")
+        return lines
+        
+    # Prepare context for Gemini
+    posts_context = "Social Media Posts:\n\n"
+    for i, (content, plat, posted_at, sentiment, rule) in enumerate(posts):
+        posts_context += f"{i+1}. [{plat} | {rule}] {content[:200]}... (Sentiment: {sentiment})\n"
+        
+    try:
+        import google.generativeai as genai
+        genai.configure(api_key=Config.GEMINI_API_KEY)
+        model = genai.GenerativeModel("gemini-1.5-flash") # Use 1.5 flash for speed and context
+        
+        prompt = f"""
+        Analyze the following social media posts and provide a comprehensive report segment.
+        
+        Posts Data:
+        {posts_context}
+        
+        Please provide the following sections with clear headers (no markdown bolding, just capitalized headers):
+        
+        1. TOPIC BRIEF
+        A short brief (2-3 sentences) explaining what the main topics are reflecting in these posts.
+        
+        2. TREND ANALYSIS
+        Where is the trend going? Is it increasing, decreasing, or shifting focus? What are the emerging angles?
+        
+        3. SENTIMENT INSIGHTS
+        Where are the sentiments leaning? What is driving positive or negative sentiment?
+        
+        Format as plain text with bullet points (- ) for readability.
+        """
+        
+        response = model.generate_content(prompt)
+        analysis_text = response.text.strip()
+        
+        # Clean up markdown chars if any remain, though we asked for plain text
+        analysis_text = analysis_text.replace("**", "").replace("##", "")
+        
+        lines.append(analysis_text)
+        
+    except Exception as e:
+        print(f"[Reports] Error generating AI analysis: {e}")
+        lines.append("- Error generating AI analysis. Please try again later.")
+        lines.append(f"- Detail: {str(e)}")
+        
+    return lines
 # ==================== Pydantic Models ====================
 
 class RuleCreate(BaseModel):
@@ -329,6 +495,9 @@ class ReportGenerateRequest(BaseModel):
     start_date: str
     end_date: str
     rule_ids: List[str] = []
+    platform: Optional[str] = "all"
+    source: Optional[str] = "all"  # all, saved
+    min_relevance: Optional[int] = 0
 
 
 # ==================== Rules Endpoints ====================
@@ -1078,7 +1247,8 @@ async def generate_report(
         # Generate the report content
         print(f"[Reports] Generating content for {request.type} report...")
         report_content = await generate_report_content(
-            db, user.id, request.type, start_date, end_date, request.rule_ids
+            db, user.id, request.type, start_date, end_date, request.rule_ids,
+            request.platform, request.source, request.min_relevance
         )
 
         print(f"[Reports] Content generated, length: {len(report_content)} characters")

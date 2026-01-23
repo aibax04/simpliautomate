@@ -674,6 +674,18 @@ const SocialListening = {
         const reportType = document.getElementById('report-type').value;
         const startDate = document.getElementById('report-start-date').value;
         const endDate = document.getElementById('report-end-date').value;
+        const source = document.getElementById('report-source')?.value || 'all';
+        const platform = document.getElementById('report-platform')?.value || 'all';
+        const minRelevance = parseInt(document.getElementById('report-relevance')?.value || '0');
+
+        // Get selected rules
+        const ruleSelect = document.getElementById('report-rules');
+        let ruleIds = [];
+        if (ruleSelect) {
+            ruleIds = Array.from(ruleSelect.selectedOptions)
+                .map(opt => opt.value)
+                .filter(v => v !== 'all');
+        }
 
         if (!startDate || !endDate) {
             this.showToast('Please select a date range', 'error');
@@ -687,7 +699,7 @@ const SocialListening = {
 
         try {
             // Show loading state with progress in the preview area
-            const reportTypeDisplay = reportType.charAt(0).toUpperCase() + reportType.slice(1);
+            const reportTypeDisplay = reportType.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
             reportPreview.innerHTML = `
                 <div class="report-loading">
                     <div class="loading-spinner"></div>
@@ -717,7 +729,11 @@ const SocialListening = {
             const response = await getAPI().post('/api/social-listening/reports/generate', {
                 type: reportType,
                 start_date: startDate,
-                end_date: endDate
+                end_date: endDate,
+                rule_ids: ruleIds,
+                source: source,
+                platform: platform,
+                min_relevance: minRelevance
             });
 
             if (response.report_content) {

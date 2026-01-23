@@ -1324,6 +1324,16 @@ class SocialListeningAgent:
                 print(f"[SocialListening] Processing {len(rules)} active rules for user {user_id}")
                 
                 for rule in rules:
+                    # Re-verify rule status immediately before processing
+                    # This ensures we don't process rules that were just paused/deleted
+                    verify_stmt = select(TrackingRule.status).where(TrackingRule.id == rule.id)
+                    verify_res = await session.execute(verify_stmt)
+                    current_status = verify_res.scalar_one_or_none()
+                    
+                    if current_status != "active":
+                        print(f"[SocialListening] Rule '{rule.name}' skipped (paused/deleted during run)")
+                        continue
+
                     rule_dict = {
                         "id": rule.id,
                         "name": rule.name,
@@ -1488,6 +1498,16 @@ class SocialListeningAgent:
                 now = datetime.now(timezone.utc)
                 
                 for rule in rules:
+                    # Re-verify rule status immediately before processing
+                    # This ensures we don't process rules that were just paused/deleted
+                    verify_stmt = select(TrackingRule.status).where(TrackingRule.id == rule.id)
+                    verify_res = await session.execute(verify_stmt)
+                    current_status = verify_res.scalar_one_or_none()
+                    
+                    if current_status != "active":
+                        print(f"[SocialListeningScheduler] Rule '{rule.name}' skipped (paused/deleted during run)")
+                        continue
+
                     # Determine schedule interval
                     td = timedelta(hours=1) # Default
                     freq = rule.frequency or "hourly"
