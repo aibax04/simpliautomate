@@ -29,6 +29,12 @@ from sqlalchemy import select, update
 from backend.db.database import AsyncSessionLocal, check_db_connection, get_db
 from sqlalchemy.ext.asyncio import AsyncSession
 
+import logging
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
 # Configure Gemini globally
 genai.configure(api_key=Config.GEMINI_API_KEY)
 
@@ -328,6 +334,28 @@ async def generate_post(request: Request, user: User = Depends(get_current_user)
     
     agent = PostGenerationAgent()
     result = await agent.generate(news_item, prefs, product_info=product_info)
+    
+    # DB Persistence: Save the generated post automatically
+    async with AsyncSessionLocal() as session:
+        try:
+            # Check if news_id is a valid integer (it might be prefixed with db_ if from frontend)
+            news_id = result.get("news_id")
+            
+            db_post = GeneratedPost(
+                user_id=user.id,
+                news_id=news_id,
+                caption=result.get("text"),
+                image_path=result.get("image_url"),
+                style=result.get("visual_plan", {}).get("style"),
+                palette=result.get("visual_plan", {}).get("palette_preference")
+            )
+            session.add(db_post)
+            await session.commit()
+            print(f"[DB] Generated post saved automatically with ID: {db_post.id}")
+        except Exception as e:
+            await session.rollback()
+            print(f"[DB ERROR] Failed to save generated post: {e}")
+
     return result
 
 @app.post("/api/generate-blog")

@@ -424,6 +424,8 @@ const SocialListening = {
         document.getElementById('rule-handle-input').value = '';
         document.getElementById('rule-platform-select').value = 'all';
         document.getElementById('rule-sentiment').value = 'all';
+        const filterContactEl = document.getElementById('rule-filter-contact-email');
+        if (filterContactEl) filterContactEl.checked = false;
 
         // Reset hidden fields
         document.getElementById('rule-logic').value = 'keywords_or_handles';
@@ -454,6 +456,7 @@ const SocialListening = {
 
                 document.getElementById('rule-sentiment').value = rule.sentiment_filter || 'all';
                 document.getElementById('rule-frequency').value = rule.frequency || 'hourly';
+                if (filterContactEl) filterContactEl.checked = rule.filter_has_contact_email || false;
 
                 // Hidden fields
                 document.getElementById('rule-logic').value = rule.logic_type || 'keywords_or_handles';
@@ -486,6 +489,7 @@ const SocialListening = {
         const frequency = document.getElementById('rule-frequency').value;
         const alertEmail = document.getElementById('alert-email').checked;
         const alertInApp = document.getElementById('alert-inapp').checked;
+        const filterHasContactEmail = document.getElementById('rule-filter-contact-email')?.checked || false;
 
         // Determine platforms
         let platforms = [];
@@ -513,28 +517,41 @@ const SocialListening = {
             logic_type: logicType,
             frequency,
             sentiment_filter: sentimentFilter,
+            filter_has_contact_email: filterHasContactEmail,
             alert_email: alertEmail,
             alert_in_app: alertInApp,
             status: 'active'
         };
 
-        try {
-            const response = await getAPI().post('/api/social-listening/rules', ruleData);
-            if (response.rule) {
-                this.rules.push(response.rule);
-                this.renderRules();
-                this.updateRuleFilters();
-                document.getElementById('rule-builder-modal').classList.add('hidden');
-                // Trigger immediate backend fetch
-                try {
-                    this.showToast('Rule created! Fetching content...', 'success');
-                    await getAPI().post('/api/social-listening/fetch');
-                    console.log('[SocialListening] Triggered background fetch for new rule');
+        const editId = document.getElementById('rule-edit-id').value.trim();
 
-                    // Start polling for new content
-                    this.pollForNewContent();
-                } catch (fetchError) {
-                    console.error('[SocialListening] Error triggering fetch:', fetchError);
+        try {
+            if (editId) {
+                const response = await getAPI().patch(`/api/social-listening/rules/${editId}`, ruleData);
+                if (response.rule) {
+                    const idx = this.rules.findIndex(r => r.id === editId);
+                    if (idx !== -1) this.rules[idx] = { ...this.rules[idx], ...ruleData, id: editId, status: response.rule.status || this.rules[idx].status };
+                    this.renderRules();
+                    this.updateRuleFilters();
+                    document.getElementById('rule-edit-id').value = '';
+                    document.getElementById('rule-builder-modal').classList.add('hidden');
+                    this.showToast('Rule updated.', 'success');
+                }
+            } else {
+                const response = await getAPI().post('/api/social-listening/rules', ruleData);
+                if (response.rule) {
+                    this.rules.push(response.rule);
+                    this.renderRules();
+                    this.updateRuleFilters();
+                    document.getElementById('rule-builder-modal').classList.add('hidden');
+                    try {
+                        this.showToast('Rule created! Fetching content...', 'success');
+                        await getAPI().post('/api/social-listening/fetch');
+                        console.log('[SocialListening] Triggered background fetch for new rule');
+                        this.pollForNewContent();
+                    } catch (fetchError) {
+                        console.error('[SocialListening] Error triggering fetch:', fetchError);
+                    }
                 }
             }
         } catch (error) {
@@ -617,6 +634,36 @@ const SocialListening = {
         document.getElementById('generated-response').value = '';
 
         document.getElementById('ai-response-modal').classList.remove('hidden');
+    },
+
+    /**
+     * Open a same-tab email draft for a feed item
+     */
+    openEmailDraft(itemId) {
+        const item = this.feedItems.find(i => i.id === itemId);
+        if (!item) return;
+
+        const author = item.author || 'Unknown';
+        const handle = item.handle ? ` (${item.handle})` : '';
+        const platform = item.platform || '';
+        const date = item.posted_at ? new Date(item.posted_at).toLocaleString() : '';
+        const url = item.url || '';
+
+        const subject = `Live Feed: ${author}${handle}${platform ? ` - ${platform}` : ''}`;
+        const bodyLines = [
+            `Author: ${author}${handle}`,
+            platform ? `Platform: ${platform}` : null,
+            date ? `Posted: ${date}` : null,
+            url ? `URL: ${url}` : null,
+            '',
+            item.content || ''
+        ].filter(Boolean);
+
+        const body = bodyLines.join('\n');
+        const mailto = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+
+        // Open in the same tab
+        window.location.href = mailto;
     },
 
     /**
@@ -1103,6 +1150,7 @@ const SocialListening = {
                     </button>
                     <button class="feed-action-btn" onclick="SocialListening.saveItem('${item.id}')">Save</button>
                     <button class="feed-action-btn" onclick="SocialListening.markImportant('${item.id}')">⭐</button>
+                    <button class="feed-action-btn" onclick="SocialListening.openEmailDraft('${item.id}')">Draft email</button>
                     <a href="${item.url}" target="_blank" class="feed-action-btn">Open</a>
                 </div>
             </div>

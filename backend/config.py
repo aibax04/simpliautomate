@@ -46,6 +46,7 @@ class Config:
     WHATSAPP_PHONE_ID = os.getenv("WHATSAPP_PHONE_ID")
     WHATSAPP_ACCESS_TOKEN = os.getenv("WHATSAPP_ACCESS_TOKEN")
     WHATSAPP_VERIFY_TOKEN = os.getenv("WHATSAPP_VERIFY_TOKEN")
+    WHATSAPP_ADMIN_PHONE = os.getenv("WHATSAPP_ADMIN_PHONE")
 
     @staticmethod
     def validate():

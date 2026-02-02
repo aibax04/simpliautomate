@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Request, HTTPException, Depends, BackgroundTasks, Query
+from fastapi.responses import Response
 from typing import Dict, Any, List
 import logging
 from backend.config import Config
@@ -23,18 +24,19 @@ async def process_message(message_body: str, sender_phone: str):
         await sender.send_text(sender_phone, "⚠️ Error processing command.")
 
 @router.get("/webhook/whatsapp")
-async def verify_webhook(
-    mode: str = Query(alias="hub.mode"),
-    token: str = Query(alias="hub.verify_token"),
-    challenge: str = Query(alias="hub.challenge")
-):
+async def verify_webhook(request: Request):
     """
     Meta Verification Challenge.
     """
+    params = request.query_params
+    mode = params.get("hub.mode")
+    token = params.get("hub.verify_token")
+    challenge = params.get("hub.challenge")
+
     if mode and token:
         if mode == "subscribe" and token == Config.WHATSAPP_VERIFY_TOKEN:
             logger.info("WhatsApp Webhook Verified!")
-            return int(challenge)
+            return Response(content=challenge, media_type="text/plain", status_code=200)
         else:
             raise HTTPException(status_code=403, detail="Verification failed")
     

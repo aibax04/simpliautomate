@@ -23,6 +23,19 @@ genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 from backend.utils.timestamp_extractor import get_timestamp_extractor
 
 
+# Regex for contact-style emails (word chars @ domain . tld). Avoids obfuscation like "at" or "dot".
+_EMAIL_PATTERN = re.compile(
+    r"\b[A-Za-z0-9][A-Za-z0-9_.+-]*@[A-Za-z0-9][A-Za-z0-9.-]*\.[A-Za-z]{2,}\b"
+)
+
+
+def _content_has_contact_email(text: str) -> bool:
+    """Return True if text contains at least one email address (contact-style)."""
+    if not text or not isinstance(text, str):
+        return False
+    return bool(_EMAIL_PATTERN.search(text))
+
+
 class GeminiPostAnalyzer:
     """Uses Gemini to analyze sentiment, relevance, and extract matched keywords from posts."""
     
@@ -711,6 +724,13 @@ class SocialListeningAgent:
         """
         combined_text = f"{title} {content}".lower()
 
+        # Check for emails - specific logic for lead generation
+        # If a post contains an email, it's valuable regardless of other keywords
+        email_pattern = r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}'
+        if re.search(email_pattern, content):
+            print(f"[FILTER] Found email in content (Lead potential): {title[:50]}...")
+            return True
+
         # Keywords that indicate PERSONAL achievements (FILTER OUT)
         personal_achievement_keywords = [
             # Awards and recognitions
@@ -887,6 +907,11 @@ class SocialListeningAgent:
         score = 5  # Base score
 
         text = f"{title} {content}".lower()
+
+        # Boost score if email is present (Lead potential)
+        email_pattern = r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}'
+        if re.search(email_pattern, content):
+            score += 4  # Significant boost for potential leads
 
         # High value indicators (+2-3 points)
         if any(word in text for word in ["funding", "acquisition", "partnership", "ipo", "merger"]):
@@ -1353,6 +1378,12 @@ class SocialListeningAgent:
                             print(f"[SocialListening] Skipping low relevance item ({relevance:.2f}): {item.get('title', '')[:30]}...")
                             return
 
+                        # If rule requires posts with contact email, skip posts that don't contain one
+                        if getattr(rule, "filter_has_contact_email", False):
+                            content = item.get("content") or item.get("title") or ""
+                            if not _content_has_contact_email(content):
+                                return
+
                         # Check if post already exists
                         existing_stmt = select(FetchedPost).where(
                             FetchedPost.external_id == item["external_id"]
@@ -1555,6 +1586,12 @@ class SocialListeningAgent:
                     async def save_result_callback(item):
                         # Skip low relevance
                         if item.get("relevance_score", 0.5) < 0.5: return
+
+                        # If rule requires posts with contact email, skip posts that don't contain one
+                        if getattr(rule, "filter_has_contact_email", False):
+                            content = item.get("content") or item.get("title") or ""
+                            if not _content_has_contact_email(content):
+                                return
 
                         # Check existing
                         existing_stmt = select(FetchedPost).where(FetchedPost.external_id == item["external_id"])

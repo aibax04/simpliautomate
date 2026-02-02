@@ -2,7 +2,10 @@ import aiohttp
 import asyncio
 import json
 from typing import Dict, Any, Optional
+import logging
 from backend.config import Config
+
+logger = logging.getLogger(__name__)
 
 class WhatsAppSender:
     BASE_URL = "https://graph.facebook.com/v17.0"
@@ -20,22 +23,25 @@ class WhatsAppSender:
         Send a raw payload to WhatsApp API.
         """
         if not self.phone_id or not self.access_token:
-            print("[WHATSAPP] Error: Missing configuration (PHONE_ID or ACCESS_TOKEN)")
+            logger.error("Missing configuration (PHONE_ID or ACCESS_TOKEN)")
             return {"error": "Missing configuration"}
 
         url = f"{self.BASE_URL}/{self.phone_id}/messages"
         
         async with aiohttp.ClientSession() as session:
+            # logger.debug(f"Sending Payload: {json.dumps(payload)}")
             try:
                 async with session.post(url, headers=self.headers, json=payload) as response:
                     data = await response.json()
+                    
                     if response.status not in [200, 201]:
-                        print(f"[WHATSAPP] API Error: {data}")
+                        logger.error(f"WhatsApp API Error: {data}")
                         return {"status": "failed", "error": data}
                     
+                    logger.info(f"WhatsApp Message Sent (WA_ID: {data.get('messages', [{}])[0].get('id')})")
                     return {"status": "success", "data": data}
             except Exception as e:
-                print(f"[WHATSAPP] Network Error: {e}")
+                logger.error(f"Network Error: {e}")
                 return {"status": "failed", "error": str(e)}
 
     async def send_text(self, to_phone: str, message: str):

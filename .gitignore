@@ -45,10 +45,20 @@ node_modules/
 frontend/generated_images/
 
 # ==============================
-# Secrets / Keys
+# Secrets / Keys / Config
 # ==============================
 *.pem
 *.key
+config
+# ( .env / .env.* already under Virtual environments above )
+
+# ==============================
+# Logs and debug output
+# ==============================
+agent_log.txt
+debug_output.txt
+debug_*.py
+read_log.py
 
 # ==============================
 # Temporary files

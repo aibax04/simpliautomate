@@ -855,6 +855,17 @@
                         </p>
                     </div>
 
+                    <!-- Contact email filter -->
+                    <div class="form-group">
+                        <label class="checkbox-label" style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                            <input type="checkbox" id="rule-filter-contact-email" class="form-checkbox">
+                            <span>Only match posts that contain a contact email</span>
+                        </label>
+                        <p style="font-size: 11px; color: var(--text-secondary); margin-top: 5px;">
+                            When enabled, only posts that include an email address (e.g. name@company.com) will appear in the feed for this rule.
+                        </p>
+                    </div>
+
                     <!-- Hidden fields for compatibility -->
                     <div class="form-group">
                         <label>Check Frequency</label>
@@ -870,6 +881,7 @@
                         </p>
                     </div>
                     <input type="hidden" id="rule-logic" value="keywords_or_handles">
+                    <input type="hidden" id="rule-edit-id" value="">
                     <input type="checkbox" id="alert-email" class="hidden">
                     <input type="checkbox" id="alert-inapp" checked class="hidden">
 

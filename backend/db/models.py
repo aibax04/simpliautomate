@@ -162,6 +162,7 @@ class TrackingRule(Base):
     logic_type = Column(String, default="keywords_or_handles")  # keywords_only, handles_only, keywords_and_handles, keywords_or_handles, exclude_keywords
     frequency = Column(String, default="hourly")  # realtime, 15m, hourly, 6hr, daily, weekly
     sentiment_filter = Column(String, default="all")  # all, positive, negative, neutral
+    filter_has_contact_email = Column(Boolean, default=False)  # only match posts that contain a contact email
     alert_email = Column(Boolean, default=False)
     alert_in_app = Column(Boolean, default=True)
     status = Column(String, default="active")  # active, paused

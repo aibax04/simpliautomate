@@ -8,7 +8,7 @@ logger = logging.getLogger(__name__)
 
 # This is where we would ideally look up the user's phone number from DB
 # For MVP, we might use a default or assume it's passed in
-DEFAULT_PHONE = "REPLACE_WITH_ADMIN_PHONE" 
+DEFAULT_PHONE = Config.WHATSAPP_ADMIN_PHONE 
 
 async def send_rule_alert(rule_name: str, matched_content: str, urgency: str = "HIGH", phone_id: Optional[str] = None):
     """

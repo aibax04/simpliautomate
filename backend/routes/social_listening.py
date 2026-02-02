@@ -469,6 +469,7 @@ class RuleCreate(BaseModel):
     logic_type: str = "keywords_or_handles"
     frequency: str = "hourly"
     sentiment_filter: str = "all"  # all, positive, negative, neutral
+    filter_has_contact_email: bool = False  # only match posts that contain a contact email
     alert_email: bool = False
     alert_in_app: bool = True
     status: str = "active"
@@ -482,6 +483,7 @@ class RuleUpdate(BaseModel):
     logic_type: Optional[str] = None
     frequency: Optional[str] = None
     sentiment_filter: Optional[str] = None
+    filter_has_contact_email: Optional[bool] = None
     alert_email: Optional[bool] = None
     alert_in_app: Optional[bool] = None
     status: Optional[str] = None
@@ -532,6 +534,7 @@ async def get_rules(
                     "logic_type": rule.logic_type,
                     "frequency": rule.frequency,
                     "sentiment_filter": getattr(rule, "sentiment_filter", "all"),
+                    "filter_has_contact_email": getattr(rule, "filter_has_contact_email", False),
                     "alert_email": rule.alert_email,
                     "alert_in_app": rule.alert_in_app,
                     "status": rule.status,
@@ -563,6 +566,7 @@ async def create_rule(
             logic_type=rule_data.logic_type,
             frequency=rule_data.frequency,
             sentiment_filter=rule_data.sentiment_filter,
+            filter_has_contact_email=rule_data.filter_has_contact_email,
             alert_email=rule_data.alert_email,
             alert_in_app=rule_data.alert_in_app,
             status=rule_data.status
@@ -581,6 +585,8 @@ async def create_rule(
                 "platforms": new_rule.platforms or [],
                 "logic_type": new_rule.logic_type,
                 "frequency": new_rule.frequency,
+                "sentiment_filter": getattr(new_rule, "sentiment_filter", "all"),
+                "filter_has_contact_email": getattr(new_rule, "filter_has_contact_email", False),
                 "alert_email": new_rule.alert_email,
                 "alert_in_app": new_rule.alert_in_app,
                 "status": new_rule.status,
