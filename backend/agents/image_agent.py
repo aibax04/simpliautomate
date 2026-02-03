@@ -8,19 +8,18 @@ import PIL.Image
 
 class ImageAgent:
     def __init__(self):
-        # Using valid Gemini model for image generation as requested
+        # Using nano-banana-pro-preview for image generation as requested
         self.model_name = 'models/gemini-2.0-flash' # Using flash for OCR/QA
-        self.image_model_name = 'models/gemini-2.5-flash-image'
+        self.image_model_name = 'models/nano-banana-pro-preview'
         try:
             self.model = genai.GenerativeModel(self.model_name)
             self.image_model = genai.GenerativeModel(self.image_model_name)
-            # STEP 5: ADD SAFETY LOG
             print(f"Using image model: {self.image_model_name} and QA model: {self.model_name}")
             sys.stdout.flush()
         except Exception as e:
             print(f"[ERROR] Failed to initialize models: {e}")
             self.model = genai.GenerativeModel('models/gemini-2.0-flash')
-            self.image_model = genai.GenerativeModel('models/gemini-2.5-flash-image')
+            self.image_model = genai.GenerativeModel('models/nano-banana-pro-preview')
 
     async def extract_and_verify_text_elements(self, visual_plan: dict) -> list:
         """
@@ -217,9 +216,11 @@ class ImageAgent:
         spelling_rules = (
             "CRITICAL TEXT REQUIREMENTS: If any text appears, it must be 100% grammatically correct and free of spelling errors. "
             "Spell-check EVERY SINGLE WORD that appears anywhere in the image. "
-            "Common misspellings to avoid: teh→the, recieve→receive, definately→definitely, seperate→separate, occassion→occasion, recomend→recommend. "
-            "PRIORITY: Minimize text usage. Replace text with charts, diagrams, icons, and visual elements whenever possible. "
-            "If text is necessary (like a HOOK LINE), keep it impactful (max 8 words) using simple, common words."
+            "Layout: Professional LinkedIn thought leadership aesthetic. Minimalistic, sleek, and high-end. "
+            "STRICT RULE: Graphics and visualizations are the main focus. "
+            "Minimalistic text usage is MANDATORY. Use clean, premium thin-weight fonts and high contrast. "
+            "If text is included, keep it extremely short, elegant, and impactful. "
+            "Text to include: " + ", ".join(verified_text_elements)
         )
         alignment_rules = (
             "LAYOUT: Headings must be center-aligned. Body text must be left-aligned. "
@@ -227,12 +228,12 @@ class ImageAgent:
             "No diagonal or curved text. Clear separation between sections."
         )
         typography_rules = (
-            "TYPOGRAPHY REQUIREMENTS: Use one sans-serif font family only (Arial, Helvetica, or Calibri). "
-            "Clear hierarchy with proper contrast: "
-            "1) Primary heading (HOOK): can be expressive but must be readable (max 8 words). "
-            "2) Sub-headings: must be concise (under 8 words), spell-checked, and clearly legible. "
-            "3) Small text/labels: must use only minimal, dictionary-valid words with no jargon. "
-            "ENSURE HIGH CONTRAST: Black/dark text on light backgrounds, white/light text on dark backgrounds. "
+            "TYPOGRAPHY REQUIREMENTS: Use minimalistic, high-end sans-serif fonts (e.g., Inter Light, Roboto Thin, or Helvetica Neue). "
+            "Maintain a clear visual hierarchy similar to premium Gartner or McKinsey reports: "
+            "1) Centerpiece HOOK: Authority-driven, minimalistic, and perfectly readable (max 8 words). "
+            "2) Sub-headings: Elegant, concise, and professional (under 6 words). "
+            "3) Data Labels/Icons: Sharp, minimalistic, and perfectly aligned. "
+            "ENSURE HIGH CONTRAST: Use professional minimalistic color combinations (e.g., Slate & Frost, Midnight & Silver). "
             "Adequate padding around ALL text blocks. No text touching edges or overlapping."
         )
         subtext_constraints = (
@@ -275,15 +276,16 @@ class ImageAgent:
         # Add a unique seed identifier to ensure prompt uniqueness at the model level
         unique_id = uuid.uuid4().hex[:8]
         
-        # Refine prompt for graphics-first visual design
+        # Refine prompt for graphics-first visual design with LinkedIn Professional Aesthetic
         refined_prompt = (
             f"REF: {unique_id}. {base_prompt}. {content_grounding} {spelling_rules} {alignment_rules} {typography_rules} {subtext_constraints} "
             f"{style_rules} {palette_rules} {clarity_rules} "
-            "RICH VISUALS FIRST: Prioritize detailed 3D charts, diagrams, flowcharts, and high-fidelity visual elements. "
+            "PROFESSIONAL MINIMALISM: Create a high-end corporate infographic with a minimalistic aesthetic suitable for a LinkedIn C-suite audience. "
+            "GOOD GRAPHICS: Prioritize detailed 3D charts, elegant glassmorphism, diagrams, and high-fidelity visual elements. "
             "Quality: Elite Studio-Grade, 4K resolution, cinematic lighting, depth of field, razor-sharp vector edges, zero blur. "
-            "Visual Communication: Use complex charts, diagrams, icons, arrows, and spatial relationships to convey information. "
-            "Text Design: Use a strong HOOK LINE (max 8 words) as the centerpiece if text is present. "
-            "Aesthetic: Rich, stunning, professional graphics-focused design with deep visual texture. "
+            "Visual Communication: Use complex but clean charts, diagrams, icons, and spatial relationships to convey information. "
+            "Text Design: Use a strong, minimalistic HOOK LINE as the centerpiece. "
+            "Aesthetic: Sleek, authoritative, professional graphics-focused design with deep visual texture and modern minimalistic layout. "
             "CRITICAL REQUIREMENTS: Replace heavy text with visual metaphors. Ensure perfect spelling in any text present. "
             "Strictly FORBID: Text walls, ANY spelling errors, text overlap, generic AI artifacts, or cluttered layouts."
         )
@@ -338,37 +340,52 @@ class ImageAgent:
                         print("[RETRY] Regenerating once due to reported uncertainty...")
                         continue
                 
-                # Find image part
-                img_part = None
+                # Find image part by looking at mime types or data
+                image_bytes = None
                 for part in candidate.content.parts:
-                    if (hasattr(part, 'inline_data') and part.inline_data.data) or (hasattr(part, 'image') and part.image):
-                        img_part = part
+                    if hasattr(part, 'inline_data') and part.inline_data.data:
+                        data = part.inline_data.data
+                        mime = part.inline_data.mime_type
+                        
+                        if mime.startswith('image/'):
+                             print(f"[DEBUG] Found image part with mime {mime}")
+                             image_bytes = data
+                             break
+                        
+                        # Fallback for missing mime type
+                        if data.startswith(b'\x89PNG') or data.startswith(b'\xff\xd8\xff'):
+                             print("[DEBUG] Found image data via magic number")
+                             image_bytes = data
+                             break
+                             
+                        # Check if it's base64 encoded
+                        if isinstance(data, bytes) and len(data) > 1000:
+                             try:
+                                 # Only try de-coding if it looks like base64
+                                 if data[:100].decode('ascii', errors='ignore').isalnum():
+                                     image_bytes = base64.b64decode(data)
+                                     break
+                             except:
+                                 pass
+                                 
+                    elif hasattr(part, 'image') and part.image:
+                        # Some versions of the SDK return a PIL Image object
+                        temp_path = filepath + ".tmp.png"
+                        part.image.save(temp_path)
+                        with open(temp_path, "rb") as f:
+                            image_bytes = f.read()
+                        os.remove(temp_path)
                         break
-                
-                if not img_part:
-                    if attempts < max_attempts:
-                        print("[RETRY] No image data found in response. Retrying...")
-                        continue
-                    raise ValueError(f"Response does not contain image data. Model said: {model_message}")
 
-                # Extract and save image data
-                if hasattr(img_part, 'image') and img_part.image:
-                    img_part.image.save(filepath)
-                elif hasattr(img_part, 'inline_data'):
-                    b64_data = img_part.inline_data.data
-                    if isinstance(b64_data, bytes):
-                        if b64_data.startswith(b'\x89PNG'):
-                            image_bytes = b64_data
-                        else:
-                            try:
-                                image_bytes = base64.b64decode(b64_data)
-                            except:
-                                image_bytes = b64_data 
-                    else:
-                        image_bytes = base64.b64decode(b64_data)
-                    
-                    with open(filepath, "wb") as f:
-                        f.write(image_bytes)
+                if not image_bytes:
+                    print(f"[ERROR] No image data found. Parts: {[type(p) for p in candidate.content.parts]}")
+                    if attempts < max_attempts:
+                        print("[RETRY] Retrying...")
+                        continue
+                    raise ValueError(f"Response does not contain valid image data. Model message: {model_message}")
+
+                with open(filepath, "wb") as f:
+                    f.write(image_bytes)
                 
                 # Final verification
                 if os.path.exists(filepath) and os.path.getsize(filepath) > 100:
@@ -412,11 +429,24 @@ class ImageAgent:
             full_main_path = os.path.join(project_root, "frontend", main_image_path.lstrip('/'))
             
             # logo path might be absolute or relative to project root
-            # heuristic: if it contains 'backslashes' or 'C:', it's likely absolute
+            # The logo is confirmed to be in 'frontend/simplii logo.png'
             if os.path.isabs(logo_path):
                  full_logo_path = logo_path
             else:
-                 full_logo_path = os.path.join(project_root, logo_path)
+                 # Check common locations
+                 options = [
+                     os.path.join(project_root, logo_path),
+                     os.path.join(project_root, "frontend", logo_path),
+                     os.path.join(project_root, "static", "images", logo_path)
+                 ]
+                 full_logo_path = None
+                 for opt in options:
+                     if os.path.exists(opt):
+                         full_logo_path = opt
+                         break
+                 
+                 if not full_logo_path:
+                     full_logo_path = options[0] # Fallback to first
 
             if not os.path.exists(full_main_path):
                 print(f"[LOGO ERROR] Main image not found: {full_main_path}")
