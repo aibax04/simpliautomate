@@ -111,11 +111,25 @@ class PostGenerationAgent:
 
         if on_progress: await on_progress("ready", 100)
 
+        # Extract sanitized news_id for DB storage
+        raw_id = news_item.get('id')
+        news_id_sanitized = None
+        if raw_id:
+            if isinstance(raw_id, str) and raw_id.startswith("db_"):
+                try:
+                    news_id_sanitized = int(raw_id.replace("db_", ""))
+                except ValueError:
+                    news_id_sanitized = None
+            elif isinstance(raw_id, int):
+                news_id_sanitized = raw_id
+
         return {
             "text": final_content,
             "preview_text": caption_data.get('hook'),
             "caption_data": caption_data,
             "image_url": image_url,
             "visual_plan": visual_plan,
-            "is_custom": is_custom_flag
+            "is_custom": is_custom_flag,
+            "headline": news_item.get('headline', 'LinkedIn Post'),
+            "news_id": news_id_sanitized
         }
