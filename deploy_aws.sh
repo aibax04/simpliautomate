@@ -65,6 +65,11 @@ async def init():
 asyncio.run(init())
 "
 
+# 4.6. Apply performance indexes for Social Listening (idempotent)
+echo "[4.6/7] Applying Social Listening performance indexes..."
+python3 backend/db/migrate_social_listening_performance.py || true
+python3 backend/db/migrate_feed_filtering_indexes.py || true
+
 # 5. Setup Systemd Service
 echo "[5/7] Configuring Systemd Service..."
 SERVICE_FILE="/etc/systemd/system/simplii.service"
@@ -100,7 +105,7 @@ NGINX_CONF="/etc/nginx/sites-available/simplii"
 sudo bash -c "cat > $NGINX_CONF" <<EOF
 server {
     listen 80;
-    server_name _;
+    server_name postflow.panscience.ai _;
 
     location / {
         proxy_pass http://127.0.0.1:35000;
@@ -108,6 +113,9 @@ server {
         proxy_set_header X-Real-IP \$remote_addr;
         proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto \$scheme;
+        proxy_connect_timeout 60s;
+        proxy_send_timeout 60s;
+        proxy_read_timeout 60s;
     }
 }
 EOF

@@ -2615,6 +2615,19 @@ input[type="datetime-local"]:focus {
     font-weight: 600;
 }
 
+.feed-card-email-badge {
+    background: #d1fae5;
+    color: #047857;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    font-weight: 500;
+    max-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
 .feed-card-actions {
     display: flex;
     gap: 8px;

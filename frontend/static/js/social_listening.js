@@ -24,9 +24,11 @@ const SocialListening = {
     async init() {
         console.log('[SocialListening] Initializing module...');
         await this.loadRules();
-        await this.loadFeed();
-        await this.loadAlerts();
-        await this.loadAnalytics();
+        await Promise.all([
+            this.loadFeed(),
+            this.loadAlerts(),
+            this.loadAnalytics()
+        ]);
 
         // Load user's notification email (global function)
         try {
@@ -966,6 +968,8 @@ const SocialListening = {
             const content = item.content || '';
             const isLongContent = content.length > 300;
             const truncatedContent = isLongContent ? content.substring(0, 300) + '...' : content;
+            const emails = this.contentExtractEmails(content);
+            const emailBadge = emails.length ? `<span class="feed-card-email-badge" title="${emails.length > 1 ? 'Emails: ' + emails.map(e => this.escapeHtml(e)).join(', ') : 'Contact email'}">📧 ${this.escapeHtml(emails[0])}${emails.length > 1 ? ' +' + (emails.length - 1) : ''}</span>` : '';
 
             return `
             <div class="feed-card important" data-item-id="${item.id}">
@@ -983,6 +987,7 @@ const SocialListening = {
                 <div class="feed-card-meta">
                     <span class="feed-card-rule">${this.escapeHtml(item.rule_name || 'Manual')}</span>
                     <span>${this.formatDate(item.posted_at)}</span>
+                    ${emailBadge}
                 </div>
                 <div class="feed-card-actions">
                     <button class="feed-action-btn primary" onclick="SocialListening.showResponseModal('${item.id}')">
@@ -1096,6 +1101,8 @@ const SocialListening = {
             const relevanceScore = Math.round((item.relevance_score || 0.5) * 100);
             const matchedKeywords = item.matched_keywords || [];
             const explanation = item.explanation || '';
+            const emails = this.contentExtractEmails(content);
+            const emailBadge = emails.length ? `<span class="feed-card-email-badge" title="${emails.length > 1 ? 'Emails: ' + emails.map(e => this.escapeHtml(e)).join(', ') : 'Contact email'}">📧 ${this.escapeHtml(emails[0])}${emails.length > 1 ? ' +' + (emails.length - 1) : ''}</span>` : '';
 
             return `
             <div class="feed-card ${item.important ? 'important' : ''}" data-item-id="${item.id}">
@@ -1143,6 +1150,7 @@ const SocialListening = {
                 <div class="feed-card-meta">
                     <span class="feed-card-rule">${this.escapeHtml(item.rule_name || 'Manual')}</span>
                     <span class="full-date-text">${fullDate}</span>
+                    ${emailBadge}
                 </div>
                 <div class="feed-card-actions">
                     <button class="feed-action-btn primary" onclick="SocialListening.showResponseModal('${item.id}')">
@@ -1276,6 +1284,24 @@ const SocialListening = {
     },
 
     // ==================== HELPERS ====================
+
+    /**
+     * Return true if text contains at least one email-like address (e.g. name@domain.com)
+     */
+    contentHasEmail(text) {
+        if (!text || typeof text !== 'string') return false;
+        return /\b[A-Za-z0-9][A-Za-z0-9_.+-]*@[A-Za-z0-9][A-Za-z0-9.-]*\.[A-Za-z]{2,}\b/.test(text);
+    },
+
+    /**
+     * Extract all email addresses from text. Returns array of strings (e.g. ['a@b.com']).
+     */
+    contentExtractEmails(text) {
+        if (!text || typeof text !== 'string') return [];
+        const re = /\b[A-Za-z0-9][A-Za-z0-9_.+-]*@[A-Za-z0-9][A-Za-z0-9.-]*\.[A-Za-z]{2,}\b/g;
+        const matches = text.match(re) || [];
+        return [...new Set(matches)];
+    },
 
     /**
      * Get platform icon
